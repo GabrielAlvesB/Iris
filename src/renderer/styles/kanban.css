@@ -94,6 +94,35 @@
   height: 100%;
 }
 
+.kanban-add-column-tile {
+  width: 260px;
+  flex-shrink: 0;
+  min-height: 88px;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--text-faint);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 14px;
+}
+
+.kanban-add-column-tile:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.kanban-shortcut-hint {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11px;
+  opacity: 0.7;
+  margin-left: 4px;
+}
+
 .kanban-column {
   width: 260px;
   flex-shrink: 0;
@@ -178,6 +207,21 @@
   font-size: 11px;
 }
 
+.kanban-how-it-works-btn {
+  display: inline-block;
+  margin-top: 10px;
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.kanban-how-it-works-btn:hover {
+  text-decoration: underline;
+}
+
 .kanban-wip-warning {
   font-size: 11px;
   color: var(--warning);
@@ -204,9 +248,8 @@
 .kanban-card-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 6px;
   margin-bottom: 6px;
-  min-height: 22px;
 }
 
 .kanban-avatar {
@@ -272,6 +315,10 @@
   font-family: 'IBM Plex Mono', ui-monospace, monospace;
   font-size: 11px;
   color: var(--text-faint);
+}
+
+.card-meta-avatar {
+  margin-left: auto;
 }
 
 .add-card-btn {
@@ -396,6 +443,29 @@
 .kanban-panel-field input:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+.kanban-assignee-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kanban-assignee-wrap input {
+  flex: 1;
+}
+
+.kanban-assignee-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.kanban-assignee-avatar.is-empty {
+  width: 0;
 }
 
 .kanban-priority-row {

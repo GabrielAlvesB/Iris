@@ -12,6 +12,7 @@ let currentBoard: KanbanBoard | null = null;
 let activeTab: ViewTab = 'quadro';
 let filterWeekOnly = false;
 let filterAssignee = 'all';
+let boardShortcutsHandler: ((e: KeyboardEvent) => void) | null = null;
 
 let panelEl: HTMLElement | null = null;
 let panelCardId: string | null = null;
@@ -43,6 +44,16 @@ function avatarColor(name: string): string {
 
 function shortId(id: string): string {
   return `C-${id.replace(/-/g, '').slice(0, 4).toUpperCase()}`;
+}
+
+function boardPrefix(name: string): string {
+  const firstWord = name.trim().split(/\s+/)[0] ?? '';
+  const letters = firstWord.replace(/[^a-zA-Z]/g, '').toUpperCase();
+  return (letters || 'CARD').slice(0, 4);
+}
+
+function cardCode(board: KanbanBoard, card: KanbanCard): string {
+  return card.seq !== undefined ? `${boardPrefix(board.name)}-${card.seq}` : shortId(card.id);
 }
 
 function formatDueDate(dueDate?: string): string {
@@ -119,10 +130,19 @@ function distinctAssignees(board: KanbanBoard): string[] {
 
 // ---------- Card element (Quadro tab) ----------
 
+function tagBadge(tag: string): HTMLElement {
+  const tagEl = document.createElement('span');
+  tagEl.className = 'card-tag';
+  tagEl.textContent = tag;
+  return tagEl;
+}
+
 function buildCardElement(card: KanbanCard): HTMLElement {
   const cardEl = document.createElement('div');
   cardEl.className = 'kanban-card';
   cardEl.dataset.cardId = card.id;
+
+  const tags = card.tags ?? [];
 
   const topRow = document.createElement('div');
   topRow.className = 'kanban-card-top';
@@ -132,15 +152,14 @@ function buildCardElement(card: KanbanCard): HTMLElement {
     priorityEl.className = `card-priority priority-${card.priority}`;
     priorityEl.textContent = PRIORITY_LABELS[card.priority].toUpperCase();
     topRow.appendChild(priorityEl);
-  } else {
-    topRow.appendChild(document.createElement('span'));
   }
 
-  if (card.assignee) {
-    topRow.appendChild(avatarEl(card.assignee));
-  }
+  // The first tag doubles as a context label next to the priority badge;
+  // remaining tags render in the bottom meta row instead.
+  const leadTag = tags[0];
+  if (leadTag) topRow.appendChild(tagBadge(leadTag));
 
-  cardEl.appendChild(topRow);
+  if (topRow.childElementCount > 0) cardEl.appendChild(topRow);
 
   const titleEl = document.createElement('div');
   titleEl.className = 'card-title';
@@ -157,19 +176,12 @@ function buildCardElement(card: KanbanCard): HTMLElement {
   const metaEl = document.createElement('div');
   metaEl.className = 'card-meta';
 
-  (card.tags ?? []).forEach((tag) => {
-    const tagEl = document.createElement('span');
-    tagEl.className = 'card-tag';
-    tagEl.textContent = tag;
-    metaEl.appendChild(tagEl);
-  });
+  tags.slice(leadTag ? 1 : 0).forEach((tag) => metaEl.appendChild(tagBadge(tag)));
 
-  if (card.dueDate) {
-    const dueEl = document.createElement('span');
-    dueEl.className = 'card-due-date';
-    dueEl.textContent = formatDueDate(card.dueDate);
-    metaEl.appendChild(dueEl);
-  }
+  const dueEl = document.createElement('span');
+  dueEl.className = 'card-due-date';
+  dueEl.textContent = card.dueDate ? formatDueDate(card.dueDate) : 'sem data';
+  metaEl.appendChild(dueEl);
 
   const { done, total } = subtaskProgress(card);
   if (total > 0) {
@@ -179,9 +191,13 @@ function buildCardElement(card: KanbanCard): HTMLElement {
     metaEl.appendChild(subEl);
   }
 
-  if (metaEl.childElementCount > 0) {
-    cardEl.appendChild(metaEl);
+  if (card.assignee) {
+    const avatar = avatarEl(card.assignee);
+    avatar.classList.add('card-meta-avatar');
+    metaEl.appendChild(avatar);
   }
+
+  cardEl.appendChild(metaEl);
 
   cardEl.addEventListener('click', () => {
     if (!currentBoard) return;
@@ -239,8 +255,19 @@ function buildColumnElement(column: KanbanColumn, cards: KanbanCard[]): HTMLElem
   if (sortedCards.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'kanban-column-empty';
-    if (column.order === Math.max(...(currentBoard?.columns.map((c) => c.order) ?? [0]))) {
+    const isLastColumn = column.order === Math.max(...(currentBoard?.columns.map((c) => c.order) ?? [0]));
+    if (isLastColumn) {
       empty.innerHTML = 'Nada concluído ainda<br><span>Arraste um card para cá, ou conclua pelo painel do card.</span>';
+      const howItWorksBtn = document.createElement('button');
+      howItWorksBtn.type = 'button';
+      howItWorksBtn.className = 'kanban-how-it-works-btn';
+      howItWorksBtn.textContent = 'Ver como funciona';
+      howItWorksBtn.addEventListener('click', () => {
+        window.alert(
+          'Arraste um card até aqui para concluí-lo, ou abra o card e clique em "Concluir card" no painel lateral. Colunas com limite de WIP avisam quando estão cheias, para você terminar algo antes de puxar o próximo.',
+        );
+      });
+      empty.appendChild(howItWorksBtn);
     } else {
       empty.textContent = 'Nenhum card aqui ainda.';
     }
@@ -293,6 +320,20 @@ async function handleAddColumn(): Promise<void> {
   await kanbanState.createColumn({ title: result.title.trim() });
 }
 
+function buildAddColumnTile(): HTMLElement {
+  const tile = document.createElement('button');
+  tile.type = 'button';
+  tile.className = 'kanban-add-column-tile';
+  tile.addEventListener('click', () => void handleAddColumn());
+
+  const label = document.createElement('span');
+  label.className = 'kanban-add-column-label';
+  label.textContent = '+ Nova coluna';
+  tile.appendChild(label);
+
+  return tile;
+}
+
 // ---------- Side panel (create/edit card) ----------
 
 function closeCardPanel(): void {
@@ -316,6 +357,7 @@ function onPanelKeyDown(e: KeyboardEvent): void {
 }
 
 function scheduleSave(): void {
+  if (!panelCardId) return;
   const savedIndicator = panelEl?.querySelector<HTMLElement>('.kanban-panel-saved');
   if (savedIndicator) savedIndicator.textContent = 'Salvando…';
   if (panelSaveTimer) clearTimeout(panelSaveTimer);
@@ -323,21 +365,19 @@ function scheduleSave(): void {
 }
 
 async function commitSave(): Promise<void> {
-  if (!panelDraft) return;
+  if (!panelDraft || !panelCardId) return;
   const draft = panelDraft;
 
-  if (panelCardId) {
-    await kanbanState.updateCard({
-      cardId: panelCardId,
-      title: draft.title.trim() || 'Sem título',
-      description: draft.description || undefined,
-      assignee: draft.assignee || undefined,
-      priority: draft.priority || undefined,
-      dueDate: draft.dueDate || undefined,
-      tags: draft.tags,
-      subtasks: draft.subtasks,
-    });
-  }
+  await kanbanState.updateCard({
+    cardId: panelCardId,
+    title: draft.title.trim() || 'Sem título',
+    description: draft.description || undefined,
+    assignee: draft.assignee || undefined,
+    priority: draft.priority || undefined,
+    dueDate: draft.dueDate || undefined,
+    tags: draft.tags,
+    subtasks: draft.subtasks,
+  });
 
   panelSavedAt = Date.now();
   updateSavedIndicator();
@@ -487,7 +527,7 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
 
   const idChip = document.createElement('span');
   idChip.className = 'kanban-panel-id';
-  idChip.textContent = card ? shortId(card.id) : 'Novo card';
+  idChip.textContent = card && currentBoard ? cardCode(currentBoard, card) : 'Novo card';
   header.appendChild(idChip);
 
   const columnChip = document.createElement('span');
@@ -537,15 +577,37 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
     body.appendChild(wrap);
   }
 
+  const assigneeWrap = document.createElement('div');
+  assigneeWrap.className = 'kanban-assignee-wrap';
+
+  const assigneeAvatar = document.createElement('span');
+  assigneeAvatar.className = 'kanban-assignee-avatar';
+  assigneeWrap.appendChild(assigneeAvatar);
+
   const assigneeInput = document.createElement('input');
   assigneeInput.type = 'text';
   assigneeInput.placeholder = 'Nome da pessoa responsável';
   assigneeInput.value = panelDraft.assignee;
+
+  function updateAssigneeAvatar(): void {
+    const name = assigneeInput.value.trim();
+    if (name) {
+      assigneeAvatar.replaceChildren(avatarEl(name, 22));
+      assigneeAvatar.classList.remove('is-empty');
+    } else {
+      assigneeAvatar.replaceChildren();
+      assigneeAvatar.classList.add('is-empty');
+    }
+  }
+  updateAssigneeAvatar();
+
   assigneeInput.addEventListener('input', () => {
     if (panelDraft) panelDraft.assignee = assigneeInput.value;
+    updateAssigneeAvatar();
     scheduleSave();
   });
-  field('Responsável', assigneeInput);
+  assigneeWrap.appendChild(assigneeInput);
+  field('Responsável', assigneeWrap);
 
   const priorityRow = document.createElement('div');
   priorityRow.className = 'kanban-priority-row';
@@ -594,7 +656,7 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
 
   const descTextarea = document.createElement('textarea');
   descTextarea.className = 'kanban-panel-description';
-  descTextarea.placeholder = 'Descreva o contexto...';
+  descTextarea.placeholder = 'Descreva o contexto... markdown suportado';
   descTextarea.value = panelDraft.description;
   descTextarea.addEventListener('input', () => {
     if (panelDraft) panelDraft.description = descTextarea.value;
@@ -878,15 +940,9 @@ function buildHeader(board: KanbanBoard, onTabChange: () => void): HTMLElement {
   });
   actionsRow.appendChild(tabs);
 
-  const addColumnBtn = document.createElement('button');
-  addColumnBtn.className = 'btn btn-secondary';
-  addColumnBtn.textContent = '+ Coluna';
-  addColumnBtn.addEventListener('click', () => void handleAddColumn());
-  actionsRow.appendChild(addColumnBtn);
-
   const newCardBtn = document.createElement('button');
   newCardBtn.className = 'btn';
-  newCardBtn.textContent = 'Novo card';
+  newCardBtn.innerHTML = 'Novo card <span class="kanban-shortcut-hint">⌘K</span>';
   newCardBtn.addEventListener('click', () => {
     const firstColumn = board.columns.slice().sort((a, b) => a.order - b.order)[0];
     if (firstColumn) openCardPanel(null, firstColumn);
@@ -898,10 +954,25 @@ function buildHeader(board: KanbanBoard, onTabChange: () => void): HTMLElement {
   return headerEl;
 }
 
+// ---------- Global shortcuts ----------
+
+function attachBoardShortcuts(): void {
+  if (boardShortcutsHandler) return;
+  boardShortcutsHandler = (e: KeyboardEvent) => {
+    if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'k') return;
+    e.preventDefault();
+    if (panelEl || !currentBoard) return;
+    const firstColumn = currentBoard.columns.slice().sort((a, b) => a.order - b.order)[0];
+    if (firstColumn) openCardPanel(null, firstColumn);
+  };
+  document.addEventListener('keydown', boardShortcutsHandler);
+}
+
 // ---------- Main render ----------
 
 export function render(container: HTMLElement, board: KanbanBoard): void {
   currentBoard = board;
+  attachBoardShortcuts();
   container.innerHTML = '';
 
   const rerender = () => {
@@ -925,6 +996,8 @@ export function render(container: HTMLElement, board: KanbanBoard): void {
         columnsEl.appendChild(buildColumnElement(column, cardsInColumn));
       });
 
+    columnsEl.appendChild(buildAddColumnTile());
+
     boardEl.appendChild(columnsEl);
     container.appendChild(boardEl);
     initSortables(boardEl);
@@ -938,4 +1011,8 @@ export function destroy(): void {
   destroySortables();
   closeCardPanel();
   kanbanState.offBoardChange();
+  if (boardShortcutsHandler) {
+    document.removeEventListener('keydown', boardShortcutsHandler);
+    boardShortcutsHandler = null;
+  }
 }
