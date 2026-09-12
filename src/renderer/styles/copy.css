@@ -1,0 +1,251 @@
+.copy-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.copy-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 4px;
+}
+
+.copy-header h1 {
+  font-family: 'Space Grotesk', var(--font-sans);
+  font-weight: 700;
+  font-size: 21px;
+  margin: 0;
+  color: var(--text);
+}
+
+.copy-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.copy-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  margin-bottom: 20px;
+}
+
+.copy-toolbar input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.copy-toolbar input::placeholder {
+  color: var(--text-faint);
+}
+
+.copy-count {
+  font-size: 12px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.copy-empty {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 24px;
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+.copy-group {
+  margin-bottom: 22px;
+}
+
+.copy-group-header {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  margin-bottom: 10px;
+}
+
+.copy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.copy-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.copy-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.copy-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.copy-card-shortcut {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+
+.copy-card-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.copy-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+}
+
+.copy-card-btn {
+  font-size: 12px;
+  padding: 5px 12px;
+}
+
+.copy-card-btn--done {
+  background: var(--success) !important;
+}
+
+.copy-card-edit,
+.copy-card-delete {
+  margin-left: auto;
+}
+
+.copy-card-delete {
+  margin-left: 2px;
+}
+
+/* ---------- Dialog ---------- */
+
+.copy-dialog {
+  width: 460px;
+}
+
+.copy-dialog-variables {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-faint);
+  margin: -6px 0 14px;
+  flex-wrap: wrap;
+}
+
+.copy-dialog-var-btn {
+  background: var(--bg-elevated-3);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 11px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  cursor: pointer;
+}
+
+.copy-dialog-var-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.copy-dialog-group-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  margin-bottom: 8px;
+}
+
+.copy-dialog-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.copy-dialog-group-chip {
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.copy-dialog-group-chip.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.copy-dialog-group-chip--add {
+  border-style: dashed;
+  color: var(--text-faint);
+}
+
+.copy-dialog-preview {
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+
+.copy-dialog-preview-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+
+.copy-dialog-preview-text {
+  font-size: 13px;
+  color: var(--text);
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.copy-dialog-preview-hint {
+  font-size: 11px;
+  color: var(--accent);
+  margin-top: 6px;
+}
