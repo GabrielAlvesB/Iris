@@ -2,8 +2,9 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:" />
   <title>Iris</title>
+  <link rel="icon" href="./assets/icon-64.png" />
   <link rel="stylesheet" href="./styles/fonts.css" />
   <link rel="stylesheet" href="./styles/base.css" />
   <link rel="stylesheet" href="./styles/kanban.css" />
@@ -18,14 +19,19 @@
 <body>
   <div id="app-shell">
     <nav id="sidebar">
-      <div class="sidebar-title">Iris</div>
-      <button class="nav-item active" data-module="kanban">Kanban</button>
-      <button class="nav-item" data-module="quadro">Quadro</button>
-      <button class="nav-item" data-module="arquivos">Arquivos</button>
-      <button class="nav-item" data-module="sheets">Sheets</button>
-      <button class="nav-item" data-module="links">Links rápidos</button>
-      <button class="nav-item" data-module="copy">Copy</button>
-      <button class="nav-item" data-module="markdown">Markdown</button>
+      <div class="sidebar-brand">
+        <img class="sidebar-logo" src="./assets/icon-64.png" alt="" width="28" height="28" />
+        <span class="sidebar-title">Iris</span>
+      </div>
+      <div class="nav-items">
+        <button class="nav-item active" data-module="kanban">Kanban</button>
+        <button class="nav-item" data-module="quadro">Quadro</button>
+        <button class="nav-item" data-module="arquivos">Arquivos</button>
+        <button class="nav-item" data-module="sheets">Sheets</button>
+        <button class="nav-item" data-module="links">Links rápidos</button>
+        <button class="nav-item" data-module="copy">Copy</button>
+        <button class="nav-item" data-module="markdown">Markdown</button>
+      </div>
     </nav>
     <main id="view-root"></main>
   </div>

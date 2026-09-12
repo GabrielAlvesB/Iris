@@ -44,33 +44,71 @@ html, body {
 }
 
 #sidebar {
-  width: 200px;
+  width: 208px;
   flex-shrink: 0;
   background: var(--bg-elevated);
   color: var(--text-muted);
   display: flex;
   flex-direction: column;
-  padding: 16px 12px;
-  gap: 4px;
+  padding: 18px 10px;
   border-right: 1px solid var(--border-soft);
 }
 
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px 18px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.sidebar-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  display: block;
+}
+
 .sidebar-title {
-  font-size: 20px;
+  font-family: 'Space Grotesk', var(--font-sans);
+  font-size: 19px;
   font-weight: 700;
+  letter-spacing: 0.02em;
   color: var(--text);
-  padding: 8px 8px 20px;
+}
+
+.nav-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .nav-item {
+  position: relative;
   text-align: left;
   background: transparent;
   border: none;
-  color: inherit;
-  padding: 10px 12px;
+  color: var(--text-muted);
+  padding: 9px 12px 9px 16px;
   border-radius: var(--radius-sm);
-  font-size: 14px;
+  font-size: 13.5px;
   cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.nav-item::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%) scaleY(0);
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: transform 0.15s ease;
 }
 
 .nav-item:hover:not(:disabled) {
@@ -82,6 +120,10 @@ html, body {
   background: var(--accent-soft);
   color: var(--text);
   font-weight: 600;
+}
+
+.nav-item.active::before {
+  transform: translateY(-50%) scaleY(1);
 }
 
 .nav-item:disabled {
