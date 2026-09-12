@@ -70,6 +70,8 @@ export interface AgendaApi {
   createItem(input: AgendaItemInput): Promise<IpcResult<AgendaFile>>;
   updateItem(input: UpdateAgendaItemInput): Promise<IpcResult<AgendaFile>>;
   deleteItem(itemId: string): Promise<IpcResult<AgendaFile>>;
+  deleteItems(itemIds: string[]): Promise<IpcResult<AgendaFile>>;
+  deleteAllItems(): Promise<IpcResult<AgendaFile>>;
   importSpreadsheet(): Promise<IpcResult<ImportAgendaResult>>;
 }
 

@@ -2,6 +2,7 @@ import type { MarkdownConfig, MarkdownFileMeta } from '../../../shared/types/mar
 import * as markdownState from './markdown.state.js';
 import * as kanbanState from '../kanban/kanban.state.js';
 import { renderMarkdownToHtml } from './markdown.render.js';
+import { promptText } from '../../ui/modal.js';
 
 type ViewMode = 'escrever' | 'dividido' | 'ler';
 
@@ -68,7 +69,7 @@ async function handleSelectFile(path: string): Promise<void> {
 }
 
 async function handleNewFile(): Promise<void> {
-  const name = window.prompt('Nome do novo arquivo markdown:');
+  const name = await promptText('Novo arquivo', 'Nome do arquivo markdown');
   if (!name || !name.trim()) return;
   const config = markdownState.getConfig();
   const target = config?.linkedFolder ? 'linked' : 'iris';

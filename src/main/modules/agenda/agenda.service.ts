@@ -111,6 +111,21 @@ export async function deleteItem(itemId: string): Promise<AgendaFile> {
   return file;
 }
 
+export async function deleteItems(itemIds: string[]): Promise<AgendaFile> {
+  const file = loadFile();
+  const idSet = new Set(itemIds);
+  file.items = file.items.filter((i) => !idSet.has(i.id));
+  await saveFile(file);
+  return file;
+}
+
+export async function deleteAllItems(): Promise<AgendaFile> {
+  const file = loadFile();
+  file.items = [];
+  await saveFile(file);
+  return file;
+}
+
 function rowToAgendaItem(row: Record<string, unknown>): AgendaItem {
   const timestamp = nowIso();
   const item: AgendaItem = {

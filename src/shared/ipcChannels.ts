@@ -37,6 +37,8 @@ export const AGENDA_CHANNELS = {
   createItem: 'agenda:createItem',
   updateItem: 'agenda:updateItem',
   deleteItem: 'agenda:deleteItem',
+  deleteItems: 'agenda:deleteItems',
+  deleteAllItems: 'agenda:deleteAllItems',
   importSpreadsheet: 'agenda:importSpreadsheet',
 } as const;
 

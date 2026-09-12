@@ -75,6 +75,62 @@
   background: var(--agenda-accent-hover);
 }
 
+.agenda-btn--danger {
+  background: var(--agenda-border-soft);
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.agenda-btn--danger:hover {
+  background: rgba(248, 113, 113, 0.14);
+}
+
+.agenda-btn--danger:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.agenda-btn.is-active {
+  background: var(--agenda-accent);
+  border-color: var(--agenda-accent);
+  color: #fff;
+}
+
+.agenda-bulkbar {
+  display: none;
+  align-items: center;
+  gap: 14px;
+  margin: -6px 0 16px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--agenda-border);
+  background: var(--agenda-border-soft);
+  font-size: 12.5px;
+  color: var(--agenda-text-muted);
+}
+
+.agenda-bulkbar.is-visible {
+  display: flex;
+}
+
+.agenda-bulkbar-link {
+  background: transparent;
+  border: none;
+  color: var(--agenda-accent);
+  font-size: 12.5px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.agenda-bulkbar-link:hover {
+  color: var(--agenda-accent-hover);
+  text-decoration: underline;
+}
+
+.agenda-bulkbar-spacer {
+  flex: 1;
+}
+
 .agenda-toolbar {
   display: flex;
   align-items: center;
@@ -164,6 +220,24 @@
   word-break: break-word;
   line-height: 1.5;
   color: var(--agenda-text-muted);
+}
+
+.agenda-cell-checkbox {
+  display: flex;
+  align-items: center;
+  padding-top: 2px;
+}
+
+.agenda-cell-checkbox input,
+.agenda-row--header input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--agenda-accent);
+  cursor: pointer;
+}
+
+.agenda-row--selected {
+  background: rgba(139, 92, 246, 0.08);
 }
 
 .agenda-cell-index {
