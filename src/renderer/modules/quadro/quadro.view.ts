@@ -694,16 +694,20 @@ function buildBlockElement(block: QuadroBlock): HTMLElement {
 
   const inner = document.createElement('div');
   inner.className = 'quadro-block-inner';
-  el.appendChild(inner);
-
-  const header = document.createElement('div');
-  header.className = 'quadro-block-header';
-  header.addEventListener('mousedown', (e) => {
+  // Dragging starts from anywhere on the card body, not just the header —
+  // every interactive child (inputs, buttons, day toggles, menu) already
+  // calls stopPropagation() on its own mousedown, so this only fires when
+  // clicking the card's empty background.
+  inner.addEventListener('mousedown', (e) => {
     e.stopPropagation();
     const rect = blockRects.get(block.id);
     if (!rect) return;
     drag = { kind: 'block', blockId: block.id, startX: e.clientX, startY: e.clientY, originX: rect.x, originY: rect.y };
   });
+  el.appendChild(inner);
+
+  const header = document.createElement('div');
+  header.className = 'quadro-block-header';
 
   const leftGroup = document.createElement('div');
   leftGroup.className = 'quadro-block-header-left';
