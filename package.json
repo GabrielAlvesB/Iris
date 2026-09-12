@@ -1,0 +1,29 @@
+{
+  "name": "iris",
+  "version": "0.1.0",
+  "description": "Iris — assistente pessoal de tarefas e organização de conteúdo (100% local)",
+  "private": true,
+  "main": "dist/main/main.js",
+  "scripts": {
+    "clean": "node scripts/clean.mjs",
+    "build:main": "tsc -p tsconfig.main.json",
+    "build:renderer": "tsc -p tsconfig.renderer.json",
+    "copy-static": "node scripts/copy-static.mjs",
+    "build": "npm run clean && npm run build:main && npm run build:renderer && npm run copy-static",
+    "start": "electron .",
+    "dev": "npm run build && npm run start"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/sortablejs": "^1.15.8",
+    "electron": "^31.0.0",
+    "typescript": "^5.5.4"
+  },
+  "dependencies": {
+    "sortablejs": "^1.15.2",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-latest/xlsx-latest.tgz"
+  },
+  "allowScripts": {
+    "electron@31.7.7": true
+  }
+}
