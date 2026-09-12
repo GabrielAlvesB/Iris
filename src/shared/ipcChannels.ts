@@ -45,6 +45,8 @@ export const SHEETS_CHANNELS = {
   createRow: 'sheets:createRow',
   updateRow: 'sheets:updateRow',
   deleteRow: 'sheets:deleteRow',
+  deleteRows: 'sheets:deleteRows',
+  deleteTable: 'sheets:deleteTable',
 } as const;
 
 export const EXPORT_CHANNELS = {

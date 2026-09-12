@@ -6,6 +6,8 @@ import type {
   CreateTableInput,
   DeleteColumnInput,
   DeleteRowInput,
+  DeleteRowsInput,
+  DeleteTableInput,
   DetectImportResult,
   RenameTableInput,
   SheetsFile,
@@ -99,6 +101,16 @@ export async function updateRow(input: UpdateRowInput): Promise<void> {
 
 export async function deleteRow(input: DeleteRowInput): Promise<void> {
   const result = await window.irisAPI.sheets.deleteRow(input);
+  applyAndNotify(unwrap(result));
+}
+
+export async function deleteRows(input: DeleteRowsInput): Promise<void> {
+  const result = await window.irisAPI.sheets.deleteRows(input);
+  applyAndNotify(unwrap(result));
+}
+
+export async function deleteTable(input: DeleteTableInput): Promise<void> {
+  const result = await window.irisAPI.sheets.deleteTable(input);
   applyAndNotify(unwrap(result));
 }
 

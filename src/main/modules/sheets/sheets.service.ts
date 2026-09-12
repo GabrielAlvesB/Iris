@@ -10,6 +10,8 @@ import type {
   CreateTableInput,
   DeleteColumnInput,
   DeleteRowInput,
+  DeleteRowsInput,
+  DeleteTableInput,
   DetectImportResult,
   DetectedSheet,
   RenameTableInput,
@@ -320,6 +322,23 @@ export async function deleteRow(input: DeleteRowInput): Promise<SheetsFile> {
   const table = findTable(file, input.tableId);
   table.rows = table.rows.filter((r) => r.id !== input.rowId);
   table.updatedAt = nowIso();
+  await saveFile(file);
+  return file;
+}
+
+export async function deleteRows(input: DeleteRowsInput): Promise<SheetsFile> {
+  const file = loadFile();
+  const table = findTable(file, input.tableId);
+  const idSet = new Set(input.rowIds);
+  table.rows = table.rows.filter((r) => !idSet.has(r.id));
+  table.updatedAt = nowIso();
+  await saveFile(file);
+  return file;
+}
+
+export async function deleteTable(input: DeleteTableInput): Promise<SheetsFile> {
+  const file = loadFile();
+  file.tables = file.tables.filter((t) => t.id !== input.tableId);
   await saveFile(file);
   return file;
 }

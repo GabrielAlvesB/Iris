@@ -25,6 +25,8 @@ import type {
   CreateTableInput,
   DeleteColumnInput,
   DeleteRowInput,
+  DeleteRowsInput,
+  DeleteTableInput,
   DetectImportResult,
   RenameTableInput,
   SheetsFile,
@@ -92,6 +94,8 @@ export interface SheetsApi {
   createRow(input: CreateRowInput): Promise<IpcResult<SheetsFile>>;
   updateRow(input: UpdateRowInput): Promise<IpcResult<SheetsFile>>;
   deleteRow(input: DeleteRowInput): Promise<IpcResult<SheetsFile>>;
+  deleteRows(input: DeleteRowsInput): Promise<IpcResult<SheetsFile>>;
+  deleteTable(input: DeleteTableInput): Promise<IpcResult<SheetsFile>>;
 }
 
 export interface SystemApi {

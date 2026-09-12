@@ -156,10 +156,13 @@
 }
 
 .sheets-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-family: inherit;
   font-size: 12.5px;
   font-weight: 500;
-  padding: 7px 14px;
+  padding: 7px 10px 7px 14px;
   border-radius: var(--radius-sm);
   border: none;
   background: transparent;
@@ -175,6 +178,89 @@
 .sheets-tab.is-active {
   background: var(--bg-elevated-3);
   color: var(--text);
+}
+
+.sheets-tab-delete {
+  display: flex;
+  align-items: center;
+  color: var(--text-faint);
+  opacity: 0.6;
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.sheets-tab-delete:hover {
+  opacity: 1;
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+/* Selection toolbar / bulk actions */
+
+.sheets-selection-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.sheets-selection-toolbar .btn-secondary.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.sheets-bulkbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated-2);
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.sheets-bulkbar-link {
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-size: 12.5px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.sheets-bulkbar-link:hover {
+  text-decoration: underline;
+}
+
+.sheets-bulkbar-danger {
+  color: var(--danger);
+}
+
+.sheets-bulkbar-danger:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sheets-row--selected {
+  background: var(--accent-soft);
+}
+
+.sheets-header-cell--checkbox,
+.sheets-cell--checkbox {
+  display: flex;
+  align-items: center;
+}
+
+.sheets-cell--checkbox input,
+.sheets-header-cell--checkbox input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 /* Grid */
@@ -447,9 +533,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   padding: 10px 4px;
   border-bottom: 1px solid var(--border-soft);
+}
+
+.sheets-visibility-delete {
+  color: var(--text-faint);
+}
+
+.sheets-visibility-delete:hover {
+  color: var(--danger);
+  background: var(--danger-soft);
 }
 
 .sheets-visibility-info {

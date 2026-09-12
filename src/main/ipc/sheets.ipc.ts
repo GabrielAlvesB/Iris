@@ -9,6 +9,8 @@ import type {
   CreateTableInput,
   DeleteColumnInput,
   DeleteRowInput,
+  DeleteRowsInput,
+  DeleteTableInput,
   DetectImportResult,
   RenameTableInput,
   SheetsFile,
@@ -87,5 +89,13 @@ export function registerSheetsIpc(): void {
 
   ipcMain.handle(SHEETS_CHANNELS.deleteRow, (_event, input: DeleteRowInput) =>
     toResult<SheetsFile>(sheetsService.deleteRow(input)),
+  );
+
+  ipcMain.handle(SHEETS_CHANNELS.deleteRows, (_event, input: DeleteRowsInput) =>
+    toResult<SheetsFile>(sheetsService.deleteRows(input)),
+  );
+
+  ipcMain.handle(SHEETS_CHANNELS.deleteTable, (_event, input: DeleteTableInput) =>
+    toResult<SheetsFile>(sheetsService.deleteTable(input)),
   );
 }

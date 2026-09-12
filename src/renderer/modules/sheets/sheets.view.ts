@@ -8,6 +8,7 @@ import type {
   SheetsFile,
 } from '../../../shared/types/sheets.types';
 import * as sheetsState from './sheets.state.js';
+import { promptText } from '../../ui/modal.js';
 
 const ICONS = {
   upload:
@@ -73,6 +74,8 @@ type ImportFlow =
 
 let importFlow: ImportFlow = { status: 'idle' };
 let activeTableId: string | null = null;
+let selectionMode = false;
+let selectedRowIds = new Set<string>();
 let lastContainer: HTMLElement | null = null;
 let lastState: SheetsFile | null = null;
 
@@ -204,10 +207,17 @@ function buildLoadingState(): HTMLElement {
   return wrap;
 }
 
-function gridTemplate(columnCount: number): string {
+function gridTemplate(columnCount: number, withCheckbox: boolean): string {
   const cols = new Array(columnCount).fill('minmax(140px, 1fr)');
   cols.push('56px');
+  if (withCheckbox) cols.unshift('28px');
   return cols.join(' ');
+}
+
+async function handleDeleteTable(table: SheetTable): Promise<void> {
+  if (!window.confirm(`Excluir a tabela "${table.name}" e todas as suas linhas? Essa ação não pode ser desfeita.`)) return;
+  if (activeTableId === table.id) activeTableId = null;
+  await sheetsState.deleteTable({ tableId: table.id });
 }
 
 function buildColumnMenu(table: SheetTable, column: SheetColumn, anchor: HTMLElement): void {
@@ -359,15 +369,89 @@ function startCellEdit(cell: HTMLElement, table: SheetTable, column: SheetColumn
   });
 }
 
+function buildSelectionToolbar(table: SheetTable): HTMLElement {
+  const toolbar = document.createElement('div');
+  toolbar.className = 'sheets-selection-toolbar';
+
+  const toggleBtn = document.createElement('button');
+  toggleBtn.type = 'button';
+  toggleBtn.className = 'btn btn-secondary';
+  toggleBtn.classList.toggle('is-active', selectionMode);
+  toggleBtn.textContent = selectionMode ? 'Cancelar seleção' : 'Selecionar linhas';
+  toggleBtn.addEventListener('click', () => {
+    selectionMode = !selectionMode;
+    if (!selectionMode) selectedRowIds = new Set();
+    refresh();
+  });
+  toolbar.appendChild(toggleBtn);
+
+  if (selectionMode) {
+    const bar = document.createElement('div');
+    bar.className = 'sheets-bulkbar';
+
+    const countLabel = document.createElement('span');
+    countLabel.textContent = `${selectedRowIds.size} selecionada(s)`;
+    bar.appendChild(countLabel);
+
+    const allIds = table.rows.map((r) => r.id);
+    const allSelected = allIds.length > 0 && allIds.every((id) => selectedRowIds.has(id));
+
+    const selectAllBtn = document.createElement('button');
+    selectAllBtn.type = 'button';
+    selectAllBtn.className = 'sheets-bulkbar-link';
+    selectAllBtn.textContent = allSelected ? 'Limpar seleção' : 'Selecionar todas';
+    selectAllBtn.addEventListener('click', () => {
+      selectedRowIds = allSelected ? new Set() : new Set(allIds);
+      refresh();
+    });
+    bar.appendChild(selectAllBtn);
+
+    const deleteSelectedBtn = document.createElement('button');
+    deleteSelectedBtn.type = 'button';
+    deleteSelectedBtn.className = 'btn btn-secondary sheets-bulkbar-danger';
+    deleteSelectedBtn.textContent = 'Excluir selecionadas';
+    deleteSelectedBtn.disabled = selectedRowIds.size === 0;
+    deleteSelectedBtn.addEventListener('click', () => {
+      const ids = Array.from(selectedRowIds);
+      const label = ids.length === 1 ? '1 linha selecionada' : `${ids.length} linhas selecionadas`;
+      if (!window.confirm(`Excluir ${label}? Essa ação não pode ser desfeita.`)) return;
+      selectedRowIds = new Set();
+      void sheetsState.deleteRows({ tableId: table.id, rowIds: ids });
+    });
+    bar.appendChild(deleteSelectedBtn);
+
+    toolbar.appendChild(bar);
+  }
+
+  return toolbar;
+}
+
 function buildTableGrid(table: SheetTable): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'sheets-grid-wrap';
 
-  const template = gridTemplate(table.columns.length);
+  wrap.appendChild(buildSelectionToolbar(table));
+
+  const template = gridTemplate(table.columns.length, selectionMode);
 
   const headerRow = document.createElement('div');
   headerRow.className = 'sheets-row sheets-row--header';
   headerRow.style.gridTemplateColumns = template;
+
+  if (selectionMode) {
+    const headerCheckCell = document.createElement('div');
+    headerCheckCell.className = 'sheets-header-cell sheets-header-cell--checkbox';
+    const headerCheckbox = document.createElement('input');
+    headerCheckbox.type = 'checkbox';
+    const allIds = table.rows.map((r) => r.id);
+    headerCheckbox.checked = allIds.length > 0 && allIds.every((id) => selectedRowIds.has(id));
+    headerCheckbox.addEventListener('change', () => {
+      selectedRowIds = headerCheckbox.checked ? new Set(allIds) : new Set();
+      refresh();
+    });
+    headerCheckCell.appendChild(headerCheckbox);
+    headerRow.appendChild(headerCheckCell);
+  }
 
   table.columns.forEach((column) => {
     const cell = document.createElement('div');
@@ -414,7 +498,23 @@ function buildTableGrid(table: SheetTable): HTMLElement {
     table.rows.forEach((row) => {
       const rowEl = document.createElement('div');
       rowEl.className = 'sheets-row';
+      rowEl.classList.toggle('sheets-row--selected', selectedRowIds.has(row.id));
       rowEl.style.gridTemplateColumns = template;
+
+      if (selectionMode) {
+        const checkCell = document.createElement('div');
+        checkCell.className = 'sheets-cell sheets-cell--checkbox';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = selectedRowIds.has(row.id);
+        checkbox.addEventListener('change', () => {
+          if (checkbox.checked) selectedRowIds.add(row.id);
+          else selectedRowIds.delete(row.id);
+          refresh();
+        });
+        checkCell.appendChild(checkbox);
+        rowEl.appendChild(checkCell);
+      }
 
       table.columns.forEach((column) => {
         const cell = document.createElement('div');
@@ -478,7 +578,7 @@ function buildTableGrid(table: SheetTable): HTMLElement {
 }
 
 async function handleAddColumn(table: SheetTable): Promise<void> {
-  const label = window.prompt('Nome da nova coluna:');
+  const label = await promptText('Nova coluna', 'Nome da coluna');
   if (!label || !label.trim()) return;
   await sheetsState.addColumn({ tableId: table.id, label: label.trim(), type: 'text' });
 }
@@ -492,9 +592,27 @@ function buildTabs(visibleTables: SheetTable[]): HTMLElement {
     tab.type = 'button';
     tab.className = 'sheets-tab';
     tab.classList.toggle('is-active', table.id === activeTableId);
-    tab.textContent = table.name;
+
+    const label = document.createElement('span');
+    label.textContent = table.name;
+    tab.appendChild(label);
+
+    const deleteBtn = document.createElement('span');
+    deleteBtn.className = 'sheets-tab-delete';
+    deleteBtn.title = 'Excluir tabela';
+    deleteBtn.innerHTML = icon('close');
+    deleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      void handleDeleteTable(table);
+    });
+    tab.appendChild(deleteBtn);
+
     tab.addEventListener('click', () => {
-      activeTableId = table.id;
+      if (activeTableId !== table.id) {
+        activeTableId = table.id;
+        selectionMode = false;
+        selectedRowIds = new Set();
+      }
       refresh();
     });
     tabs.appendChild(tab);
@@ -700,6 +818,19 @@ function buildVisibilityModal(tables: SheetTable[]): void {
       void sheetsState.setTableVisibility({ tableId: table.id, visible: nextVisible });
     });
     row.appendChild(toggle);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'btn-icon sheets-visibility-delete';
+    deleteBtn.title = 'Excluir tabela';
+    deleteBtn.innerHTML = icon('trash');
+    deleteBtn.addEventListener('click', () => {
+      if (!window.confirm(`Excluir a tabela "${table.name}" e todas as suas linhas? Essa ação não pode ser desfeita.`)) return;
+      if (activeTableId === table.id) activeTableId = null;
+      void sheetsState.deleteTable({ tableId: table.id });
+      row.remove();
+    });
+    row.appendChild(deleteBtn);
 
     list.appendChild(row);
   });

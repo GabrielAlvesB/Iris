@@ -94,6 +94,15 @@ export interface DeleteRowInput {
   rowId: string;
 }
 
+export interface DeleteRowsInput {
+  tableId: string;
+  rowIds: string[];
+}
+
+export interface DeleteTableInput {
+  tableId: string;
+}
+
 export interface DetectedSheet {
   sheetName: string;
   columns: { label: string }[];

@@ -62,6 +62,8 @@ const irisAPI: IrisApi = {
     createRow: (input) => ipcRenderer.invoke(SHEETS_CHANNELS.createRow, input),
     updateRow: (input) => ipcRenderer.invoke(SHEETS_CHANNELS.updateRow, input),
     deleteRow: (input) => ipcRenderer.invoke(SHEETS_CHANNELS.deleteRow, input),
+    deleteRows: (input) => ipcRenderer.invoke(SHEETS_CHANNELS.deleteRows, input),
+    deleteTable: (input) => ipcRenderer.invoke(SHEETS_CHANNELS.deleteTable, input),
   },
   system: {
     copyToClipboard: (text) => clipboard.writeText(text),
