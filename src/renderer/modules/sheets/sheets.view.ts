@@ -421,7 +421,8 @@ function buildTableGrid(table: SheetTable): HTMLElement {
         cell.className = 'sheets-cell';
         if (column.type === 'number') cell.classList.add('sheets-cell--number');
         cell.textContent = formatCellDisplay(column, row.cells[column.id] ?? '');
-        cell.addEventListener('click', () => startCellEdit(cell, table, column, row));
+        cell.title = 'Clique duas vezes para editar';
+        cell.addEventListener('dblclick', () => startCellEdit(cell, table, column, row));
         rowEl.appendChild(cell);
       });
 
