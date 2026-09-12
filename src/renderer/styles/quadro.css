@@ -32,17 +32,6 @@
   background: var(--border);
 }
 
-.quadro-toolbar-connect {
-  border-radius: 999px !important;
-  font-size: 12px;
-}
-
-.quadro-toolbar-connect.is-active {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
 .quadro-send-kanban {
   border-radius: 999px !important;
 }
@@ -187,7 +176,7 @@
   transform-origin: 0 0;
 }
 
-.quadro-canvas.connect-mode {
+.quadro-canvas.connecting {
   cursor: crosshair;
 }
 
@@ -202,67 +191,176 @@
 }
 
 .quadro-connection-line {
+  fill: none;
   stroke: var(--text-faint);
+  stroke-width: 1.8;
+  transition: stroke 0.15s ease, stroke-width 0.15s ease;
+}
+
+.quadro-connection-line.is-hovered {
+  stroke: var(--accent);
+  stroke-width: 2.4;
+}
+
+.quadro-connection-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 16;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.quadro-connection-preview {
+  fill: none;
+  stroke: var(--accent);
   stroke-width: 2;
+  stroke-dasharray: 6 5;
+  pointer-events: none;
+  animation: quadro-dash-flow 0.6s linear infinite;
+}
+
+@keyframes quadro-dash-flow {
+  to {
+    stroke-dashoffset: -11;
+  }
 }
 
 .quadro-arrow-head {
   fill: var(--text-faint);
+  fill: context-stroke;
 }
 
 .connection-delete {
   position: absolute;
   z-index: 5;
   transform: translate(-50%, -50%);
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   border: 1px solid var(--border);
   background: var(--bg-elevated-2);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
   font-size: 10px;
   line-height: 1;
   cursor: pointer;
   color: var(--text-muted);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.connection-delete.is-visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .connection-delete:hover {
   background: var(--danger-soft);
   color: var(--danger);
+  border-color: var(--danger);
 }
 
 .quadro-block {
   position: absolute;
   z-index: 1;
+}
+
+.quadro-block-inner {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   background: var(--bg-elevated-2);
   border: 1px solid var(--border);
   border-left: 3px solid var(--warning);
   border-radius: var(--radius-sm);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
+  transition: box-shadow 0.15s ease;
 }
 
-.quadro-block--tarefa {
+.quadro-block--tarefa .quadro-block-inner {
   border-left-color: var(--accent);
 }
 
-.quadro-block--nota {
+.quadro-block--nota .quadro-block-inner {
   background: var(--warning-soft);
   border-color: rgba(245, 158, 11, 0.3);
 }
 
-.quadro-block--rotina {
+.quadro-block--rotina .quadro-block-inner {
   border-left-color: var(--success);
   background: var(--success-soft);
   border-color: rgba(34, 197, 94, 0.3);
 }
 
-.quadro-block.connecting-from,
-.quadro-block.is-selected {
+.quadro-block.is-selected .quadro-block-inner {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+.quadro-block.is-connect-source .quadro-block-inner {
+  outline: 2px dashed var(--accent);
+  outline-offset: 3px;
+}
+
+.quadro-block.is-drop-target .quadro-block-inner {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px var(--accent-soft), 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+.quadro-connect-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  padding: 0;
+  background: var(--bg-elevated);
+  border: 2px solid var(--accent);
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease;
+  cursor: crosshair;
+  z-index: 4;
+}
+
+.quadro-connect-handle--top {
+  top: -6px;
+  left: 50%;
+  margin-left: -6px;
+}
+
+.quadro-connect-handle--bottom {
+  bottom: -6px;
+  left: 50%;
+  margin-left: -6px;
+}
+
+.quadro-connect-handle--left {
+  left: -6px;
+  top: 50%;
+  margin-top: -6px;
+}
+
+.quadro-connect-handle--right {
+  right: -6px;
+  top: 50%;
+  margin-top: -6px;
+}
+
+.quadro-block:hover .quadro-connect-handle {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.quadro-connect-handle:hover {
+  background: var(--accent);
+  transform: scale(1.3);
+}
+
+.quadro-canvas.connecting .quadro-connect-handle {
+  opacity: 0 !important;
+  pointer-events: none;
 }
 
 .quadro-block-header {
