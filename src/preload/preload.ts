@@ -38,6 +38,7 @@ const irisAPI: IrisApi = {
     createConnection: (input) => ipcRenderer.invoke(QUADRO_CHANNELS.createConnection, input),
     deleteConnection: (connectionId) => ipcRenderer.invoke(QUADRO_CHANNELS.deleteConnection, connectionId),
     updateViewport: (viewport) => ipcRenderer.invoke(QUADRO_CHANNELS.updateViewport, viewport),
+    updateBoardName: (boardName) => ipcRenderer.invoke(QUADRO_CHANNELS.updateBoardName, boardName),
   },
   arquivos: {
     getItems: () => ipcRenderer.invoke(ARQUIVOS_CHANNELS.getItems),

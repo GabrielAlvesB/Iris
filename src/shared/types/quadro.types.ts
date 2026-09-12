@@ -8,6 +8,10 @@ export interface QuadroBlock extends BaseEntity {
   title: string;
   content?: string;
   status?: QuadroBlockStatus;
+  assignee?: string;
+  routineDays?: number[];
+  routineTime?: string;
+  streakCount?: number;
   x: number;
   y: number;
   width: number;
@@ -30,6 +34,7 @@ export interface QuadroViewport {
 export interface QuadroFile {
   schemaVersion: number;
   updatedAt: string;
+  boardName: string;
   blocks: QuadroBlock[];
   connections: QuadroConnection[];
   viewport: QuadroViewport;
@@ -39,6 +44,9 @@ export interface CreateBlockInput {
   type: QuadroBlockType;
   title: string;
   content?: string;
+  assignee?: string;
+  routineDays?: number[];
+  routineTime?: string;
   x: number;
   y: number;
   width?: number;
@@ -52,6 +60,10 @@ export interface UpdateBlockInput {
   content?: string;
   type?: QuadroBlockType;
   status?: QuadroBlockStatus | null;
+  assignee?: string;
+  routineDays?: number[];
+  routineTime?: string;
+  streakCount?: number;
   color?: string;
   width?: number;
   height?: number;

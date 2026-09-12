@@ -22,6 +22,7 @@ function createDefaultFile(): QuadroFile {
   return {
     schemaVersion: SCHEMA_VERSION,
     updatedAt: nowIso(),
+    boardName: 'Projeto',
     blocks: [],
     connections: [],
     viewport: { x: 0, y: 0, zoom: 1 },
@@ -34,6 +35,7 @@ function migrateQuadroFile(raw: unknown): QuadroFile {
   return {
     schemaVersion: SCHEMA_VERSION,
     updatedAt: candidate.updatedAt ?? nowIso(),
+    boardName: candidate.boardName ?? 'Projeto',
     blocks: Array.isArray(candidate.blocks) ? candidate.blocks : [],
     connections: Array.isArray(candidate.connections) ? candidate.connections : [],
     viewport: candidate.viewport ?? { x: 0, y: 0, zoom: 1 },
@@ -71,6 +73,10 @@ export async function createBlock(input: CreateBlockInput): Promise<QuadroFile> 
     type: input.type,
     title: input.title,
     content: input.content,
+    assignee: input.assignee,
+    routineDays: input.routineDays,
+    routineTime: input.routineTime,
+    streakCount: input.type === 'rotina' ? 0 : undefined,
     x: input.x,
     y: input.y,
     width: input.width ?? DEFAULT_BLOCK_WIDTH,
@@ -96,6 +102,10 @@ export async function updateBlock(input: UpdateBlockInput): Promise<QuadroFile> 
   if (input.type !== undefined) block.type = input.type;
   if (input.color !== undefined) block.color = input.color;
   if (input.status !== undefined) block.status = input.status === null ? undefined : input.status;
+  if (input.assignee !== undefined) block.assignee = input.assignee;
+  if (input.routineDays !== undefined) block.routineDays = input.routineDays;
+  if (input.routineTime !== undefined) block.routineTime = input.routineTime;
+  if (input.streakCount !== undefined) block.streakCount = input.streakCount;
   if (input.width !== undefined) block.width = input.width;
   if (input.height !== undefined) block.height = input.height;
   block.updatedAt = nowIso();
@@ -173,6 +183,13 @@ export async function deleteConnection(connectionId: string): Promise<QuadroFile
 export async function updateViewport(viewport: QuadroViewport): Promise<QuadroFile> {
   const file = loadFile();
   file.viewport = viewport;
+  await saveFile(file);
+  return file;
+}
+
+export async function updateBoardName(boardName: string): Promise<QuadroFile> {
+  const file = loadFile();
+  file.boardName = boardName;
   await saveFile(file);
   return file;
 }

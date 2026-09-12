@@ -52,6 +52,7 @@ export interface QuadroApi {
   createConnection(input: CreateConnectionInput): Promise<IpcResult<QuadroFile>>;
   deleteConnection(connectionId: string): Promise<IpcResult<QuadroFile>>;
   updateViewport(viewport: QuadroViewport): Promise<IpcResult<QuadroFile>>;
+  updateBoardName(boardName: string): Promise<IpcResult<QuadroFile>>;
 }
 
 export interface ArquivosApi {

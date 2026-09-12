@@ -19,6 +19,7 @@ export const QUADRO_CHANNELS = {
   createConnection: 'quadro:createConnection',
   deleteConnection: 'quadro:deleteConnection',
   updateViewport: 'quadro:updateViewport',
+  updateBoardName: 'quadro:updateBoardName',
 } as const;
 
 export const ARQUIVOS_CHANNELS = {

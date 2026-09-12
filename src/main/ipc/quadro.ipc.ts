@@ -50,4 +50,8 @@ export function registerQuadroIpc(): void {
   ipcMain.handle(QUADRO_CHANNELS.updateViewport, (_event, viewport: QuadroViewport) =>
     toResult<QuadroFile>(quadroService.updateViewport(viewport)),
   );
+
+  ipcMain.handle(QUADRO_CHANNELS.updateBoardName, (_event, boardName: string) =>
+    toResult<QuadroFile>(quadroService.updateBoardName(boardName)),
+  );
 }
