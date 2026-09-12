@@ -13,6 +13,12 @@ protocol.registerSchemesAsPrivileged([
   { scheme: APP_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
 ]);
 
+// Works around a known Electron/Chromium bug on Windows (especially hybrid-GPU
+// laptops) where the compositor desyncs and the window stops routing mouse
+// clicks while still rendering fine — only a forced repaint (e.g. Print Screen)
+// "unsticks" it. Disabling GPU acceleration avoids the desync entirely.
+app.disableHardwareAcceleration();
+
 let mainWindow: BrowserWindow | null = null;
 
 function registerAppProtocol(): void {
@@ -38,6 +44,7 @@ function createMainWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      backgroundThrottling: false,
     },
   });
 
