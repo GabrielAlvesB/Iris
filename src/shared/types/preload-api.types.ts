@@ -17,7 +17,21 @@ import type {
   UpdateBlockInput,
 } from './quadro.types';
 import type { ArquivosFile, LinkFileToCardInput, UpdateNoteInput } from './arquivos.types';
-import type { AgendaFile, AgendaItemInput, ImportAgendaResult, UpdateAgendaItemInput } from './agenda.types';
+import type {
+  AddColumnInput,
+  CommitImportInput,
+  CommitImportResult,
+  CreateRowInput,
+  CreateTableInput,
+  DeleteColumnInput,
+  DeleteRowInput,
+  DetectImportResult,
+  RenameTableInput,
+  SheetsFile,
+  UpdateColumnInput,
+  UpdateRowInput,
+  UpdateTableVisibilityInput,
+} from './sheets.types';
 import type { FileOpResult } from './export.types';
 import type { CreateLinkInput, LinksFile, UpdateLinkInput } from './links.types';
 import type { CopyFile, CreateSnippetInput, ImportTxtResult, UpdateSnippetInput } from './copy.types';
@@ -65,14 +79,19 @@ export interface ArquivosApi {
   linkFileToCard(input: LinkFileToCardInput): Promise<IpcResult<ArquivosFile>>;
 }
 
-export interface AgendaApi {
-  getItems(): Promise<IpcResult<AgendaFile>>;
-  createItem(input: AgendaItemInput): Promise<IpcResult<AgendaFile>>;
-  updateItem(input: UpdateAgendaItemInput): Promise<IpcResult<AgendaFile>>;
-  deleteItem(itemId: string): Promise<IpcResult<AgendaFile>>;
-  deleteItems(itemIds: string[]): Promise<IpcResult<AgendaFile>>;
-  deleteAllItems(): Promise<IpcResult<AgendaFile>>;
-  importSpreadsheet(): Promise<IpcResult<ImportAgendaResult>>;
+export interface SheetsApi {
+  getFile(): Promise<IpcResult<SheetsFile>>;
+  detectImport(): Promise<IpcResult<DetectImportResult | null>>;
+  commitImport(input: CommitImportInput): Promise<IpcResult<CommitImportResult>>;
+  createTable(input: CreateTableInput): Promise<IpcResult<SheetsFile>>;
+  renameTable(input: RenameTableInput): Promise<IpcResult<SheetsFile>>;
+  setTableVisibility(input: UpdateTableVisibilityInput): Promise<IpcResult<SheetsFile>>;
+  addColumn(input: AddColumnInput): Promise<IpcResult<SheetsFile>>;
+  updateColumn(input: UpdateColumnInput): Promise<IpcResult<SheetsFile>>;
+  deleteColumn(input: DeleteColumnInput): Promise<IpcResult<SheetsFile>>;
+  createRow(input: CreateRowInput): Promise<IpcResult<SheetsFile>>;
+  updateRow(input: UpdateRowInput): Promise<IpcResult<SheetsFile>>;
+  deleteRow(input: DeleteRowInput): Promise<IpcResult<SheetsFile>>;
 }
 
 export interface SystemApi {
@@ -91,7 +110,6 @@ export interface LinksApi {
 export interface ExportApi {
   exportAll(): Promise<IpcResult<FileOpResult>>;
   importAll(): Promise<IpcResult<FileOpResult>>;
-  exportAgendaCsv(): Promise<IpcResult<FileOpResult>>;
   exportArquivosCsv(): Promise<IpcResult<FileOpResult>>;
 }
 
@@ -119,7 +137,7 @@ export interface IrisApi {
   kanban: KanbanApi;
   quadro: QuadroApi;
   arquivos: ArquivosApi;
-  agenda: AgendaApi;
+  sheets: SheetsApi;
   system: SystemApi;
   export: ExportApi;
   links: LinksApi;

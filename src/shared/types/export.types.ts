@@ -1,7 +1,7 @@
 import type { KanbanFile } from './kanban.types';
 import type { QuadroFile } from './quadro.types';
 import type { ArquivosFile } from './arquivos.types';
-import type { AgendaFile } from './agenda.types';
+import type { SheetsFile } from './sheets.types';
 import type { LinksFile } from './links.types';
 
 export interface ExportBundle {
@@ -10,8 +10,8 @@ export interface ExportBundle {
   kanban: KanbanFile;
   quadro: QuadroFile;
   arquivos: ArquivosFile;
-  agenda: AgendaFile;
-  // Optional: exports created before the Links module existed won't have this.
+  // Optional: exports created before the Sheets/Links modules existed won't have these.
+  sheets?: SheetsFile;
   links?: LinksFile;
 }
 

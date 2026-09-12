@@ -32,20 +32,24 @@ export const ARQUIVOS_CHANNELS = {
   linkFileToCard: 'arquivos:linkFileToCard',
 } as const;
 
-export const AGENDA_CHANNELS = {
-  getItems: 'agenda:getItems',
-  createItem: 'agenda:createItem',
-  updateItem: 'agenda:updateItem',
-  deleteItem: 'agenda:deleteItem',
-  deleteItems: 'agenda:deleteItems',
-  deleteAllItems: 'agenda:deleteAllItems',
-  importSpreadsheet: 'agenda:importSpreadsheet',
+export const SHEETS_CHANNELS = {
+  getFile: 'sheets:getFile',
+  detectImport: 'sheets:detectImport',
+  commitImport: 'sheets:commitImport',
+  createTable: 'sheets:createTable',
+  renameTable: 'sheets:renameTable',
+  setTableVisibility: 'sheets:setTableVisibility',
+  addColumn: 'sheets:addColumn',
+  updateColumn: 'sheets:updateColumn',
+  deleteColumn: 'sheets:deleteColumn',
+  createRow: 'sheets:createRow',
+  updateRow: 'sheets:updateRow',
+  deleteRow: 'sheets:deleteRow',
 } as const;
 
 export const EXPORT_CHANNELS = {
   exportAll: 'export:exportAll',
   importAll: 'export:importAll',
-  exportAgendaCsv: 'export:exportAgendaCsv',
   exportArquivosCsv: 'export:exportArquivosCsv',
 } as const;
 

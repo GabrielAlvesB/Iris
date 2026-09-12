@@ -4,8 +4,8 @@ import * as quadroState from './modules/quadro/quadro.state.js';
 import * as quadroView from './modules/quadro/quadro.view.js';
 import * as arquivosState from './modules/arquivos/arquivos.state.js';
 import * as arquivosView from './modules/arquivos/arquivos.view.js';
-import * as agendaState from './modules/agenda/agenda.state.js';
-import * as agendaView from './modules/agenda/agenda.view.js';
+import * as sheetsState from './modules/sheets/sheets.state.js';
+import * as sheetsView from './modules/sheets/sheets.view.js';
 import * as linksState from './modules/links/links.state.js';
 import * as linksView from './modules/links/links.view.js';
 import * as copyState from './modules/copy/copy.state.js';
@@ -13,7 +13,7 @@ import * as copyView from './modules/copy/copy.view.js';
 import * as markdownState from './modules/markdown/markdown.state.js';
 import * as markdownView from './modules/markdown/markdown.view.js';
 
-type ModuleName = 'kanban' | 'quadro' | 'arquivos' | 'agenda' | 'links' | 'copy' | 'markdown';
+type ModuleName = 'kanban' | 'quadro' | 'arquivos' | 'sheets' | 'links' | 'copy' | 'markdown';
 
 interface AppModule {
   mount(viewRoot: HTMLElement): void;
@@ -48,10 +48,10 @@ const modules: Record<ModuleName, AppModule> = {
       // No listeners or timers to tear down for this module.
     },
   },
-  agenda: {
+  sheets: {
     mount(viewRoot) {
-      agendaState.onStateChange((state) => agendaView.render(viewRoot, state));
-      void agendaState.loadItems();
+      sheetsState.onStateChange((state) => sheetsView.render(viewRoot, state));
+      void sheetsState.loadFile();
     },
     destroy() {
       // No listeners or timers to tear down for this module.

@@ -37,14 +37,6 @@ async function handleExportAll(): Promise<void> {
   );
 }
 
-async function handleExportAgendaCsv(): Promise<void> {
-  await runAction(
-    () => window.irisAPI.export.exportAgendaCsv(),
-    'Exportação cancelada.',
-    (path) => `Agenda exportada (CSV) para: ${path}`,
-  );
-}
-
 async function handleExportArquivosCsv(): Promise<void> {
   await runAction(
     () => window.irisAPI.export.exportArquivosCsv(),
@@ -55,7 +47,7 @@ async function handleExportArquivosCsv(): Promise<void> {
 
 async function handleImportAll(): Promise<void> {
   const confirmed = window.confirm(
-    'Importar vai SUBSTITUIR todos os dados atuais (Kanban, Quadro, Arquivos e Agenda) pelo conteúdo do arquivo escolhido. Deseja continuar?',
+    'Importar vai SUBSTITUIR todos os dados atuais (Kanban, Quadro, Arquivos, Sheets e Links) pelo conteúdo do arquivo escolhido. Deseja continuar?',
   );
   if (!confirmed) return;
 
@@ -80,7 +72,7 @@ export function render(container: HTMLElement): void {
   const intro = document.createElement('p');
   intro.className = 'exportacao-intro';
   intro.textContent =
-    'Exporte todos os dados do Iris para um arquivo aberto (JSON), para backup ou uso em outro sistema. Você também pode exportar Agenda e Arquivos separadamente em CSV, ou importar um export anterior para restaurar seus dados.';
+    'Exporte todos os dados do Iris para um arquivo aberto (JSON), para backup ou uso em outro sistema. Você também pode exportar Arquivos separadamente em CSV, ou importar um export anterior para restaurar seus dados.';
   container.appendChild(intro);
 
   const exportSection = document.createElement('section');
@@ -98,12 +90,6 @@ export function render(container: HTMLElement): void {
   exportAllBtn.textContent = 'Exportar tudo (JSON)';
   exportAllBtn.addEventListener('click', () => void handleExportAll());
   exportButtons.appendChild(exportAllBtn);
-
-  const exportAgendaBtn = document.createElement('button');
-  exportAgendaBtn.className = 'btn btn-secondary';
-  exportAgendaBtn.textContent = 'Exportar Agenda (CSV)';
-  exportAgendaBtn.addEventListener('click', () => void handleExportAgendaCsv());
-  exportButtons.appendChild(exportAgendaBtn);
 
   const exportArquivosBtn = document.createElement('button');
   exportArquivosBtn.className = 'btn btn-secondary';
