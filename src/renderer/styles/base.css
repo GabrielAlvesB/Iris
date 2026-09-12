@@ -201,6 +201,29 @@ button {
   min-height: 60px;
 }
 
+.modal-weekdays {
+  display: flex;
+  gap: 6px;
+}
+
+.modal-weekday-toggle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated-2);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.modal-weekday-toggle.is-active {
+  background: var(--success-soft);
+  border-color: var(--success);
+  color: var(--success);
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;

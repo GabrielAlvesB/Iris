@@ -72,3 +72,8 @@ export async function updateViewport(viewport: QuadroViewport): Promise<void> {
   const result = await window.irisAPI.quadro.updateViewport(viewport);
   applyAndNotify(unwrap(result));
 }
+
+export async function updateBoardName(boardName: string): Promise<void> {
+  const result = await window.irisAPI.quadro.updateBoardName(boardName);
+  applyAndNotify(unwrap(result));
+}

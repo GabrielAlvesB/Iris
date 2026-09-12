@@ -52,6 +52,7 @@ export interface QuadroApi {
   createConnection(input: CreateConnectionInput): Promise<IpcResult<QuadroFile>>;
   deleteConnection(connectionId: string): Promise<IpcResult<QuadroFile>>;
   updateViewport(viewport: QuadroViewport): Promise<IpcResult<QuadroFile>>;
+  updateBoardName(boardName: string): Promise<IpcResult<QuadroFile>>;
 }
 
 export interface ArquivosApi {
@@ -69,6 +70,8 @@ export interface AgendaApi {
   createItem(input: AgendaItemInput): Promise<IpcResult<AgendaFile>>;
   updateItem(input: UpdateAgendaItemInput): Promise<IpcResult<AgendaFile>>;
   deleteItem(itemId: string): Promise<IpcResult<AgendaFile>>;
+  deleteItems(itemIds: string[]): Promise<IpcResult<AgendaFile>>;
+  deleteAllItems(): Promise<IpcResult<AgendaFile>>;
   importSpreadsheet(): Promise<IpcResult<ImportAgendaResult>>;
 }
 

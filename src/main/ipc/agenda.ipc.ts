@@ -43,6 +43,12 @@ export function registerAgendaIpc(): void {
     toResult<AgendaFile>(agendaService.deleteItem(itemId)),
   );
 
+  ipcMain.handle(AGENDA_CHANNELS.deleteItems, (_event, itemIds: string[]) =>
+    toResult<AgendaFile>(agendaService.deleteItems(itemIds)),
+  );
+
+  ipcMain.handle(AGENDA_CHANNELS.deleteAllItems, () => toResult<AgendaFile>(agendaService.deleteAllItems()));
+
   ipcMain.handle(AGENDA_CHANNELS.importSpreadsheet, (event) =>
     toResult<ImportAgendaResult>(importSpreadsheet(BrowserWindow.fromWebContents(event.sender))),
   );

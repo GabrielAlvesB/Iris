@@ -38,6 +38,7 @@ const irisAPI: IrisApi = {
     createConnection: (input) => ipcRenderer.invoke(QUADRO_CHANNELS.createConnection, input),
     deleteConnection: (connectionId) => ipcRenderer.invoke(QUADRO_CHANNELS.deleteConnection, connectionId),
     updateViewport: (viewport) => ipcRenderer.invoke(QUADRO_CHANNELS.updateViewport, viewport),
+    updateBoardName: (boardName) => ipcRenderer.invoke(QUADRO_CHANNELS.updateBoardName, boardName),
   },
   arquivos: {
     getItems: () => ipcRenderer.invoke(ARQUIVOS_CHANNELS.getItems),
@@ -53,6 +54,8 @@ const irisAPI: IrisApi = {
     createItem: (input) => ipcRenderer.invoke(AGENDA_CHANNELS.createItem, input),
     updateItem: (input) => ipcRenderer.invoke(AGENDA_CHANNELS.updateItem, input),
     deleteItem: (itemId) => ipcRenderer.invoke(AGENDA_CHANNELS.deleteItem, itemId),
+    deleteItems: (itemIds) => ipcRenderer.invoke(AGENDA_CHANNELS.deleteItems, itemIds),
+    deleteAllItems: () => ipcRenderer.invoke(AGENDA_CHANNELS.deleteAllItems),
     importSpreadsheet: () => ipcRenderer.invoke(AGENDA_CHANNELS.importSpreadsheet),
   },
   system: {

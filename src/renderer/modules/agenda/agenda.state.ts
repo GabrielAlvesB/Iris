@@ -51,6 +51,16 @@ export async function deleteItem(itemId: string): Promise<void> {
   applyAndNotify(unwrap(result));
 }
 
+export async function deleteItems(itemIds: string[]): Promise<void> {
+  const result = await window.irisAPI.agenda.deleteItems(itemIds);
+  applyAndNotify(unwrap(result));
+}
+
+export async function deleteAllItems(): Promise<void> {
+  const result = await window.irisAPI.agenda.deleteAllItems();
+  applyAndNotify(unwrap(result));
+}
+
 export async function importSpreadsheet(): Promise<ImportAgendaResult> {
   const result = await window.irisAPI.agenda.importSpreadsheet();
   const data = unwrap(result);

@@ -6,13 +6,59 @@ export interface ModalFieldOption {
 export interface ModalFieldSpec {
   name: string;
   label: string;
-  type?: 'text' | 'textarea' | 'select' | 'date' | 'datetime-local';
+  type?: 'text' | 'textarea' | 'select' | 'date' | 'datetime-local' | 'time' | 'weekdays';
   defaultValue?: string;
   placeholder?: string;
   options?: ModalFieldOption[];
+  /** Used by type 'weekdays': short labels for each toggle, in day-index order (0 = Sunday). */
+  weekdayLabels?: string[];
 }
 
 type FieldElement = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+
+const DEFAULT_WEEKDAY_LABELS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+
+function buildWeekdaysField(field: ModalFieldSpec, wrap: HTMLElement): HTMLInputElement {
+  const hidden = document.createElement('input');
+  hidden.type = 'hidden';
+  hidden.value = field.defaultValue ?? '';
+
+  const selected = new Set(
+    (field.defaultValue ?? '')
+      .split(',')
+      .map((v) => v.trim())
+      .filter((v) => v !== ''),
+  );
+
+  const picker = document.createElement('div');
+  picker.className = 'modal-weekdays';
+
+  const labels = field.weekdayLabels ?? DEFAULT_WEEKDAY_LABELS;
+  labels.forEach((label, dayIndex) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'modal-weekday-toggle';
+    btn.textContent = label;
+    btn.classList.toggle('is-active', selected.has(String(dayIndex)));
+    btn.addEventListener('click', () => {
+      const key = String(dayIndex);
+      if (selected.has(key)) {
+        selected.delete(key);
+      } else {
+        selected.add(key);
+      }
+      btn.classList.toggle('is-active', selected.has(key));
+      hidden.value = Array.from(selected)
+        .map(Number)
+        .sort((a, b) => a - b)
+        .join(',');
+    });
+    picker.appendChild(btn);
+  });
+
+  wrap.appendChild(picker);
+  return hidden;
+}
 
 let activeOverlay: HTMLElement | null = null;
 
@@ -42,7 +88,8 @@ function buildFieldElement(field: ModalFieldSpec): FieldElement {
   }
 
   const input = document.createElement('input');
-  input.type = field.type === 'date' || field.type === 'datetime-local' ? field.type : 'text';
+  input.type =
+    field.type === 'date' || field.type === 'datetime-local' || field.type === 'time' ? field.type : 'text';
   input.value = field.defaultValue ?? '';
   if (field.placeholder) input.placeholder = field.placeholder;
   return input;
@@ -88,7 +135,7 @@ export function openFormModal(
       labelSpan.textContent = field.label;
       wrap.appendChild(labelSpan);
 
-      const fieldEl = buildFieldElement(field);
+      const fieldEl = field.type === 'weekdays' ? buildWeekdaysField(field, wrap) : buildFieldElement(field);
       fieldEl.name = field.name;
       inputs.set(field.name, fieldEl);
       wrap.appendChild(fieldEl);

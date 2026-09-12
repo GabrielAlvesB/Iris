@@ -19,6 +19,7 @@ export const QUADRO_CHANNELS = {
   createConnection: 'quadro:createConnection',
   deleteConnection: 'quadro:deleteConnection',
   updateViewport: 'quadro:updateViewport',
+  updateBoardName: 'quadro:updateBoardName',
 } as const;
 
 export const ARQUIVOS_CHANNELS = {
@@ -36,6 +37,8 @@ export const AGENDA_CHANNELS = {
   createItem: 'agenda:createItem',
   updateItem: 'agenda:updateItem',
   deleteItem: 'agenda:deleteItem',
+  deleteItems: 'agenda:deleteItems',
+  deleteAllItems: 'agenda:deleteAllItems',
   importSpreadsheet: 'agenda:importSpreadsheet',
 } as const;
 

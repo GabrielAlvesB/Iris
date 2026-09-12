@@ -1,5 +1,6 @@
 import type { CopyFile, CopySnippet } from '../../../shared/types/copy.types';
 import * as copyState from './copy.state.js';
+import { promptText } from '../../ui/modal.js';
 
 const DEFAULT_GROUP = 'Sem grupo';
 const VARIABLES = ['nome', 'data', 'empresa'];
@@ -16,7 +17,7 @@ async function resolveCopyText(snippet: CopySnippet): Promise<string | null> {
   const vars = extractVariables(snippet.text);
   let result = snippet.text;
   for (const varName of vars) {
-    const value = window.prompt(`Valor para {${varName}}:`, '');
+    const value = await promptText('Preencher variável', `Valor para {${varName}}`, '');
     if (value === null) return null;
     result = result.split(`{${varName}}`).join(value);
   }
@@ -207,8 +208,8 @@ function openSnippetDialog(snippet: CopySnippet | null): Promise<void> {
       addBtn.type = 'button';
       addBtn.className = 'copy-dialog-group-chip copy-dialog-group-chip--add';
       addBtn.textContent = '+ novo';
-      addBtn.addEventListener('click', () => {
-        const name = window.prompt('Nome do novo grupo:');
+      addBtn.addEventListener('click', async () => {
+        const name = await promptText('Novo grupo', 'Nome do grupo');
         if (!name || !name.trim()) return;
         if (!existingGroups.includes(name.trim())) existingGroups.push(name.trim());
         selectedGroup = name.trim();

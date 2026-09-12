@@ -18,6 +18,7 @@ export interface KanbanCard extends BaseEntity {
   subtasks?: KanbanSubtask[];
   columnId: string;
   order: number;
+  seq?: number;
 }
 
 export interface KanbanColumn extends BaseEntity {
@@ -31,6 +32,7 @@ export interface KanbanBoard extends BaseEntity {
   name: string;
   columns: KanbanColumn[];
   cards: KanbanCard[];
+  cardSeq?: number;
 }
 
 export interface KanbanFile {

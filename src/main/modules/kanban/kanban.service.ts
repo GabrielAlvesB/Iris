@@ -53,11 +53,15 @@ function migrateKanbanFile(raw: unknown): KanbanFile {
   return {
     schemaVersion: SCHEMA_VERSION,
     updatedAt: candidate.updatedAt ?? nowIso(),
-    boards: boards.map((board) => ({
-      ...board,
-      columns: Array.isArray(board.columns) ? board.columns : [],
-      cards: Array.isArray(board.cards) ? board.cards : [],
-    })),
+    boards: boards.map((board) => {
+      const cards = Array.isArray(board.cards) ? board.cards : [];
+      return {
+        ...board,
+        columns: Array.isArray(board.columns) ? board.columns : [],
+        cards,
+        cardSeq: board.cardSeq ?? cards.length,
+      };
+    }),
   };
 }
 
@@ -183,6 +187,8 @@ export async function createCard(input: CreateCardInput): Promise<KanbanBoard> {
   const board = getPrimaryBoard(file);
   const timestamp = nowIso();
   const order = board.cards.filter((c) => c.columnId === input.columnId).length;
+  const seq = (board.cardSeq ?? 0) + 1;
+  board.cardSeq = seq;
 
   board.cards.push({
     id: randomUUID(),
@@ -195,6 +201,7 @@ export async function createCard(input: CreateCardInput): Promise<KanbanBoard> {
     subtasks: [],
     columnId: input.columnId,
     order,
+    seq,
     createdAt: timestamp,
     updatedAt: timestamp,
   });

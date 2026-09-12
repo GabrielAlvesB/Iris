@@ -38,7 +38,13 @@ const COLUMNS: ColumnDef[] = [
   { key: 'hashtags', label: 'Hashtags', width: 'minmax(140px, 1.1fr)' },
 ];
 const ACTIONS_COLUMN_WIDTH = '96px';
-const GRID_TEMPLATE = `${COLUMNS.map((c) => c.width).join(' ')} ${ACTIONS_COLUMN_WIDTH}`;
+const CHECKBOX_COLUMN_WIDTH = '28px';
+
+function gridTemplate(selectionMode: boolean): string {
+  const cols = [...COLUMNS.map((c) => c.width), ACTIONS_COLUMN_WIDTH];
+  if (selectionMode) cols.unshift(CHECKBOX_COLUMN_WIDTH);
+  return cols.join(' ');
+}
 
 const ICONS = {
   search:
@@ -109,6 +115,19 @@ async function handleDeleteItem(item: AgendaItem): Promise<void> {
   await agendaState.deleteItem(item.id);
 }
 
+async function handleDeleteSelected(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const label = ids.length === 1 ? '1 agendamento selecionado' : `${ids.length} agendamentos selecionados`;
+  if (!window.confirm(`Excluir ${label}? Essa ação não pode ser desfeita.`)) return;
+  await agendaState.deleteItems(ids);
+}
+
+async function handleDeleteAll(total: number): Promise<void> {
+  if (total === 0) return;
+  if (!window.confirm(`Excluir todos os ${total} agendamentos? Essa ação não pode ser desfeita.`)) return;
+  await agendaState.deleteAllItems();
+}
+
 function handleCopyItem(item: AgendaItem): void {
   agendaState.copyToClipboard(buildCopyText(item));
 }
@@ -134,10 +153,29 @@ async function handleImport(): Promise<void> {
   }
 }
 
-function buildRow(item: AgendaItem, index: number): HTMLElement {
+interface RowSelectionOpts {
+  selectionMode: boolean;
+  selected: boolean;
+  onToggle: (checked: boolean) => void;
+}
+
+function buildRow(item: AgendaItem, index: number, selection: RowSelectionOpts): HTMLElement {
   const row = document.createElement('div');
   row.className = 'agenda-row';
   row.dataset.itemId = item.id;
+  row.classList.toggle('agenda-row--selected', selection.selected);
+
+  if (selection.selectionMode) {
+    const checkCell = document.createElement('div');
+    checkCell.className = 'agenda-cell agenda-cell-checkbox';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = selection.selected;
+    checkbox.addEventListener('click', (e) => e.stopPropagation());
+    checkbox.addEventListener('change', () => selection.onToggle(checkbox.checked));
+    checkCell.appendChild(checkbox);
+    row.appendChild(checkCell);
+  }
 
   COLUMNS.forEach((column) => {
     const cell = document.createElement('div');
@@ -184,6 +222,8 @@ function buildRow(item: AgendaItem, index: number): HTMLElement {
 
 export function render(container: HTMLElement, state: AgendaFile): void {
   let searchQuery = '';
+  let selectionMode = false;
+  const selectedIds = new Set<string>();
 
   container.innerHTML = '';
 
@@ -216,6 +256,24 @@ export function render(container: HTMLElement, state: AgendaFile): void {
   copyAllBtn.className = 'agenda-btn agenda-btn--secondary';
   copyAllBtn.textContent = 'Copiar tudo';
   headerActions.appendChild(copyAllBtn);
+
+  const selectBtn = document.createElement('button');
+  selectBtn.className = 'agenda-btn agenda-btn--secondary';
+  selectBtn.textContent = 'Selecionar';
+  selectBtn.addEventListener('click', () => {
+    selectionMode = !selectionMode;
+    if (!selectionMode) selectedIds.clear();
+    selectBtn.textContent = selectionMode ? 'Cancelar seleção' : 'Selecionar';
+    selectBtn.classList.toggle('is-active', selectionMode);
+    renderTable();
+  });
+  headerActions.appendChild(selectBtn);
+
+  const deleteAllBtn = document.createElement('button');
+  deleteAllBtn.className = 'agenda-btn agenda-btn--danger';
+  deleteAllBtn.textContent = 'Excluir tudo';
+  deleteAllBtn.addEventListener('click', () => void handleDeleteAll(state.items.length));
+  headerActions.appendChild(deleteAllBtn);
 
   const addBtn = document.createElement('button');
   addBtn.className = 'agenda-btn agenda-btn--primary';
@@ -250,13 +308,58 @@ export function render(container: HTMLElement, state: AgendaFile): void {
 
   copyAllBtn.addEventListener('click', () => handleCopyAll(state.items, countEl));
 
+  const bulkBar = document.createElement('div');
+  bulkBar.className = 'agenda-bulkbar';
+  root.appendChild(bulkBar);
+
   const tableHost = document.createElement('div');
   root.appendChild(tableHost);
+
+  function renderBulkBar(filteredIds: string[]): void {
+    bulkBar.innerHTML = '';
+    if (!selectionMode) {
+      bulkBar.classList.remove('is-visible');
+      return;
+    }
+    bulkBar.classList.add('is-visible');
+
+    const countLabel = document.createElement('span');
+    countLabel.textContent = `${selectedIds.size} selecionado(s)`;
+    bulkBar.appendChild(countLabel);
+
+    const selectAllBtn = document.createElement('button');
+    selectAllBtn.type = 'button';
+    selectAllBtn.className = 'agenda-bulkbar-link';
+    const allSelected = filteredIds.length > 0 && filteredIds.every((id) => selectedIds.has(id));
+    selectAllBtn.textContent = allSelected ? 'Limpar seleção' : 'Selecionar todos';
+    selectAllBtn.addEventListener('click', () => {
+      if (allSelected) {
+        selectedIds.clear();
+      } else {
+        filteredIds.forEach((id) => selectedIds.add(id));
+      }
+      renderTable();
+    });
+    bulkBar.appendChild(selectAllBtn);
+
+    const spacer = document.createElement('span');
+    spacer.className = 'agenda-bulkbar-spacer';
+    bulkBar.appendChild(spacer);
+
+    const deleteSelectedBtn = document.createElement('button');
+    deleteSelectedBtn.type = 'button';
+    deleteSelectedBtn.className = 'agenda-btn agenda-btn--danger';
+    deleteSelectedBtn.textContent = 'Excluir selecionados';
+    deleteSelectedBtn.disabled = selectedIds.size === 0;
+    deleteSelectedBtn.addEventListener('click', () => void handleDeleteSelected(Array.from(selectedIds)));
+    bulkBar.appendChild(deleteSelectedBtn);
+  }
 
   function renderTable(): void {
     tableHost.innerHTML = '';
     const filtered = state.items.filter((item) => matchesSearch(item, searchQuery));
     countEl.textContent = `${filtered.length} de ${state.items.length} agendamento(s)`;
+    renderBulkBar(filtered.map((item) => item.id));
 
     if (state.items.length === 0) {
       const empty = document.createElement('div');
@@ -274,9 +377,28 @@ export function render(container: HTMLElement, state: AgendaFile): void {
       return;
     }
 
+    const template = gridTemplate(selectionMode);
+
     const listHeader = document.createElement('div');
     listHeader.className = 'agenda-row agenda-row--header';
-    listHeader.style.gridTemplateColumns = GRID_TEMPLATE;
+    listHeader.style.gridTemplateColumns = template;
+    if (selectionMode) {
+      const headerCheckCell = document.createElement('span');
+      const headerCheckbox = document.createElement('input');
+      headerCheckbox.type = 'checkbox';
+      const allSelected = filtered.length > 0 && filtered.every((item) => selectedIds.has(item.id));
+      headerCheckbox.checked = allSelected;
+      headerCheckbox.addEventListener('change', () => {
+        if (headerCheckbox.checked) {
+          filtered.forEach((item) => selectedIds.add(item.id));
+        } else {
+          filtered.forEach((item) => selectedIds.delete(item.id));
+        }
+        renderTable();
+      });
+      headerCheckCell.appendChild(headerCheckbox);
+      listHeader.appendChild(headerCheckCell);
+    }
     COLUMNS.forEach((column) => {
       const cell = document.createElement('span');
       cell.textContent = column.label;
@@ -290,8 +412,16 @@ export function render(container: HTMLElement, state: AgendaFile): void {
     const list = document.createElement('div');
     list.className = 'agenda-list';
     filtered.forEach((item, index) => {
-      const row = buildRow(item, index);
-      row.style.gridTemplateColumns = GRID_TEMPLATE;
+      const row = buildRow(item, index, {
+        selectionMode,
+        selected: selectedIds.has(item.id),
+        onToggle: (checked) => {
+          if (checked) selectedIds.add(item.id);
+          else selectedIds.delete(item.id);
+          renderTable();
+        },
+      });
+      row.style.gridTemplateColumns = template;
       list.appendChild(row);
     });
     tableHost.appendChild(list);
