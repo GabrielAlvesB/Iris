@@ -421,8 +421,30 @@ function buildTableGrid(table: SheetTable): HTMLElement {
         cell.className = 'sheets-cell';
         if (column.type === 'number') cell.classList.add('sheets-cell--number');
         cell.textContent = formatCellDisplay(column, row.cells[column.id] ?? '');
-        cell.title = 'Clique duas vezes para editar';
-        cell.addEventListener('dblclick', () => startCellEdit(cell, table, column, row));
+        cell.title = 'Clique para copiar · duplo clique para editar';
+
+        // A single click copies the cell's text; a double click edits it.
+        // The click handler is delayed so a dblclick can cancel it first —
+        // otherwise both clicks of the dblclick would fire a copy too.
+        let clickTimer: number | undefined;
+        cell.addEventListener('click', () => {
+          if (clickTimer !== undefined) return;
+          clickTimer = window.setTimeout(() => {
+            clickTimer = undefined;
+            const text = cell.textContent;
+            if (!text) return;
+            sheetsState.copyToClipboard(text);
+            cell.classList.add('sheets-cell--copied');
+            setTimeout(() => cell.classList.remove('sheets-cell--copied'), 500);
+          }, 220);
+        });
+        cell.addEventListener('dblclick', () => {
+          if (clickTimer !== undefined) {
+            window.clearTimeout(clickTimer);
+            clickTimer = undefined;
+          }
+          startCellEdit(cell, table, column, row);
+        });
         rowEl.appendChild(cell);
       });
 

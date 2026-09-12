@@ -290,6 +290,10 @@
   font-family: var(--font-mono);
 }
 
+.sheets-cell--copied {
+  background: var(--accent-soft) !important;
+}
+
 .sheets-cell--editing {
   padding: 0;
   margin: 0;

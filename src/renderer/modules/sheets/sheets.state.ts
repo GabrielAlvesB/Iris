@@ -101,3 +101,7 @@ export async function deleteRow(input: DeleteRowInput): Promise<void> {
   const result = await window.irisAPI.sheets.deleteRow(input);
   applyAndNotify(unwrap(result));
 }
+
+export function copyToClipboard(text: string): void {
+  window.irisAPI.system.copyToClipboard(text);
+}
