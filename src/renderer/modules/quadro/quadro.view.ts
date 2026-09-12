@@ -16,6 +16,14 @@ interface Rect {
   height: number;
 }
 
+type Side = 'top' | 'right' | 'bottom' | 'left';
+
+interface Anchor {
+  x: number;
+  y: number;
+  side: Side;
+}
+
 type DragOp =
   | { kind: 'pan'; startX: number; startY: number; originX: number; originY: number }
   | { kind: 'block'; blockId: string; startX: number; startY: number; originX: number; originY: number };
@@ -49,14 +57,15 @@ let viewportEl: HTMLElement | null = null;
 let canvasEl: HTMLElement | null = null;
 let minimapEl: HTMLElement | null = null;
 let zoomReadoutEl: HTMLElement | null = null;
-let connectToolbarBtn: HTMLButtonElement | null = null;
 let shortcutsPopoverEl: HTMLElement | null = null;
 let currentViewport: QuadroViewport = { x: 0, y: 0, zoom: 1 };
 let blockRects = new Map<string, Rect>();
-let connectFromId: string | null = null;
-let connectArmed = false;
 let selectedBlockId: string | null = null;
 let drag: DragOp | null = null;
+let connectDrag: { fromBlockId: string; side: Side; pointerX: number; pointerY: number } | null = null;
+let dropTargetBlockId: string | null = null;
+let hoveredConnectionId: string | null = null;
+let hoverHideTimer: ReturnType<typeof setTimeout> | null = null;
 let persistViewportTimer: ReturnType<typeof setTimeout> | null = null;
 let globalListenersAttached = false;
 
@@ -195,50 +204,203 @@ function blockCenter(rect: Rect): { x: number; y: number } {
   return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
 }
 
+// Where a line from `rect`'s center towards (towardX, towardY) crosses the
+// rectangle's border — connections attach here instead of at raw centers, so
+// lines start/end at the card edge rather than cutting through it.
+function rectAnchor(rect: Rect, towardX: number, towardY: number): Anchor {
+  const cx = rect.x + rect.width / 2;
+  const cy = rect.y + rect.height / 2;
+  const dx = towardX - cx;
+  const dy = towardY - cy;
+  if (dx === 0 && dy === 0) return { x: cx, y: cy, side: 'right' };
+  const halfW = rect.width / 2;
+  const halfH = rect.height / 2;
+  const scaleX = dx !== 0 ? halfW / Math.abs(dx) : Infinity;
+  const scaleY = dy !== 0 ? halfH / Math.abs(dy) : Infinity;
+  if (scaleX <= scaleY) {
+    return { x: cx + dx * scaleX, y: cy + dy * scaleX, side: dx > 0 ? 'right' : 'left' };
+  }
+  return { x: cx + dx * scaleY, y: cy + dy * scaleY, side: dy > 0 ? 'bottom' : 'top' };
+}
+
+function anchorForSide(rect: Rect, side: Side): Anchor {
+  const cx = rect.x + rect.width / 2;
+  const cy = rect.y + rect.height / 2;
+  switch (side) {
+    case 'top':
+      return { x: cx, y: rect.y, side };
+    case 'bottom':
+      return { x: cx, y: rect.y + rect.height, side };
+    case 'left':
+      return { x: rect.x, y: cy, side };
+    case 'right':
+      return { x: rect.x + rect.width, y: cy, side };
+  }
+}
+
+function sideNormal(side: Side): { x: number; y: number } {
+  switch (side) {
+    case 'right':
+      return { x: 1, y: 0 };
+    case 'left':
+      return { x: -1, y: 0 };
+    case 'top':
+      return { x: 0, y: -1 };
+    case 'bottom':
+      return { x: 0, y: 1 };
+  }
+}
+
+// Control points extend perpendicular to whichever edge each end attaches
+// to, so the curve always leaves/enters a card straight-on before bending
+// towards the other end — a soft "S" like most whiteboard tools use.
+function curveControlPoints(from: Anchor, to: Anchor): { c1: { x: number; y: number }; c2: { x: number; y: number } } {
+  const dist = Math.hypot(to.x - from.x, to.y - from.y);
+  const mag = clamp(dist * 0.5, 36, 110);
+  const n1 = sideNormal(from.side);
+  const n2 = sideNormal(to.side);
+  return {
+    c1: { x: from.x + n1.x * mag, y: from.y + n1.y * mag },
+    c2: { x: to.x + n2.x * mag, y: to.y + n2.y * mag },
+  };
+}
+
+function curvePathD(from: Anchor, to: Anchor): string {
+  const { c1, c2 } = curveControlPoints(from, to);
+  return `M ${from.x},${from.y} C ${c1.x},${c1.y} ${c2.x},${c2.y} ${to.x},${to.y}`;
+}
+
+function bezierMidpoint(from: Anchor, to: Anchor): { x: number; y: number } {
+  const { c1, c2 } = curveControlPoints(from, to);
+  const t = 0.5;
+  const mt = 1 - t;
+  const x = mt ** 3 * from.x + 3 * mt ** 2 * t * c1.x + 3 * mt * t ** 2 * c2.x + t ** 3 * to.x;
+  const y = mt ** 3 * from.y + 3 * mt ** 2 * t * c1.y + 3 * mt * t ** 2 * c2.y + t ** 3 * to.y;
+  return { x, y };
+}
+
+function previewPathD(from: Anchor, pointerX: number, pointerY: number): string {
+  const dist = Math.hypot(pointerX - from.x, pointerY - from.y);
+  const mag = clamp(dist * 0.5, 36, 110);
+  const n1 = sideNormal(from.side);
+  const c1x = from.x + n1.x * mag;
+  const c1y = from.y + n1.y * mag;
+  const c2x = pointerX - (pointerX - c1x) * 0.35;
+  const c2y = pointerY - (pointerY - c1y) * 0.35;
+  return `M ${from.x},${from.y} C ${c1x},${c1y} ${c2x},${c2y} ${pointerX},${pointerY}`;
+}
+
+function clientToCanvas(clientX: number, clientY: number): { x: number; y: number } {
+  if (!viewportEl) return { x: clientX, y: clientY };
+  const rect = viewportEl.getBoundingClientRect();
+  return {
+    x: (clientX - rect.left - currentViewport.x) / currentViewport.zoom,
+    y: (clientY - rect.top - currentViewport.y) / currentViewport.zoom,
+  };
+}
+
 function updateConnectionsForBlock(blockId: string): void {
   if (!canvasEl) return;
-  canvasEl.querySelectorAll<SVGLineElement>(`line[data-from="${blockId}"], line[data-to="${blockId}"]`).forEach((line) => {
-    const fromRect = blockRects.get(line.dataset.from as string);
-    const toRect = blockRects.get(line.dataset.to as string);
+  canvasEl.querySelectorAll<SVGPathElement>(`path[data-from="${blockId}"], path[data-to="${blockId}"]`).forEach((path) => {
+    const fromRect = blockRects.get(path.dataset.from as string);
+    const toRect = blockRects.get(path.dataset.to as string);
     if (!fromRect || !toRect) return;
-    const from = blockCenter(fromRect);
-    const to = blockCenter(toRect);
-    line.setAttribute('x1', String(from.x));
-    line.setAttribute('y1', String(from.y));
-    line.setAttribute('x2', String(to.x));
-    line.setAttribute('y2', String(to.y));
+    const fromCenter = blockCenter(fromRect);
+    const toCenter = blockCenter(toRect);
+    const from = rectAnchor(fromRect, toCenter.x, toCenter.y);
+    const to = rectAnchor(toRect, fromCenter.x, fromCenter.y);
+    path.setAttribute('d', curvePathD(from, to));
 
-    const connectionId = line.dataset.connectionId;
+    const connectionId = path.dataset.connectionId;
     const deleteBtn = canvasEl?.querySelector<HTMLElement>(`.connection-delete[data-connection-id="${connectionId}"]`);
     if (deleteBtn) {
-      deleteBtn.style.left = `${(from.x + to.x) / 2}px`;
-      deleteBtn.style.top = `${(from.y + to.y) / 2}px`;
+      const mid = bezierMidpoint(from, to);
+      deleteBtn.style.left = `${mid.x}px`;
+      deleteBtn.style.top = `${mid.y}px`;
     }
   });
 }
 
-function setConnectMode(blockId: string | null): void {
-  connectFromId = blockId;
-  canvasEl?.classList.toggle('connect-mode', blockId !== null || connectArmed);
-  canvasEl?.querySelectorAll<HTMLElement>('.quadro-block').forEach((el) => {
-    el.classList.toggle('connecting-from', el.dataset.blockId === blockId);
+// ---------- Drag-to-connect ----------
+
+function showConnectionHover(connectionId: string): void {
+  if (hoverHideTimer) {
+    clearTimeout(hoverHideTimer);
+    hoverHideTimer = null;
+  }
+  hoveredConnectionId = connectionId;
+  canvasEl?.querySelectorAll<HTMLElement>('.connection-delete').forEach((btn) => {
+    btn.classList.toggle('is-visible', btn.dataset.connectionId === connectionId);
+  });
+  canvasEl?.querySelectorAll<SVGPathElement>('.quadro-connection-line').forEach((line) => {
+    line.classList.toggle('is-hovered', line.dataset.connectionId === connectionId);
   });
 }
 
-function resetConnect(): void {
-  connectArmed = false;
-  setConnectMode(null);
-  connectToolbarBtn?.classList.remove('is-active');
+function scheduleHideConnectionHover(connectionId: string): void {
+  if (hoverHideTimer) clearTimeout(hoverHideTimer);
+  hoverHideTimer = setTimeout(() => {
+    if (hoveredConnectionId !== connectionId) return;
+    hoveredConnectionId = null;
+    canvasEl?.querySelectorAll<HTMLElement>('.connection-delete').forEach((btn) => btn.classList.remove('is-visible'));
+    canvasEl?.querySelectorAll<SVGPathElement>('.quadro-connection-line').forEach((line) => line.classList.remove('is-hovered'));
+  }, 200);
 }
 
-function setConnectArmed(value: boolean): void {
-  if (!value) {
-    resetConnect();
-    return;
+function renderConnectionPreview(): void {
+  if (!connectDrag || !canvasEl) return;
+  const fromRect = blockRects.get(connectDrag.fromBlockId);
+  if (!fromRect) return;
+  const from = anchorForSide(fromRect, connectDrag.side);
+  const svg = canvasEl.querySelector<SVGSVGElement>('.quadro-connections');
+  if (!svg) return;
+  let preview = svg.querySelector<SVGPathElement>('.quadro-connection-preview');
+  if (!preview) {
+    preview = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    preview.classList.add('quadro-connection-preview');
+    preview.setAttribute('marker-end', 'url(#quadro-arrow-preview)');
+    svg.appendChild(preview);
   }
-  connectArmed = true;
-  canvasEl?.classList.add('connect-mode');
-  connectToolbarBtn?.classList.add('is-active');
+  preview.setAttribute('d', previewPathD(from, connectDrag.pointerX, connectDrag.pointerY));
+}
+
+function setDropTarget(blockId: string | null): void {
+  if (blockId === dropTargetBlockId) return;
+  if (dropTargetBlockId) {
+    canvasEl?.querySelector<HTMLElement>(`.quadro-block[data-block-id="${dropTargetBlockId}"]`)?.classList.remove('is-drop-target');
+  }
+  dropTargetBlockId = blockId;
+  if (dropTargetBlockId) {
+    canvasEl?.querySelector<HTMLElement>(`.quadro-block[data-block-id="${dropTargetBlockId}"]`)?.classList.add('is-drop-target');
+  }
+}
+
+function updateDropTarget(clientX: number, clientY: number): void {
+  if (!connectDrag) return;
+  const el = document.elementFromPoint(clientX, clientY);
+  const blockEl = el?.closest<HTMLElement>('.quadro-block');
+  const candidateId = blockEl && blockEl.dataset.blockId !== connectDrag.fromBlockId ? (blockEl.dataset.blockId ?? null) : null;
+  setDropTarget(candidateId);
+}
+
+function startConnectDrag(block: QuadroBlock, side: Side): void {
+  const rect = blockRects.get(block.id);
+  if (!rect) return;
+  const anchor = anchorForSide(rect, side);
+  connectDrag = { fromBlockId: block.id, side, pointerX: anchor.x, pointerY: anchor.y };
+  canvasEl?.classList.add('connecting');
+  canvasEl?.querySelector<HTMLElement>(`.quadro-block[data-block-id="${block.id}"]`)?.classList.add('is-connect-source');
+  renderConnectionPreview();
+}
+
+function endConnectDrag(): void {
+  if (!connectDrag) return;
+  const sourceEl = canvasEl?.querySelector<HTMLElement>(`.quadro-block[data-block-id="${connectDrag.fromBlockId}"]`);
+  sourceEl?.classList.remove('is-connect-source');
+  setDropTarget(null);
+  canvasEl?.classList.remove('connecting');
+  canvasEl?.querySelector('.quadro-connection-preview')?.remove();
+  connectDrag = null;
 }
 
 function closeAllBlockMenus(): void {
@@ -250,6 +412,14 @@ function attachGlobalListeners(): void {
   globalListenersAttached = true;
 
   window.addEventListener('mousemove', (e) => {
+    if (connectDrag) {
+      const pt = clientToCanvas(e.clientX, e.clientY);
+      connectDrag.pointerX = pt.x;
+      connectDrag.pointerY = pt.y;
+      renderConnectionPreview();
+      updateDropTarget(e.clientX, e.clientY);
+      return;
+    }
     if (!drag) return;
     if (drag.kind === 'pan') {
       currentViewport = {
@@ -277,6 +447,15 @@ function attachGlobalListeners(): void {
   });
 
   window.addEventListener('mouseup', () => {
+    if (connectDrag) {
+      const fromId = connectDrag.fromBlockId;
+      const toId = dropTargetBlockId;
+      endConnectDrag();
+      if (toId && toId !== fromId) {
+        void quadroState.createConnection({ fromBlockId: fromId, toBlockId: toId });
+      }
+      return;
+    }
     if (!drag) return;
     if (drag.kind === 'pan') {
       schedulePersistViewport();
@@ -301,7 +480,7 @@ function attachGlobalListeners(): void {
 
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-      if (connectArmed || connectFromId) resetConnect();
+      if (connectDrag) endConnectDrag();
       closeAllBlockMenus();
     }
   });
@@ -442,20 +621,6 @@ async function handleDeleteBlock(block: QuadroBlock): Promise<void> {
   await quadroState.deleteBlock(block.id);
 }
 
-async function handleConnectClick(block: QuadroBlock): Promise<void> {
-  if (connectFromId === null) {
-    setConnectMode(block.id);
-    return;
-  }
-  if (connectFromId === block.id) {
-    resetConnect();
-    return;
-  }
-  const fromId = connectFromId;
-  resetConnect();
-  await quadroState.createConnection({ fromBlockId: fromId, toBlockId: block.id });
-}
-
 function buildBlockMenu(block: QuadroBlock): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'quadro-block-menu-wrap';
@@ -507,20 +672,33 @@ function buildBlockElement(block: QuadroBlock): HTMLElement {
   el.style.height = `${block.height}px`;
 
   el.addEventListener('click', (e) => {
-    if (connectArmed || connectFromId !== null) {
-      e.stopPropagation();
-      void handleConnectClick(block);
-      return;
-    }
     const target = e.target as HTMLElement;
     if (target.closest('input, textarea, button')) return;
     selectBlock(selectedBlockId === block.id ? null : block.id);
   });
 
+  // Connection handles live directly on the outer element (not the clipped
+  // inner wrapper below) so they can poke out past the card's border.
+  (['top', 'right', 'bottom', 'left'] as Side[]).forEach((side) => {
+    const handle = document.createElement('button');
+    handle.type = 'button';
+    handle.className = `quadro-connect-handle quadro-connect-handle--${side}`;
+    handle.title = 'Arraste até outro bloco para conectar';
+    handle.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      startConnectDrag(block, side);
+    });
+    el.appendChild(handle);
+  });
+
+  const inner = document.createElement('div');
+  inner.className = 'quadro-block-inner';
+  el.appendChild(inner);
+
   const header = document.createElement('div');
   header.className = 'quadro-block-header';
   header.addEventListener('mousedown', (e) => {
-    if (connectArmed || connectFromId !== null) return;
     e.stopPropagation();
     const rect = blockRects.get(block.id);
     if (!rect) return;
@@ -559,7 +737,7 @@ function buildBlockElement(block: QuadroBlock): HTMLElement {
 
   header.appendChild(leftGroup);
   header.appendChild(buildBlockMenu(block));
-  el.appendChild(header);
+  inner.appendChild(header);
 
   if (block.type !== 'nota') {
     const titleInput = document.createElement('input');
@@ -569,7 +747,7 @@ function buildBlockElement(block: QuadroBlock): HTMLElement {
     titleInput.addEventListener('change', () => {
       void quadroState.updateBlock({ blockId: block.id, title: titleInput.value });
     });
-    el.appendChild(titleInput);
+    inner.appendChild(titleInput);
   }
 
   if (block.type === 'tarefa') {
@@ -581,7 +759,7 @@ function buildBlockElement(block: QuadroBlock): HTMLElement {
     contentArea.addEventListener('change', () => {
       void quadroState.updateBlock({ blockId: block.id, content: contentArea.value });
     });
-    el.appendChild(contentArea);
+    inner.appendChild(contentArea);
 
     const avatar = document.createElement('button');
     avatar.type = 'button';
@@ -595,7 +773,7 @@ function buildBlockElement(block: QuadroBlock): HTMLElement {
       if (value === null) return;
       void quadroState.updateBlock({ blockId: block.id, assignee: value.trim() });
     });
-    el.appendChild(avatar);
+    inner.appendChild(avatar);
   } else if (block.type === 'nota') {
     const contentArea = document.createElement('textarea');
     contentArea.className = 'quadro-block-content quadro-block-content--nota';
@@ -605,7 +783,7 @@ function buildBlockElement(block: QuadroBlock): HTMLElement {
     contentArea.addEventListener('change', () => {
       void quadroState.updateBlock({ blockId: block.id, content: contentArea.value });
     });
-    el.appendChild(contentArea);
+    inner.appendChild(contentArea);
 
     const footer = document.createElement('div');
     footer.className = 'quadro-nota-footer';
@@ -627,7 +805,7 @@ function buildBlockElement(block: QuadroBlock): HTMLElement {
     });
     footer.appendChild(authorBtn);
 
-    el.appendChild(footer);
+    inner.appendChild(footer);
   } else {
     const daysRow = document.createElement('div');
     daysRow.className = 'quadro-routine-days';
@@ -648,7 +826,7 @@ function buildBlockElement(block: QuadroBlock): HTMLElement {
       });
       daysRow.appendChild(dayBtn);
     });
-    el.appendChild(daysRow);
+    inner.appendChild(daysRow);
 
     const footer = document.createElement('div');
     footer.className = 'quadro-routine-footer';
@@ -670,10 +848,25 @@ function buildBlockElement(block: QuadroBlock): HTMLElement {
     nextSpan.textContent = ` · próxima ${nextOccurrenceLabel(block.routineDays, block.routineTime)}`;
     footer.appendChild(nextSpan);
 
-    el.appendChild(footer);
+    inner.appendChild(footer);
   }
 
   return el;
+}
+
+function buildArrowMarker(svgNs: string, id: string, extraClass: string): SVGMarkerElement {
+  const marker = document.createElementNS(svgNs, 'marker') as SVGMarkerElement;
+  marker.setAttribute('id', id);
+  marker.setAttribute('markerWidth', '9');
+  marker.setAttribute('markerHeight', '9');
+  marker.setAttribute('refX', '7');
+  marker.setAttribute('refY', '3.5');
+  marker.setAttribute('orient', 'auto');
+  const arrowPath = document.createElementNS(svgNs, 'path');
+  arrowPath.setAttribute('d', 'M0,0 L7,3.5 L0,7 Z');
+  arrowPath.setAttribute('class', `quadro-arrow-head ${extraClass}`);
+  marker.appendChild(arrowPath);
+  return marker;
 }
 
 function buildConnectionsLayer(state: QuadroFile): SVGSVGElement {
@@ -682,35 +875,37 @@ function buildConnectionsLayer(state: QuadroFile): SVGSVGElement {
   svg.classList.add('quadro-connections');
 
   const defs = document.createElementNS(svgNs, 'defs');
-  const marker = document.createElementNS(svgNs, 'marker');
-  marker.setAttribute('id', 'quadro-arrow');
-  marker.setAttribute('markerWidth', '10');
-  marker.setAttribute('markerHeight', '10');
-  marker.setAttribute('refX', '8');
-  marker.setAttribute('refY', '3');
-  marker.setAttribute('orient', 'auto');
-  const arrowPath = document.createElementNS(svgNs, 'path');
-  arrowPath.setAttribute('d', 'M0,0 L8,3 L0,6 Z');
-  arrowPath.setAttribute('class', 'quadro-arrow-head');
-  marker.appendChild(arrowPath);
-  defs.appendChild(marker);
+  defs.appendChild(buildArrowMarker(svgNs, 'quadro-arrow', ''));
+  defs.appendChild(buildArrowMarker(svgNs, 'quadro-arrow-preview', 'quadro-arrow-head--preview'));
   svg.appendChild(defs);
 
   state.connections.forEach((connection) => {
     const fromRect = blockRects.get(connection.fromBlockId);
     const toRect = blockRects.get(connection.toBlockId);
     if (!fromRect || !toRect) return;
-    const from = blockCenter(fromRect);
-    const to = blockCenter(toRect);
+    const fromCenter = blockCenter(fromRect);
+    const toCenter = blockCenter(toRect);
+    const from = rectAnchor(fromRect, toCenter.x, toCenter.y);
+    const to = rectAnchor(toRect, fromCenter.x, fromCenter.y);
+    const d = curvePathD(from, to);
 
-    const line = document.createElementNS(svgNs, 'line');
+    // A wide, invisible path sits under the visible curve so hovering to
+    // reveal the delete button doesn't require pixel-perfect aim on a thin line.
+    const hit = document.createElementNS(svgNs, 'path');
+    hit.dataset.connectionId = connection.id;
+    hit.dataset.from = connection.fromBlockId;
+    hit.dataset.to = connection.toBlockId;
+    hit.setAttribute('d', d);
+    hit.classList.add('quadro-connection-hit');
+    hit.addEventListener('mouseenter', () => showConnectionHover(connection.id));
+    hit.addEventListener('mouseleave', () => scheduleHideConnectionHover(connection.id));
+    svg.appendChild(hit);
+
+    const line = document.createElementNS(svgNs, 'path');
     line.dataset.connectionId = connection.id;
     line.dataset.from = connection.fromBlockId;
     line.dataset.to = connection.toBlockId;
-    line.setAttribute('x1', String(from.x));
-    line.setAttribute('y1', String(from.y));
-    line.setAttribute('x2', String(to.x));
-    line.setAttribute('y2', String(to.y));
+    line.setAttribute('d', d);
     line.setAttribute('marker-end', 'url(#quadro-arrow)');
     line.classList.add('quadro-connection-line');
     svg.appendChild(line);
@@ -725,17 +920,22 @@ function buildConnectionDeleteButtons(state: QuadroFile): HTMLButtonElement[] {
       const fromRect = blockRects.get(connection.fromBlockId);
       const toRect = blockRects.get(connection.toBlockId);
       if (!fromRect || !toRect) return null;
-      const from = blockCenter(fromRect);
-      const to = blockCenter(toRect);
+      const fromCenter = blockCenter(fromRect);
+      const toCenter = blockCenter(toRect);
+      const from = rectAnchor(fromRect, toCenter.x, toCenter.y);
+      const to = rectAnchor(toRect, fromCenter.x, fromCenter.y);
+      const mid = bezierMidpoint(from, to);
 
       const btn = document.createElement('button');
       btn.className = 'connection-delete';
       btn.dataset.connectionId = connection.id;
       btn.textContent = '✕';
       btn.title = 'Remover conexão';
-      btn.style.left = `${(from.x + to.x) / 2}px`;
-      btn.style.top = `${(from.y + to.y) / 2}px`;
+      btn.style.left = `${mid.x}px`;
+      btn.style.top = `${mid.y}px`;
       btn.addEventListener('mousedown', (e) => e.stopPropagation());
+      btn.addEventListener('mouseenter', () => showConnectionHover(connection.id));
+      btn.addEventListener('mouseleave', () => scheduleHideConnectionHover(connection.id));
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         void quadroState.deleteConnection(connection.id);
@@ -758,7 +958,7 @@ function buildShortcutsPopover(): HTMLElement {
     'Arraste o fundo para navegar',
     'Scroll para dar zoom',
     'Clique num bloco para selecioná-lo',
-    'Use "Conectar" e clique em dois blocos para ligá-los',
+    'Passe o mouse na borda de um bloco e arraste até outro para conectá-los',
   ];
   items.forEach((text) => {
     const li = document.createElement('div');
@@ -774,8 +974,8 @@ export function render(container: HTMLElement, state: QuadroFile): void {
 
   currentViewport = state.viewport;
   blockRects = new Map();
-  connectFromId = null;
-  connectArmed = false;
+  connectDrag = null;
+  dropTargetBlockId = null;
   drag = null;
 
   container.innerHTML = '';
@@ -872,13 +1072,6 @@ export function render(container: HTMLElement, state: QuadroFile): void {
   divider.className = 'quadro-toolbar-divider';
   floatingToolbar.appendChild(divider);
 
-  connectToolbarBtn = document.createElement('button');
-  connectToolbarBtn.className = 'btn btn-secondary quadro-toolbar-connect';
-  connectToolbarBtn.textContent = 'Conectar';
-  connectToolbarBtn.classList.toggle('is-active', connectArmed);
-  connectToolbarBtn.addEventListener('click', () => setConnectArmed(!connectArmed && connectFromId === null));
-  floatingToolbar.appendChild(connectToolbarBtn);
-
   const sendKanbanBtn = document.createElement('button');
   sendKanbanBtn.className = 'btn quadro-send-kanban';
   sendKanbanBtn.textContent = 'Mandar p/ Kanban';
@@ -895,10 +1088,6 @@ export function render(container: HTMLElement, state: QuadroFile): void {
   viewportEl.addEventListener('mousedown', (e) => {
     const target = e.target as HTMLElement;
     if (target.closest('.quadro-block') || target.closest('.connection-delete')) return;
-    if (connectArmed || connectFromId !== null) {
-      resetConnect();
-      return;
-    }
     if (selectedBlockId !== null) selectBlock(null);
     drag = { kind: 'pan', startX: e.clientX, startY: e.clientY, originX: currentViewport.x, originY: currentViewport.y };
   });
@@ -933,14 +1122,18 @@ export function destroy(): void {
     clearTimeout(persistViewportTimer);
     persistViewportTimer = null;
   }
+  if (hoverHideTimer) {
+    clearTimeout(hoverHideTimer);
+    hoverHideTimer = null;
+  }
   drag = null;
-  connectFromId = null;
-  connectArmed = false;
+  connectDrag = null;
+  dropTargetBlockId = null;
+  hoveredConnectionId = null;
   selectedBlockId = null;
   viewportEl = null;
   canvasEl = null;
   minimapEl = null;
   zoomReadoutEl = null;
-  connectToolbarBtn = null;
   shortcutsPopoverEl = null;
 }
