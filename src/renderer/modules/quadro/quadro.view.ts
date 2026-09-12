@@ -83,10 +83,11 @@ function routineFrequencyLabel(days: number[] | undefined): string {
   if (set.size === 7) return 'TODOS OS DIAS';
   const isWeekend = [0, 6].every((d) => set.has(d)) && set.size === 2;
   if (isWeekend) return 'FDS';
-  return Array.from(set)
-    .sort((a, b) => a - b)
-    .map((d) => WEEKDAY_FULL[d])
-    .join(' · ');
+  const sorted = Array.from(set).sort((a, b) => a - b);
+  // Cap the label length so it never wraps onto a second line and collides
+  // with the "⋯" menu button in the card header.
+  if (sorted.length <= 3) return sorted.map((d) => WEEKDAY_FULL[d]).join(' · ');
+  return `${sorted.length}x/SEMANA`;
 }
 
 function nextOccurrenceLabel(days: number[] | undefined, time: string | undefined): string {
@@ -535,7 +536,11 @@ function buildBlockElement(block: QuadroBlock): HTMLElement {
   dot.className = 'quadro-block-dot';
   typeBadge.appendChild(dot);
   const typeLabel = BLOCK_TYPE_LABELS[block.type] + (block.type === 'rotina' && block.routineDays?.length ? ` · ${routineFrequencyLabel(block.routineDays)}` : '');
-  typeBadge.append(typeLabel);
+  const typeLabelEl = document.createElement('span');
+  typeLabelEl.className = 'quadro-block-type-label';
+  typeLabelEl.textContent = typeLabel;
+  typeLabelEl.title = typeLabel;
+  typeBadge.appendChild(typeLabelEl);
   leftGroup.appendChild(typeBadge);
 
   if (block.type === 'tarefa') {

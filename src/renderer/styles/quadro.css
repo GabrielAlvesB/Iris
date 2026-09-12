@@ -287,6 +287,14 @@
   text-transform: uppercase;
   color: var(--text-faint);
   letter-spacing: 0.04em;
+  min-width: 0;
+}
+
+.quadro-block-type-label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .quadro-block-dot {
