@@ -1,6 +1,5 @@
 import { clipboard, contextBridge, ipcRenderer, shell } from 'electron';
 import {
-  AGENDA_CHANNELS,
   ARQUIVOS_CHANNELS,
   COPY_CHANNELS,
   EXPORT_CHANNELS,
@@ -8,6 +7,7 @@ import {
   LINKS_CHANNELS,
   MARKDOWN_CHANNELS,
   QUADRO_CHANNELS,
+  SHEETS_CHANNELS,
 } from '../shared/ipcChannels';
 import type { IrisApi } from '../shared/types/preload-api.types';
 
@@ -49,14 +49,19 @@ const irisAPI: IrisApi = {
     deleteItem: (itemId) => ipcRenderer.invoke(ARQUIVOS_CHANNELS.deleteItem, itemId),
     linkFileToCard: (input) => ipcRenderer.invoke(ARQUIVOS_CHANNELS.linkFileToCard, input),
   },
-  agenda: {
-    getItems: () => ipcRenderer.invoke(AGENDA_CHANNELS.getItems),
-    createItem: (input) => ipcRenderer.invoke(AGENDA_CHANNELS.createItem, input),
-    updateItem: (input) => ipcRenderer.invoke(AGENDA_CHANNELS.updateItem, input),
-    deleteItem: (itemId) => ipcRenderer.invoke(AGENDA_CHANNELS.deleteItem, itemId),
-    deleteItems: (itemIds) => ipcRenderer.invoke(AGENDA_CHANNELS.deleteItems, itemIds),
-    deleteAllItems: () => ipcRenderer.invoke(AGENDA_CHANNELS.deleteAllItems),
-    importSpreadsheet: () => ipcRenderer.invoke(AGENDA_CHANNELS.importSpreadsheet),
+  sheets: {
+    getFile: () => ipcRenderer.invoke(SHEETS_CHANNELS.getFile),
+    detectImport: () => ipcRenderer.invoke(SHEETS_CHANNELS.detectImport),
+    commitImport: (input) => ipcRenderer.invoke(SHEETS_CHANNELS.commitImport, input),
+    createTable: (input) => ipcRenderer.invoke(SHEETS_CHANNELS.createTable, input),
+    renameTable: (input) => ipcRenderer.invoke(SHEETS_CHANNELS.renameTable, input),
+    setTableVisibility: (input) => ipcRenderer.invoke(SHEETS_CHANNELS.setTableVisibility, input),
+    addColumn: (input) => ipcRenderer.invoke(SHEETS_CHANNELS.addColumn, input),
+    updateColumn: (input) => ipcRenderer.invoke(SHEETS_CHANNELS.updateColumn, input),
+    deleteColumn: (input) => ipcRenderer.invoke(SHEETS_CHANNELS.deleteColumn, input),
+    createRow: (input) => ipcRenderer.invoke(SHEETS_CHANNELS.createRow, input),
+    updateRow: (input) => ipcRenderer.invoke(SHEETS_CHANNELS.updateRow, input),
+    deleteRow: (input) => ipcRenderer.invoke(SHEETS_CHANNELS.deleteRow, input),
   },
   system: {
     copyToClipboard: (text) => clipboard.writeText(text),
@@ -65,7 +70,6 @@ const irisAPI: IrisApi = {
   export: {
     exportAll: () => ipcRenderer.invoke(EXPORT_CHANNELS.exportAll),
     importAll: () => ipcRenderer.invoke(EXPORT_CHANNELS.importAll),
-    exportAgendaCsv: () => ipcRenderer.invoke(EXPORT_CHANNELS.exportAgendaCsv),
     exportArquivosCsv: () => ipcRenderer.invoke(EXPORT_CHANNELS.exportArquivosCsv),
   },
   links: {
