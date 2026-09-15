@@ -19,6 +19,12 @@ protocol.registerSchemesAsPrivileged([
 // "unsticks" it. Disabling GPU acceleration avoids the desync entirely.
 app.disableHardwareAcceleration();
 
+// Chromium's Native Window Occlusion tracking (Windows-only) can misjudge the
+// window as occluded while it's actually focused and on-screen, throttling
+// input handling until something (like taking a screenshot) forces Windows to
+// recompute occlusion. Disabling it stops input from getting "stuck".
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+
 let mainWindow: BrowserWindow | null = null;
 
 function registerAppProtocol(): void {

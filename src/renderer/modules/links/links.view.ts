@@ -37,6 +37,20 @@ const ICON_LIBRARY: Array<{ id: string; label: string; path: string }> = [
 
 const ICON_MAP = new Map(ICON_LIBRARY.map((icon) => [icon.id, icon]));
 
+const SEARCH_ICON_PATH = '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>';
+
+// Cycled per named group so cards in the same group share an accent color;
+// hues chosen to spread evenly around the wheel starting from the app accent.
+const GROUP_PALETTE = [
+  'oklch(0.72 0.15 292)',
+  'oklch(0.75 0.13 195)',
+  'oklch(0.72 0.17 350)',
+  'oklch(0.78 0.15 70)',
+  'oklch(0.75 0.14 145)',
+  'oklch(0.72 0.15 250)',
+];
+const DEFAULT_GROUP_COLOR = 'oklch(0.55 0 0)';
+
 function iconSvg(path: string, size = '1em'): string {
   return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
 }
@@ -83,9 +97,31 @@ const ICON_KEYWORDS: Array<[string, string]> = [
 ];
 
 const DEFAULT_GROUP = 'Sem grupo';
+const VIEW_MODE_STORAGE_KEY = 'iris-links-view-mode';
 
 let activeSortables: Array<InstanceType<typeof Sortable>> = [];
 let shortcutsHandler: ((e: KeyboardEvent) => void) | null = null;
+let searchInputEl: HTMLInputElement | null = null;
+let currentSearchQuery = '';
+let currentViewMode: 'grid' | 'list' =
+  localStorage.getItem(VIEW_MODE_STORAGE_KEY) === 'list' ? 'list' : 'grid';
+
+function applyLinksFilter(root: HTMLElement, rawQuery: string): void {
+  const query = rawQuery.trim().toLowerCase();
+  root.querySelectorAll<HTMLElement>('.link-card--add').forEach((tile) => {
+    tile.classList.toggle('is-hidden', Boolean(query));
+  });
+  root.querySelectorAll<HTMLElement>('.link-card:not(.link-card--add)').forEach((card) => {
+    const title = card.querySelector('.link-title')?.textContent?.toLowerCase() ?? '';
+    const domain = card.querySelector('.link-domain')?.textContent?.toLowerCase() ?? '';
+    const matches = !query || title.includes(query) || domain.includes(query);
+    card.classList.toggle('is-hidden', !matches);
+  });
+  root.querySelectorAll<HTMLElement>('.links-group').forEach((group) => {
+    const hasVisibleCard = group.querySelector('.link-card:not(.is-hidden)');
+    group.classList.toggle('is-hidden', Boolean(query) && !hasVisibleCard);
+  });
+}
 
 function normalizeUrl(url: string): string {
   const trimmed = url.trim();
@@ -161,15 +197,20 @@ function buildLinkCard(link: QuickLink, shortcutIndex: number | null): HTMLEleme
   renderIconContent(iconEl, link.icon);
   card.appendChild(iconEl);
 
+  const info = document.createElement('div');
+  info.className = 'link-info';
+
   const titleEl = document.createElement('div');
   titleEl.className = 'link-title';
   titleEl.textContent = link.title;
-  card.appendChild(titleEl);
+  info.appendChild(titleEl);
 
   const domainEl = document.createElement('div');
   domainEl.className = 'link-domain';
   domainEl.textContent = hostnameOf(link.url);
-  card.appendChild(domainEl);
+  info.appendChild(domainEl);
+
+  card.appendChild(info);
 
   return card;
 }
@@ -478,10 +519,23 @@ function handleImportFromBrowser(): void {
   window.alert('Importar do navegador ainda não está disponível nesta versão. Por enquanto, adicione seus links manualmente com "+ Novo link".');
 }
 
+function applyViewMode(root: HTMLElement, gridBtn: HTMLElement, listBtn: HTMLElement): void {
+  root.classList.toggle('links-view--list', currentViewMode === 'list');
+  root.classList.toggle('links-view--grid', currentViewMode === 'grid');
+  gridBtn.classList.toggle('active', currentViewMode === 'grid');
+  listBtn.classList.toggle('active', currentViewMode === 'list');
+}
+
 function attachShortcuts(): void {
   if (shortcutsHandler) return;
   shortcutsHandler = (e: KeyboardEvent) => {
     if (!(e.metaKey || e.ctrlKey)) return;
+    if (e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      searchInputEl?.focus();
+      searchInputEl?.select();
+      return;
+    }
     const digit = Number.parseInt(e.key, 10);
     if (Number.isNaN(digit) || digit < 1 || digit > 9) return;
     const currentLinks = (linksState.getCurrentState()?.links ?? []).slice().sort((a, b) => a.order - b.order);
@@ -504,22 +558,62 @@ export function render(container: HTMLElement, state: LinksFile): void {
   const header = document.createElement('div');
   header.className = 'links-header';
 
-  const titleWrap = document.createElement('div');
-  const title = document.createElement('h1');
-  title.textContent = 'Links rápidos';
-  titleWrap.appendChild(title);
-  const hint = document.createElement('span');
-  hint.className = 'links-hint';
-  hint.textContent = 'Clique para abrir · ⌘1-9 para abrir · arraste para reordenar';
-  titleWrap.appendChild(hint);
-  header.appendChild(titleWrap);
+  const searchWrap = document.createElement('div');
+  searchWrap.className = 'links-search';
+  const searchIcon = document.createElement('span');
+  searchIcon.className = 'links-search-icon';
+  searchIcon.innerHTML = iconSvg(SEARCH_ICON_PATH, '15');
+  searchWrap.appendChild(searchIcon);
+
+  const searchInput = document.createElement('input');
+  searchInput.type = 'text';
+  searchInput.className = 'links-search-input';
+  searchInput.placeholder = 'Buscar por nome ou domínio';
+  searchInput.value = currentSearchQuery;
+  searchInput.addEventListener('input', () => {
+    currentSearchQuery = searchInput.value;
+    applyLinksFilter(root, currentSearchQuery);
+  });
+  searchWrap.appendChild(searchInput);
+  searchInputEl = searchInput;
+
+  const searchKbd = document.createElement('span');
+  searchKbd.className = 'links-search-kbd';
+  searchKbd.textContent = '⌘K';
+  searchWrap.appendChild(searchKbd);
+
+  header.appendChild(searchWrap);
 
   const headerActions = document.createElement('div');
   headerActions.className = 'links-header-actions';
 
+  const viewToggle = document.createElement('div');
+  viewToggle.className = 'links-view-toggle';
+  const gridBtn = document.createElement('button');
+  gridBtn.type = 'button';
+  gridBtn.className = 'links-view-toggle-btn';
+  gridBtn.textContent = 'Grade';
+  const listBtn = document.createElement('button');
+  listBtn.type = 'button';
+  listBtn.className = 'links-view-toggle-btn';
+  listBtn.textContent = 'Lista';
+  gridBtn.addEventListener('click', () => {
+    currentViewMode = 'grid';
+    localStorage.setItem(VIEW_MODE_STORAGE_KEY, 'grid');
+    applyViewMode(root, gridBtn, listBtn);
+  });
+  listBtn.addEventListener('click', () => {
+    currentViewMode = 'list';
+    localStorage.setItem(VIEW_MODE_STORAGE_KEY, 'list');
+    applyViewMode(root, gridBtn, listBtn);
+  });
+  viewToggle.appendChild(gridBtn);
+  viewToggle.appendChild(listBtn);
+  headerActions.appendChild(viewToggle);
+
   const importBtn = document.createElement('button');
   importBtn.className = 'btn btn-secondary';
-  importBtn.textContent = 'Importar do navegador';
+  importBtn.textContent = 'Importar';
   importBtn.addEventListener('click', handleImportFromBrowser);
   headerActions.appendChild(importBtn);
 
@@ -531,6 +625,7 @@ export function render(container: HTMLElement, state: LinksFile): void {
 
   header.appendChild(headerActions);
   root.appendChild(header);
+  applyViewMode(root, gridBtn, listBtn);
 
   const sortedLinks = state.links.slice().sort((a, b) => a.order - b.order);
   attachShortcuts();
@@ -545,14 +640,32 @@ export function render(container: HTMLElement, state: LinksFile): void {
   if (groups.size === 0) groups.set(DEFAULT_GROUP, []);
 
   let shortcutCounter = 0;
+  let paletteIndex = 0;
 
   groups.forEach((links, groupName) => {
     const section = document.createElement('div');
     section.className = 'links-group';
+    section.style.setProperty(
+      '--group-color',
+      groupName === DEFAULT_GROUP ? DEFAULT_GROUP_COLOR : GROUP_PALETTE[paletteIndex++ % GROUP_PALETTE.length],
+    );
 
     const sectionHeader = document.createElement('div');
     sectionHeader.className = 'links-group-header';
-    sectionHeader.textContent = `${groupName.toUpperCase()} · ${links.length}`;
+    const dot = document.createElement('span');
+    dot.className = 'links-group-dot';
+    sectionHeader.appendChild(dot);
+    const label = document.createElement('span');
+    label.className = 'links-group-label';
+    label.textContent = groupName.toUpperCase();
+    sectionHeader.appendChild(label);
+    const count = document.createElement('span');
+    count.className = 'links-group-count';
+    count.textContent = String(links.length);
+    sectionHeader.appendChild(count);
+    const rule = document.createElement('span');
+    rule.className = 'links-group-rule';
+    sectionHeader.appendChild(rule);
     section.appendChild(sectionHeader);
 
     const grid = document.createElement('div');
@@ -568,6 +681,8 @@ export function render(container: HTMLElement, state: LinksFile): void {
     section.appendChild(grid);
     root.appendChild(section);
   });
+
+  applyLinksFilter(root, currentSearchQuery);
 
   activeSortables.forEach((s) => s.destroy());
   activeSortables = [];
@@ -602,4 +717,5 @@ export function destroy(): void {
     document.removeEventListener('keydown', shortcutsHandler);
     shortcutsHandler = null;
   }
+  searchInputEl = null;
 }

@@ -1,3 +1,5 @@
 node_modules/
 dist/
+release/
+dist-electron/
 *.log

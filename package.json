@@ -11,12 +11,51 @@
     "copy-static": "node scripts/copy-static.mjs",
     "build": "npm run clean && npm run build:main && npm run build:renderer && npm run copy-static",
     "start": "electron .",
-    "dev": "npm run build && npm run start"
+    "dev": "npm run build && npm run start",
+    "dist": "npm run build && electron-builder",
+    "dist:portable": "npm run build && electron-builder --win portable",
+    "dist:dir": "npm run build && electron-builder --dir"
+  },
+  "build": {
+    "appId": "com.iris.app",
+    "productName": "Iris",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "src/main/assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Iris"
+    }
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
     "@types/sortablejs": "^1.15.8",
     "electron": "^31.0.0",
+    "electron-builder": "^26.15.3",
     "typescript": "^5.5.4"
   },
   "dependencies": {
