@@ -8,7 +8,7 @@ import type {
   SheetsFile,
 } from '../../../shared/types/sheets.types';
 import * as sheetsState from './sheets.state.js';
-import { promptText } from '../../ui/modal.js';
+import { promptText, openConfirmModal } from '../../ui/modal.js';
 
 const ICONS = {
   upload:
@@ -207,17 +207,43 @@ function buildLoadingState(): HTMLElement {
   return wrap;
 }
 
-function gridTemplate(columnCount: number, withCheckbox: boolean): string {
-  const cols = new Array(columnCount).fill('minmax(140px, 1fr)');
+function truncateText(str: string, max = 200): string {
+  if (!str || str.length <= max) return str;
+  return str.slice(0, max) + '...';
+}
+
+const columnWidths = new Map<string, number>();
+
+function getColumnWidth(tableId: string, columnId: string): number {
+  return columnWidths.get(`${tableId}:${columnId}`) ?? 160;
+}
+
+function setColumnWidth(tableId: string, columnId: string, width: number): void {
+  columnWidths.set(`${tableId}:${columnId}`, Math.max(60, Math.min(800, width)));
+}
+
+function gridTemplate(table: SheetTable, withCheckbox: boolean): string {
+  const cols = table.columns.map((col) => `${getColumnWidth(table.id, col.id)}px`);
   cols.push('56px');
   if (withCheckbox) cols.unshift('28px');
   return cols.join(' ');
 }
 
 async function handleDeleteTable(table: SheetTable): Promise<void> {
-  if (!window.confirm(`Excluir a tabela "${table.name}" e todas as suas linhas? Essa ação não pode ser desfeita.`)) return;
+  const confirmed = await openConfirmModal({
+    title: 'Excluir tabela',
+    message: `Excluir a tabela "${table.name}" e todas as suas linhas? Essa ação não pode ser desfeita.`,
+    confirmText: 'Excluir tabela',
+  });
+  if (!confirmed) return;
   if (activeTableId === table.id) activeTableId = null;
   await sheetsState.deleteTable({ tableId: table.id });
+}
+
+async function handleRenameTable(table: SheetTable): Promise<void> {
+  const newName = await promptText('Renomear tabela', 'Nome da tabela', table.name);
+  if (!newName || !newName.trim() || newName.trim() === table.name) return;
+  await sheetsState.renameTable({ tableId: table.id, name: newName.trim() });
 }
 
 function buildColumnMenu(table: SheetTable, column: SheetColumn, anchor: HTMLElement): void {
@@ -284,8 +310,13 @@ function buildColumnMenu(table: SheetTable, column: SheetColumn, anchor: HTMLEle
   deleteBtn.type = 'button';
   deleteBtn.className = 'btn btn-secondary sheets-column-menu-danger';
   deleteBtn.textContent = 'Excluir coluna';
-  deleteBtn.addEventListener('click', () => {
-    if (!window.confirm(`Excluir a coluna "${column.label}"?`)) return;
+  deleteBtn.addEventListener('click', async () => {
+    const confirmed = await openConfirmModal({
+      title: 'Excluir coluna',
+      message: `Excluir a coluna "${column.label}" e seus dados?`,
+      confirmText: 'Excluir coluna',
+    });
+    if (!confirmed) return;
     void sheetsState.deleteColumn({ tableId: table.id, columnId: column.id });
     menu.remove();
   });
@@ -346,14 +377,14 @@ function startCellEdit(cell: HTMLElement, table: SheetTable, column: SheetColumn
       void sheetsState.updateRow({ tableId: table.id, rowId: row.id, cells: { [column.id]: newValue } });
     } else {
       cell.classList.remove('sheets-cell--editing');
-      cell.textContent = formatCellDisplay(column, currentValue);
+      cell.textContent = truncateText(formatCellDisplay(column, currentValue), 200);
     }
   };
   const cancel = (): void => {
     if (finished) return;
     finished = true;
     cell.classList.remove('sheets-cell--editing');
-    cell.textContent = formatCellDisplay(column, currentValue);
+    cell.textContent = truncateText(formatCellDisplay(column, currentValue), 200);
   };
 
   input.addEventListener('blur', commit);
@@ -411,10 +442,15 @@ function buildSelectionToolbar(table: SheetTable): HTMLElement {
     deleteSelectedBtn.className = 'btn btn-secondary sheets-bulkbar-danger';
     deleteSelectedBtn.textContent = 'Excluir selecionadas';
     deleteSelectedBtn.disabled = selectedRowIds.size === 0;
-    deleteSelectedBtn.addEventListener('click', () => {
+    deleteSelectedBtn.addEventListener('click', async () => {
       const ids = Array.from(selectedRowIds);
       const label = ids.length === 1 ? '1 linha selecionada' : `${ids.length} linhas selecionadas`;
-      if (!window.confirm(`Excluir ${label}? Essa ação não pode ser desfeita.`)) return;
+      const confirmed = await openConfirmModal({
+        title: 'Excluir linhas',
+        message: `Excluir ${label}? Essa ação não pode ser desfeita.`,
+        confirmText: 'Excluir linhas',
+      });
+      if (!confirmed) return;
       selectedRowIds = new Set();
       void sheetsState.deleteRows({ tableId: table.id, rowIds: ids });
     });
@@ -432,7 +468,7 @@ function buildTableGrid(table: SheetTable): HTMLElement {
 
   wrap.appendChild(buildSelectionToolbar(table));
 
-  const template = gridTemplate(table.columns.length, selectionMode);
+  const template = gridTemplate(table, selectionMode);
 
   const headerRow = document.createElement('div');
   headerRow.className = 'sheets-row sheets-row--header';
@@ -458,7 +494,9 @@ function buildTableGrid(table: SheetTable): HTMLElement {
     cell.className = 'sheets-header-cell';
 
     const label = document.createElement('span');
+    label.className = 'sheets-header-cell-label';
     label.textContent = column.label;
+    label.title = column.label;
     cell.appendChild(label);
 
     const menuBtn = document.createElement('button');
@@ -470,6 +508,36 @@ function buildTableGrid(table: SheetTable): HTMLElement {
       buildColumnMenu(table, column, cell);
     });
     cell.appendChild(menuBtn);
+
+    const resizer = document.createElement('div');
+    resizer.className = 'sheets-column-resizer';
+    resizer.title = 'Arrastar para redimensionar coluna';
+    resizer.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      resizer.classList.add('is-resizing');
+      const startX = e.clientX;
+      const startWidth = getColumnWidth(table.id, column.id);
+
+      const onMouseMove = (moveEvent: MouseEvent) => {
+        const delta = moveEvent.clientX - startX;
+        setColumnWidth(table.id, column.id, startWidth + delta);
+        const newTemplate = gridTemplate(table, selectionMode);
+        wrap.querySelectorAll<HTMLElement>('.sheets-row').forEach((row) => {
+          row.style.gridTemplateColumns = newTemplate;
+        });
+      };
+
+      const onMouseUp = () => {
+        resizer.classList.remove('is-resizing');
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+      };
+
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    });
+    cell.appendChild(resizer);
 
     headerRow.appendChild(cell);
   });
@@ -520,18 +588,17 @@ function buildTableGrid(table: SheetTable): HTMLElement {
         const cell = document.createElement('div');
         cell.className = 'sheets-cell';
         if (column.type === 'number') cell.classList.add('sheets-cell--number');
-        cell.textContent = formatCellDisplay(column, row.cells[column.id] ?? '');
-        cell.title = 'Clique para copiar · duplo clique para editar';
+        const rawValue = row.cells[column.id] ?? '';
+        const formatted = formatCellDisplay(column, rawValue);
+        cell.textContent = truncateText(formatted, 200);
+        cell.title = rawValue ? `${rawValue}\n(Clique para copiar · duplo clique para editar)` : 'Duplo clique para editar';
 
-        // A single click copies the cell's text; a double click edits it.
-        // The click handler is delayed so a dblclick can cancel it first —
-        // otherwise both clicks of the dblclick would fire a copy too.
         let clickTimer: number | undefined;
         cell.addEventListener('click', () => {
           if (clickTimer !== undefined) return;
           clickTimer = window.setTimeout(() => {
             clickTimer = undefined;
-            const text = cell.textContent;
+            const text = row.cells[column.id] ?? '';
             if (!text) return;
             sheetsState.copyToClipboard(text);
             cell.classList.add('sheets-cell--copied');
@@ -550,13 +617,19 @@ function buildTableGrid(table: SheetTable): HTMLElement {
 
       const actionsCell = document.createElement('div');
       actionsCell.className = 'sheets-cell sheets-cell--actions';
+
       const deleteBtn = document.createElement('button');
       deleteBtn.type = 'button';
       deleteBtn.className = 'btn-icon';
       deleteBtn.title = 'Excluir linha';
       deleteBtn.innerHTML = icon('trash');
-      deleteBtn.addEventListener('click', () => {
-        if (!window.confirm('Excluir esta linha?')) return;
+      deleteBtn.addEventListener('click', async () => {
+        const confirmed = await openConfirmModal({
+          title: 'Excluir linha',
+          message: 'Deseja excluir esta linha da tabela?',
+          confirmText: 'Excluir',
+        });
+        if (!confirmed) return;
         void sheetsState.deleteRow({ tableId: table.id, rowId: row.id });
       });
       actionsCell.appendChild(deleteBtn);
@@ -592,10 +665,22 @@ function buildTabs(visibleTables: SheetTable[]): HTMLElement {
     tab.type = 'button';
     tab.className = 'sheets-tab';
     tab.classList.toggle('is-active', table.id === activeTableId);
+    tab.title = `${table.name} (duplo clique para renomear)`;
 
     const label = document.createElement('span');
+    label.className = 'sheets-tab-name';
     label.textContent = table.name;
     tab.appendChild(label);
+
+    const editBtn = document.createElement('span');
+    editBtn.className = 'sheets-tab-edit';
+    editBtn.title = 'Renomear tabela';
+    editBtn.innerHTML = icon('edit');
+    editBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      void handleRenameTable(table);
+    });
+    tab.appendChild(editBtn);
 
     const deleteBtn = document.createElement('span');
     deleteBtn.className = 'sheets-tab-delete';
@@ -615,6 +700,12 @@ function buildTabs(visibleTables: SheetTable[]): HTMLElement {
       }
       refresh();
     });
+
+    tab.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      void handleRenameTable(table);
+    });
+
     tabs.appendChild(tab);
   });
 
@@ -648,30 +739,36 @@ function buildHomeScreen(container: HTMLElement, state: SheetsFile): void {
 }
 
 function buildTablePreview(columns: { label: string }[], rows: string[][]): HTMLElement {
-  const preview = document.createElement('div');
-  preview.className = 'sheets-preview';
+  const wrap = document.createElement('div');
+  wrap.className = 'sheets-preview-table-wrap';
+  const table = document.createElement('table');
+  table.className = 'sheets-preview-table';
 
-  const headerRow = document.createElement('div');
-  headerRow.className = 'sheets-preview-row sheets-preview-row--header';
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
   columns.forEach((c) => {
-    const cell = document.createElement('span');
-    cell.textContent = c.label;
-    headerRow.appendChild(cell);
+    const th = document.createElement('th');
+    th.textContent = c.label || '(Sem nome)';
+    headRow.appendChild(th);
   });
-  preview.appendChild(headerRow);
+  thead.appendChild(headRow);
+  table.appendChild(thead);
 
-  rows.slice(0, 4).forEach((row) => {
-    const rowEl = document.createElement('div');
-    rowEl.className = 'sheets-preview-row';
+  const tbody = document.createElement('tbody');
+  rows.slice(0, 5).forEach((row) => {
+    const tr = document.createElement('tr');
     columns.forEach((_, index) => {
-      const cell = document.createElement('span');
-      cell.textContent = row[index] ?? '';
-      rowEl.appendChild(cell);
+      const td = document.createElement('td');
+      const val = row[index] ?? '';
+      td.textContent = truncateText(val, 200);
+      td.title = val;
+      tr.appendChild(td);
     });
-    preview.appendChild(rowEl);
+    tbody.appendChild(tr);
   });
-
-  return preview;
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  return wrap;
 }
 
 function buildImportSelectionScreen(container: HTMLElement, detected: DetectImportResult): void {
@@ -692,26 +789,93 @@ function buildImportSelectionScreen(container: HTMLElement, detected: DetectImpo
   header.appendChild(titleWrap);
   root.appendChild(header);
 
+  const toolbar = document.createElement('div');
+  toolbar.className = 'sheets-import-toolbar';
+
+  const countBadge = document.createElement('span');
+  countBadge.className = 'sheets-eyebrow';
+  countBadge.textContent = `${detected.sheets.length} tabela(s) detectada(s) no arquivo`;
+  toolbar.appendChild(countBadge);
+
+  const toolbarActions = document.createElement('div');
+  toolbarActions.className = 'sheets-import-toolbar-actions';
+
+  const selectAllBtn = document.createElement('button');
+  selectAllBtn.type = 'button';
+  selectAllBtn.className = 'btn btn-secondary';
+  selectAllBtn.textContent = 'Selecionar todas';
+
+  const deselectAllBtn = document.createElement('button');
+  deselectAllBtn.type = 'button';
+  deselectAllBtn.className = 'btn btn-secondary';
+  deselectAllBtn.textContent = 'Desmarcar todas';
+
+  toolbarActions.appendChild(selectAllBtn);
+  toolbarActions.appendChild(deselectAllBtn);
+  toolbar.appendChild(toolbarActions);
+  root.appendChild(toolbar);
+
   const cardsWrap = document.createElement('div');
   cardsWrap.className = 'sheets-card-list';
 
   const cardState = detected.sheets.map((sheet) => ({
     sheet,
+    selected: true,
     visible: true,
     tableName: sheet.sheetName,
+    cardEl: null as HTMLElement | null,
+    checkboxEl: null as HTMLInputElement | null,
   }));
+
+  function updateCardSelectionUI(entry: (typeof cardState)[0]): void {
+    if (entry.cardEl) {
+      entry.cardEl.classList.toggle('is-unselected', !entry.selected);
+    }
+    if (entry.checkboxEl) {
+      entry.checkboxEl.checked = entry.selected;
+    }
+  }
+
+  selectAllBtn.addEventListener('click', () => {
+    cardState.forEach((entry) => {
+      entry.selected = true;
+      updateCardSelectionUI(entry);
+    });
+  });
+
+  deselectAllBtn.addEventListener('click', () => {
+    cardState.forEach((entry) => {
+      entry.selected = false;
+      updateCardSelectionUI(entry);
+    });
+  });
 
   cardState.forEach((entry) => {
     const card = document.createElement('div');
     card.className = 'sheets-card';
+    entry.cardEl = card;
 
     const cardHeader = document.createElement('div');
     cardHeader.className = 'sheets-card-header';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'sheets-card-checkbox';
+    checkbox.checked = entry.selected;
+    checkbox.title = 'Importar esta tabela';
+    checkbox.addEventListener('change', () => {
+      entry.selected = checkbox.checked;
+      updateCardSelectionUI(entry);
+    });
+    entry.checkboxEl = checkbox;
+    cardHeader.appendChild(checkbox);
 
     const nameInput = document.createElement('input');
     nameInput.type = 'text';
     nameInput.className = 'sheets-card-name-input';
     nameInput.value = entry.tableName;
+    nameInput.title = 'Nome da tabela no Iris';
+    nameInput.placeholder = 'Nome da tabela';
     nameInput.addEventListener('input', () => {
       entry.tableName = nameInput.value;
     });
@@ -722,11 +886,11 @@ function buildImportSelectionScreen(container: HTMLElement, detected: DetectImpo
     visToggle.className = 'btn-icon sheets-visibility-toggle';
     visToggle.classList.toggle('is-active', entry.visible);
     visToggle.title = 'Mostrar na tela inicial';
-    visToggle.innerHTML = entry.visible ? icon('eye') : icon('eyeOff');
+    visToggle.innerHTML = `${entry.visible ? icon('eye') : icon('eyeOff')} <span>${entry.visible ? 'Visível' : 'Oculta'}</span>`;
     visToggle.addEventListener('click', () => {
       entry.visible = !entry.visible;
       visToggle.classList.toggle('is-active', entry.visible);
-      visToggle.innerHTML = entry.visible ? icon('eye') : icon('eyeOff');
+      visToggle.innerHTML = `${entry.visible ? icon('eye') : icon('eyeOff')} <span>${entry.visible ? 'Visível' : 'Oculta'}</span>`;
     });
     cardHeader.appendChild(visToggle);
 
@@ -734,7 +898,7 @@ function buildImportSelectionScreen(container: HTMLElement, detected: DetectImpo
 
     const meta = document.createElement('div');
     meta.className = 'sheets-card-meta';
-    meta.textContent = `${entry.sheet.columns.length} coluna(s) · ${entry.sheet.rows.length} linha(s)`;
+    meta.textContent = `${entry.sheet.columns.length} coluna(s) · ${entry.sheet.rows.length} linha(s) detectadas`;
     card.appendChild(meta);
 
     card.appendChild(buildTablePreview(entry.sheet.columns, entry.sheet.rows));
@@ -759,7 +923,12 @@ function buildImportSelectionScreen(container: HTMLElement, detected: DetectImpo
   confirmBtn.className = 'btn';
   confirmBtn.textContent = 'Confirmar importação';
   confirmBtn.addEventListener('click', () => {
-    const selections: CommitImportSelection[] = cardState.map((entry) => ({
+    const chosen = cardState.filter((entry) => entry.selected);
+    if (chosen.length === 0) {
+      window.alert('Selecione pelo menos uma tabela para importar.');
+      return;
+    }
+    const selections: CommitImportSelection[] = chosen.map((entry) => ({
       sheetName: entry.sheet.sheetName,
       tableName: entry.tableName.trim() || entry.sheet.sheetName,
       visible: entry.visible,
@@ -824,8 +993,13 @@ function buildVisibilityModal(tables: SheetTable[]): void {
     deleteBtn.className = 'btn-icon sheets-visibility-delete';
     deleteBtn.title = 'Excluir tabela';
     deleteBtn.innerHTML = icon('trash');
-    deleteBtn.addEventListener('click', () => {
-      if (!window.confirm(`Excluir a tabela "${table.name}" e todas as suas linhas? Essa ação não pode ser desfeita.`)) return;
+    deleteBtn.addEventListener('click', async () => {
+      const confirmed = await openConfirmModal({
+        title: 'Excluir tabela',
+        message: `Excluir a tabela "${table.name}" e todas as suas linhas? Essa ação não pode ser desfeita.`,
+        confirmText: 'Excluir tabela',
+      });
+      if (!confirmed) return;
       if (activeTableId === table.id) activeTableId = null;
       void sheetsState.deleteTable({ tableId: table.id });
       row.remove();

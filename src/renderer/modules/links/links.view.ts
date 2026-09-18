@@ -1,6 +1,7 @@
+/// <reference path="../../types/sortablejs-global.d.ts" />
 import type { LinksFile, QuickLink } from '../../../shared/types/links.types';
 import * as linksState from './links.state.js';
-import { promptText } from '../../ui/modal.js';
+import { promptText, openConfirmModal } from '../../ui/modal.js';
 
 // Curated set of local, monochrome line icons — the app runs 100% offline, so
 // icons ship as inline SVG instead of being fetched from an icon CDN at runtime.
@@ -149,7 +150,12 @@ function suggestIcon(url: string): string {
 }
 
 async function handleDeleteLink(link: QuickLink): Promise<void> {
-  if (!window.confirm(`Excluir o link "${link.title}"?`)) return;
+  const confirmed = await openConfirmModal({
+    title: 'Excluir link',
+    message: `Excluir o link "${link.title}" (${link.url})?`,
+    confirmText: 'Excluir link',
+  });
+  if (!confirmed) return;
   await linksState.deleteLink(link.id);
 }
 
@@ -157,15 +163,55 @@ function buildLinkCard(link: QuickLink, shortcutIndex: number | null): HTMLEleme
   const card = document.createElement('div');
   card.className = 'link-card';
   card.dataset.linkId = link.id;
-  card.title = link.url;
+  card.title = `${link.title}\n${link.url}`;
   card.addEventListener('click', () => linksState.openLink(link.url));
+
+  const main = document.createElement('div');
+  main.className = 'link-card-main';
+
+  const iconEl = document.createElement('div');
+  iconEl.className = 'link-icon';
+  renderIconContent(iconEl, link.icon);
+  main.appendChild(iconEl);
+
+  const info = document.createElement('div');
+  info.className = 'link-info';
+
+  const titleEl = document.createElement('div');
+  titleEl.className = 'link-title';
+  titleEl.textContent = link.title;
+  titleEl.title = link.title;
+  info.appendChild(titleEl);
+
+  const domainEl = document.createElement('div');
+  domainEl.className = 'link-domain';
+  const domainDot = document.createElement('span');
+  domainDot.className = 'link-domain-dot';
+  domainEl.appendChild(domainDot);
+  const domainText = document.createElement('span');
+  domainText.textContent = hostnameOf(link.url);
+  domainEl.appendChild(domainText);
+  info.appendChild(domainEl);
+
+  main.appendChild(info);
+  card.appendChild(main);
+
+  const badgeArea = document.createElement('div');
+  badgeArea.className = 'link-badge-area';
+
+  if (shortcutIndex !== null) {
+    const shortcut = document.createElement('span');
+    shortcut.className = 'link-shortcut';
+    shortcut.textContent = `⌘${shortcutIndex}`;
+    badgeArea.appendChild(shortcut);
+  }
 
   const actions = document.createElement('div');
   actions.className = 'link-actions';
 
   const editBtn = document.createElement('button');
-  editBtn.className = 'btn-icon';
-  editBtn.textContent = '✏️';
+  editBtn.className = 'link-action-btn';
+  editBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
   editBtn.title = 'Editar';
   editBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -174,8 +220,8 @@ function buildLinkCard(link: QuickLink, shortcutIndex: number | null): HTMLEleme
   actions.appendChild(editBtn);
 
   const deleteBtn = document.createElement('button');
-  deleteBtn.className = 'btn-icon';
-  deleteBtn.textContent = '✕';
+  deleteBtn.className = 'link-action-btn link-action-btn--delete';
+  deleteBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>';
   deleteBtn.title = 'Excluir';
   deleteBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -183,52 +229,41 @@ function buildLinkCard(link: QuickLink, shortcutIndex: number | null): HTMLEleme
   });
   actions.appendChild(deleteBtn);
 
-  card.appendChild(actions);
-
-  if (shortcutIndex !== null) {
-    const shortcut = document.createElement('span');
-    shortcut.className = 'link-shortcut';
-    shortcut.textContent = `⌘${shortcutIndex}`;
-    card.appendChild(shortcut);
-  }
-
-  const iconEl = document.createElement('div');
-  iconEl.className = 'link-icon';
-  renderIconContent(iconEl, link.icon);
-  card.appendChild(iconEl);
-
-  const info = document.createElement('div');
-  info.className = 'link-info';
-
-  const titleEl = document.createElement('div');
-  titleEl.className = 'link-title';
-  titleEl.textContent = link.title;
-  info.appendChild(titleEl);
-
-  const domainEl = document.createElement('div');
-  domainEl.className = 'link-domain';
-  domainEl.textContent = hostnameOf(link.url);
-  info.appendChild(domainEl);
-
-  card.appendChild(info);
+  badgeArea.appendChild(actions);
+  card.appendChild(badgeArea);
 
   return card;
 }
 
 function buildAddTile(defaultGroup?: string): HTMLElement {
   const tile = document.createElement('button');
+  tile.type = 'button';
   tile.className = 'link-card link-card--add';
   tile.addEventListener('click', () => void openLinkDialog(null, defaultGroup));
 
+  const main = document.createElement('div');
+  main.className = 'link-card-main';
+
   const iconEl = document.createElement('div');
   iconEl.className = 'link-icon';
-  iconEl.textContent = '+';
-  tile.appendChild(iconEl);
+  iconEl.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+  main.appendChild(iconEl);
+
+  const info = document.createElement('div');
+  info.className = 'link-info';
 
   const titleEl = document.createElement('div');
   titleEl.className = 'link-title';
   titleEl.textContent = 'Novo link';
-  tile.appendChild(titleEl);
+  info.appendChild(titleEl);
+
+  const domainEl = document.createElement('div');
+  domainEl.className = 'link-domain';
+  domainEl.textContent = 'Adicionar atalho';
+  info.appendChild(domainEl);
+
+  main.appendChild(info);
+  tile.appendChild(main);
 
   return tile;
 }
@@ -694,7 +729,7 @@ export function render(container: HTMLElement, state: LinksFile): void {
         filter: '.link-card--add',
         draggable: '.link-card:not(.link-card--add)',
         ghostClass: 'sortable-ghost',
-        onEnd: (evt) => {
+        onEnd: (evt: Sortable.SortableEvent) => {
           const targetGroup = evt.to.dataset.group ?? DEFAULT_GROUP;
           const movedLinkId = evt.item.dataset.linkId;
           if (movedLinkId && evt.to !== evt.from) {

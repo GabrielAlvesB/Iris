@@ -188,3 +188,98 @@ export async function promptText(title: string, label: string, defaultValue = ''
   const result = await openFormModal(title, [{ name: 'value', label, type: 'text', defaultValue }]);
   return result ? result.value : null;
 }
+
+export interface ConfirmModalOptions {
+  title?: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  danger?: boolean;
+}
+
+export function openConfirmModal(options: ConfirmModalOptions | string): Promise<boolean> {
+  const opts: ConfirmModalOptions = typeof options === 'string' ? { message: options } : options;
+  const isDanger = opts.danger !== false;
+  const title = opts.title ?? (isDanger ? 'Confirmar exclusão' : 'Confirmar ação');
+  const confirmText = opts.confirmText ?? (isDanger ? 'Excluir' : 'Confirmar');
+  const cancelText = opts.cancelText ?? 'Cancelar';
+
+  return new Promise((resolve) => {
+    closeActiveModal();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    activeOverlay = overlay;
+
+    function finish(result: boolean): void {
+      document.removeEventListener('keydown', onKeyDown);
+      closeActiveModal();
+      resolve(result);
+    }
+
+    function onKeyDown(e: KeyboardEvent): void {
+      if (e.key === 'Escape') finish(false);
+    }
+
+    const modal = document.createElement('div');
+    modal.className = `modal modal-confirm${isDanger ? ' modal-confirm--danger' : ''}`;
+
+    const iconWrap = document.createElement('div');
+    iconWrap.className = 'modal-confirm-icon-wrap';
+    iconWrap.innerHTML = isDanger
+      ? `<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>`
+      : `<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="16" x2="12" y2="12"/>
+          <line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>`;
+    modal.appendChild(iconWrap);
+
+    const contentWrap = document.createElement('div');
+    contentWrap.className = 'modal-confirm-content';
+
+    const heading = document.createElement('h2');
+    heading.className = 'modal-confirm-title';
+    heading.textContent = title;
+    contentWrap.appendChild(heading);
+
+    const messageEl = document.createElement('p');
+    messageEl.className = 'modal-confirm-message';
+    messageEl.textContent = opts.message;
+    contentWrap.appendChild(messageEl);
+
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions modal-confirm-actions';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'btn btn-secondary';
+    cancelBtn.textContent = cancelText;
+    cancelBtn.addEventListener('click', () => finish(false));
+    actions.appendChild(cancelBtn);
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.type = 'button';
+    confirmBtn.className = isDanger ? 'btn btn-danger' : 'btn';
+    confirmBtn.textContent = confirmText;
+    confirmBtn.addEventListener('click', () => finish(true));
+    actions.appendChild(confirmBtn);
+
+    contentWrap.appendChild(actions);
+    modal.appendChild(contentWrap);
+    overlay.appendChild(modal);
+
+    overlay.addEventListener('mousedown', (e) => {
+      if (e.target === overlay) finish(false);
+    });
+    document.addEventListener('keydown', onKeyDown);
+
+    document.body.appendChild(overlay);
+    confirmBtn.focus();
+  });
+}
+

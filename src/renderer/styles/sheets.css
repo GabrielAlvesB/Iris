@@ -1,8 +1,13 @@
+/* ==========================================================================
+   SHEETS (TABLES & SPREADSHEETS) - Resizable, Truncated & Import Flow
+   ========================================================================== */
+
 .sheets-view {
   background: var(--bg-elevated);
   color: var(--text);
   padding: 24px 28px;
   border-radius: var(--radius-lg);
+  border: 1px solid var(--border-soft);
 }
 
 .sheets-eyebrow {
@@ -34,6 +39,7 @@
 .sheets-header-actions {
   display: flex;
   gap: 8px;
+  align-items: center;
 }
 
 .sheets-header-actions .btn svg,
@@ -47,8 +53,9 @@
 .sheets-empty {
   border: 1px dashed var(--border);
   border-radius: var(--radius);
-  padding: 32px 24px;
+  padding: 36px 24px;
   text-align: center;
+  background: var(--bg-elevated-2);
 }
 
 .sheets-empty-heading {
@@ -74,16 +81,18 @@
   padding: 20px 16px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
-  background: var(--bg-elevated-2);
+  background: var(--bg-elevated);
   color: var(--text);
   cursor: pointer;
   font-family: inherit;
   text-align: center;
+  transition: all 0.15s ease;
 }
 
 .sheets-empty-option:hover {
   background: var(--bg-elevated-3);
   border-color: var(--accent);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .sheets-empty-option-icon {
@@ -153,6 +162,7 @@
   border-radius: var(--radius);
   margin-bottom: 16px;
   overflow-x: auto;
+  border: 1px solid var(--border-soft);
 }
 
 .sheets-tab {
@@ -162,31 +172,68 @@
   font-family: inherit;
   font-size: 12.5px;
   font-weight: 500;
-  padding: 7px 10px 7px 14px;
+  padding: 7px 10px 7px 12px;
   border-radius: var(--radius-sm);
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
   white-space: nowrap;
+  transition: all 0.15s ease;
+  user-select: none;
 }
 
 .sheets-tab:hover {
   color: var(--text);
+  background: var(--bg-elevated-3);
 }
 
 .sheets-tab.is-active {
-  background: var(--bg-elevated-3);
+  background: var(--bg-elevated);
   color: var(--text);
+  font-weight: 600;
+  border-color: var(--border);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.sheets-tab-name {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sheets-tab-edit {
+  display: flex;
+  align-items: center;
+  color: var(--text-faint);
+  opacity: 0;
+  border-radius: 4px;
+  padding: 2px;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.sheets-tab:hover .sheets-tab-edit {
+  opacity: 0.8;
+}
+
+.sheets-tab-edit:hover {
+  opacity: 1;
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .sheets-tab-delete {
   display: flex;
   align-items: center;
   color: var(--text-faint);
-  opacity: 0.6;
+  opacity: 0.5;
   border-radius: 4px;
   padding: 2px;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.sheets-tab:hover .sheets-tab-delete {
+  opacity: 0.8;
 }
 
 .sheets-tab-delete:hover {
@@ -263,25 +310,34 @@
   cursor: pointer;
 }
 
-/* Grid */
+/* Grid & Resizable Columns */
 
 .sheets-grid-wrap {
   display: flex;
   flex-direction: column;
+  overflow-x: auto;
+  max-width: 100%;
 }
 
 .sheets-row {
   display: grid;
   align-items: center;
   gap: 10px;
-  padding: 8px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--border-soft);
   font-size: 13px;
+  transition: background 0.1s ease;
+}
+
+.sheets-row:hover:not(.sheets-row--header) {
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .sheets-row--header {
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 10px;
+  border-bottom: 1.5px solid var(--border);
+  background: var(--bg-elevated-2);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  padding: 10px 10px;
 }
 
 .sheets-header-cell {
@@ -289,16 +345,52 @@
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  font-size: 10.5px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   color: var(--text-faint);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   position: relative;
+  user-select: none;
+  min-width: 0;
+}
+
+.sheets-header-cell-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sheets-header-cell--actions {
   justify-content: flex-end;
+}
+
+/* Resizer handle on column edge */
+.sheets-column-resizer {
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  right: -6px;
+  width: 12px;
+  cursor: col-resize;
+  user-select: none;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sheets-column-resizer::after {
+  content: '';
+  width: 2px;
+  height: 100%;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.sheets-column-resizer:hover::after,
+.sheets-column-resizer.is-resizing::after {
+  background: var(--accent);
 }
 
 .sheets-column-menu-trigger {
@@ -308,10 +400,13 @@
   cursor: pointer;
   padding: 2px;
   display: flex;
+  border-radius: 3px;
+  flex-shrink: 0;
 }
 
 .sheets-column-menu-trigger:hover {
   color: var(--text);
+  background: var(--bg-elevated-3);
 }
 
 .sheets-column-menu {
@@ -357,18 +452,26 @@
   border-color: rgba(239, 68, 68, 0.35);
 }
 
+/* Cells with clean truncation */
+
 .sheets-cell {
   color: var(--text-muted);
-  overflow-wrap: break-word;
-  cursor: text;
+  cursor: pointer;
   border-radius: 4px;
-  padding: 4px 6px;
-  margin: -4px -6px;
-  min-height: 22px;
+  padding: 5px 8px;
+  min-height: 24px;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  max-width: 100%;
+  transition: background 0.12s ease;
 }
 
 .sheets-cell:hover {
   background: var(--border-soft);
+  color: var(--text);
 }
 
 .sheets-cell--number {
@@ -378,6 +481,7 @@
 
 .sheets-cell--copied {
   background: var(--accent-soft) !important;
+  color: var(--text) !important;
 }
 
 .sheets-cell--editing {
@@ -390,7 +494,7 @@
 .sheets-cell--editing select {
   width: 100%;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 12.5px;
   padding: 4px 6px;
   border: 1px solid var(--accent);
   border-radius: var(--radius-sm);
@@ -416,16 +520,16 @@
 .sheets-empty-rows {
   color: var(--text-muted);
   font-size: 13px;
-  padding: 20px 8px;
+  padding: 24px 8px;
   text-align: center;
   border: 1px dashed var(--border);
   border-radius: var(--radius);
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 .sheets-add-row {
   align-self: flex-start;
-  margin-top: 12px;
+  margin-top: 14px;
 }
 
 .sheets-add-row svg {
@@ -433,26 +537,55 @@
   margin-right: 4px;
 }
 
-/* Import selection / card list */
+/* ---------- Enhanced Import Selection Screen ---------- */
+
+.sheets-import-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sheets-import-toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
 
 .sheets-card-list {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
 .sheets-card {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-elevated-2);
-  padding: 14px 16px;
+  padding: 16px 18px;
+  transition: all 0.15s ease;
+}
+
+.sheets-card.is-unselected {
+  opacity: 0.5;
+  background: var(--bg-elevated);
 }
 
 .sheets-card-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 6px;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.sheets-card-checkbox {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 .sheets-card-name-input {
@@ -460,59 +593,83 @@
   font-family: inherit;
   font-size: 14px;
   font-weight: 600;
-  padding: 6px 8px;
-  border: 1px solid transparent;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: transparent;
+  background: var(--bg-elevated);
   color: var(--text);
+  max-width: 320px;
 }
 
-.sheets-card-name-input:hover,
 .sheets-card-name-input:focus {
-  border-color: var(--border);
-  background: var(--bg-elevated);
+  border-color: var(--accent);
   outline: none;
 }
 
 .sheets-visibility-toggle {
   color: var(--text-faint);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  padding: 5px 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
 }
 
 .sheets-visibility-toggle.is-active {
   color: var(--accent);
+  border-color: var(--accent-soft);
+  background: var(--accent-soft);
 }
 
 .sheets-card-meta {
   font-size: 11.5px;
   color: var(--text-faint);
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
-.sheets-preview {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 11.5px;
+.sheets-preview-table-wrap {
   overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
 }
 
-.sheets-preview-row {
-  display: flex;
-  gap: 12px;
+.sheets-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+  text-align: left;
 }
 
-.sheets-preview-row span {
-  min-width: 100px;
-  color: var(--text-muted);
+.sheets-preview-table th {
+  background: var(--bg-elevated-3);
+  color: var(--text-faint);
+  font-weight: 700;
+  padding: 7px 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border-soft);
   white-space: nowrap;
 }
 
-.sheets-preview-row--header span {
-  color: var(--text-faint);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  font-size: 10px;
+.sheets-preview-table td {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  border-right: 1px solid var(--border-soft);
+  color: var(--text-muted);
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheets-preview-table tr:last-child td {
+  border-bottom: none;
 }
 
 /* Visibility manager modal */

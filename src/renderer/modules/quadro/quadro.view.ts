@@ -7,7 +7,7 @@ import type {
 } from '../../../shared/types/quadro.types';
 import * as quadroState from './quadro.state.js';
 import * as kanbanState from '../kanban/kanban.state.js';
-import { openFormModal, promptText } from '../../ui/modal.js';
+import { openFormModal, promptText, openConfirmModal } from '../../ui/modal.js';
 
 interface Rect {
   x: number;
@@ -48,9 +48,9 @@ const WEEKDAY_SHORT = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 const WEEKDAY_FULL = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
 const WEEKDAY_FULL_LOWER = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const DEFAULT_BLOCK_SIZE: Record<QuadroBlockType, { width: number; height: number }> = {
-  nota: { width: 240, height: 140 },
-  tarefa: { width: 240, height: 150 },
-  rotina: { width: 260, height: 170 },
+  nota: { width: 260, height: 165 },
+  tarefa: { width: 270, height: 175 },
+  rotina: { width: 280, height: 185 },
 };
 
 let viewportEl: HTMLElement | null = null;
@@ -617,8 +617,94 @@ function cycleStatus(block: QuadroBlock): QuadroBlockStatus | null {
 }
 
 async function handleDeleteBlock(block: QuadroBlock): Promise<void> {
-  if (!window.confirm(`Excluir o bloco "${block.title}"?`)) return;
+  const confirmed = await openConfirmModal({
+    title: 'Excluir bloco',
+    message: `Excluir o bloco "${block.title || 'Sem título'}"? Essa ação não pode ser desfeita.`,
+    confirmText: 'Excluir bloco',
+  });
+  if (!confirmed) return;
   await quadroState.deleteBlock(block.id);
+}
+
+async function openEditBlockModal(block: QuadroBlock): Promise<void> {
+  if (block.type === 'tarefa') {
+    const result = await openFormModal(
+      'Editar tarefa',
+      [
+        { name: 'title', label: 'Título da tarefa', type: 'text', defaultValue: block.title },
+        { name: 'content', label: 'Descrição / Detalhes', type: 'textarea', defaultValue: block.content ?? '', placeholder: 'Detalhes ou notas da tarefa...' },
+        {
+          name: 'status',
+          label: 'Status',
+          type: 'select',
+          defaultValue: block.status ?? 'todo',
+          options: [
+            { value: 'todo', label: 'A fazer' },
+            { value: 'doing', label: 'Em progresso' },
+            { value: 'done', label: 'Concluído' },
+          ],
+        },
+        { name: 'assignee', label: 'Responsável (iniciais)', type: 'text', defaultValue: block.assignee ?? '', placeholder: 'Ex: MR' },
+      ],
+      'Salvar alterações',
+    );
+    if (!result) return;
+    await quadroState.updateBlock({
+      blockId: block.id,
+      title: result.title.trim() || block.title,
+      content: result.content.trim() || undefined,
+      status: (result.status as QuadroBlockStatus) || 'todo',
+      assignee: result.assignee.trim() || undefined,
+    });
+    return;
+  }
+
+  if (block.type === 'nota') {
+    const result = await openFormModal(
+      'Editar nota',
+      [
+        { name: 'content', label: 'Conteúdo da nota', type: 'textarea', defaultValue: block.content ?? block.title, placeholder: 'Escreva sua ideia ou anotação...' },
+        { name: 'assignee', label: 'Autor (iniciais)', type: 'text', defaultValue: block.assignee ?? '', placeholder: 'Ex: GA' },
+      ],
+      'Salvar alterações',
+    );
+    if (!result || !result.content.trim()) return;
+    await quadroState.updateBlock({
+      blockId: block.id,
+      title: result.content.trim().slice(0, 60),
+      content: result.content.trim(),
+      assignee: result.assignee.trim() || undefined,
+    });
+    return;
+  }
+
+  if (block.type === 'rotina') {
+    const result = await openFormModal(
+      'Editar rotina',
+      [
+        { name: 'title', label: 'Nome da rotina', type: 'text', defaultValue: block.title },
+        { name: 'days', label: 'Dias da semana', type: 'weekdays', defaultValue: (block.routineDays ?? [1, 2, 3, 4, 5]).join(',') },
+        { name: 'time', label: 'Horário', type: 'time', defaultValue: block.routineTime || '18:00' },
+        { name: 'streak', label: 'Contagem de dias seguidos (Streak)', type: 'text', defaultValue: String(block.streakCount ?? 0) },
+      ],
+      'Salvar alterações',
+    );
+    if (!result || !result.title.trim()) return;
+    const routineDays = result.days
+      ? result.days
+          .split(',')
+          .filter((v) => v !== '')
+          .map(Number)
+      : [];
+    const streakCount = Math.max(0, parseInt(result.streak, 10) || 0);
+    await quadroState.updateBlock({
+      blockId: block.id,
+      title: result.title.trim(),
+      routineDays,
+      routineTime: result.time || undefined,
+      streakCount,
+    });
+  }
 }
 
 function buildBlockMenu(block: QuadroBlock): HTMLElement {
@@ -642,6 +728,17 @@ function buildBlockMenu(block: QuadroBlock): HTMLElement {
   const menu = document.createElement('div');
   menu.className = 'quadro-block-menu';
   menu.addEventListener('mousedown', (e) => e.stopPropagation());
+
+  const editItem = document.createElement('button');
+  editItem.type = 'button';
+  editItem.className = 'quadro-block-menu-item';
+  editItem.textContent = 'Editar bloco';
+  editItem.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeAllBlockMenus();
+    void openEditBlockModal(block);
+  });
+  menu.appendChild(editItem);
 
   const deleteItem = document.createElement('button');
   deleteItem.type = 'button';
@@ -673,8 +770,14 @@ function buildBlockElement(block: QuadroBlock): HTMLElement {
 
   el.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
-    if (target.closest('input, textarea, button')) return;
+    if (target.closest('button, .quadro-connect-handle')) return;
     selectBlock(selectedBlockId === block.id ? null : block.id);
+  });
+
+  el.addEventListener('dblclick', (e) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('button, .quadro-connect-handle')) return;
+    void openEditBlockModal(block);
   });
 
   // Connection handles live directly on the outer element (not the clipped
@@ -694,10 +797,6 @@ function buildBlockElement(block: QuadroBlock): HTMLElement {
 
   const inner = document.createElement('div');
   inner.className = 'quadro-block-inner';
-  // Dragging starts from anywhere on the card body, not just the header —
-  // every interactive child (inputs, buttons, day toggles, menu) already
-  // calls stopPropagation() on its own mousedown, so this only fires when
-  // clicking the card's empty background.
   inner.addEventListener('mousedown', (e) => {
     e.stopPropagation();
     const rect = blockRects.get(block.id);
@@ -740,57 +839,86 @@ function buildBlockElement(block: QuadroBlock): HTMLElement {
   }
 
   header.appendChild(leftGroup);
-  header.appendChild(buildBlockMenu(block));
+
+  const rightGroup = document.createElement('div');
+  rightGroup.className = 'quadro-block-header-right';
+
+  if (block.type === 'rotina' && block.routineTime) {
+    const timeBadge = document.createElement('span');
+    timeBadge.className = 'quadro-routine-time-badge';
+    timeBadge.textContent = `⏰ ${block.routineTime}`;
+    rightGroup.appendChild(timeBadge);
+  }
+
+  const editBtn = document.createElement('button');
+  editBtn.type = 'button';
+  editBtn.className = 'btn-icon quadro-block-edit-btn';
+  editBtn.title = 'Editar bloco (duplo clique)';
+  editBtn.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+  editBtn.addEventListener('mousedown', (e) => e.stopPropagation());
+  editBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    void openEditBlockModal(block);
+  });
+  rightGroup.appendChild(editBtn);
+
+  rightGroup.appendChild(buildBlockMenu(block));
+  header.appendChild(rightGroup);
   inner.appendChild(header);
 
   if (block.type !== 'nota') {
-    const titleInput = document.createElement('input');
-    titleInput.className = 'quadro-block-title';
-    titleInput.value = block.title;
-    titleInput.addEventListener('mousedown', (e) => e.stopPropagation());
-    titleInput.addEventListener('change', () => {
-      void quadroState.updateBlock({ blockId: block.id, title: titleInput.value });
-    });
-    inner.appendChild(titleInput);
+    const titleView = document.createElement('div');
+    titleView.className = 'quadro-block-title-view';
+    titleView.textContent = block.title || '(Sem título)';
+    if (!block.title) titleView.classList.add('is-empty');
+    inner.appendChild(titleView);
   }
 
   if (block.type === 'tarefa') {
-    const contentArea = document.createElement('textarea');
-    contentArea.className = 'quadro-block-content';
-    contentArea.value = block.content ?? '';
-    contentArea.placeholder = 'Escreva aqui...';
-    contentArea.addEventListener('mousedown', (e) => e.stopPropagation());
-    contentArea.addEventListener('change', () => {
-      void quadroState.updateBlock({ blockId: block.id, content: contentArea.value });
-    });
-    inner.appendChild(contentArea);
+    const contentView = document.createElement('div');
+    contentView.className = 'quadro-block-content-view';
+    contentView.textContent = block.content || '(Sem descrição - duplo clique para editar)';
+    if (!block.content) contentView.classList.add('is-empty');
+    inner.appendChild(contentView);
+
+    const footer = document.createElement('div');
+    footer.className = 'quadro-block-footer quadro-task-footer';
+
+    const hint = document.createElement('span');
+    hint.className = 'quadro-task-hint';
+    hint.textContent = 'Duplo clique p/ editar';
+    footer.appendChild(hint);
 
     const avatar = document.createElement('button');
     avatar.type = 'button';
     avatar.className = 'quadro-avatar';
-    avatar.textContent = block.assignee ? block.assignee.trim().slice(0, 2).toUpperCase() : '+';
+    const avatarIcon = document.createElement('span');
+    avatarIcon.className = 'quadro-avatar-icon';
+    avatarIcon.textContent = '👤';
+    avatar.appendChild(avatarIcon);
+
+    const avatarText = document.createElement('span');
+    avatarText.className = 'quadro-avatar-text';
+    avatarText.textContent = block.assignee ? block.assignee.trim().slice(0, 3).toUpperCase() : '+ Resp';
+    avatar.appendChild(avatarText);
+
     avatar.title = block.assignee ? `Responsável: ${block.assignee}` : 'Definir responsável';
     avatar.addEventListener('mousedown', (e) => e.stopPropagation());
-    avatar.addEventListener('click', async (e) => {
+    avatar.addEventListener('click', (e) => {
       e.stopPropagation();
-      const value = await promptText('Responsável', 'Iniciais', block.assignee ?? '');
-      if (value === null) return;
-      void quadroState.updateBlock({ blockId: block.id, assignee: value.trim() });
+      void openEditBlockModal(block);
     });
-    inner.appendChild(avatar);
+    footer.appendChild(avatar);
+    inner.appendChild(footer);
   } else if (block.type === 'nota') {
-    const contentArea = document.createElement('textarea');
-    contentArea.className = 'quadro-block-content quadro-block-content--nota';
-    contentArea.value = block.content ?? '';
-    contentArea.placeholder = 'Escreva aqui...';
-    contentArea.addEventListener('mousedown', (e) => e.stopPropagation());
-    contentArea.addEventListener('change', () => {
-      void quadroState.updateBlock({ blockId: block.id, content: contentArea.value });
-    });
-    inner.appendChild(contentArea);
+    const contentView = document.createElement('div');
+    contentView.className = 'quadro-block-content-view quadro-block-content-view--nota';
+    contentView.textContent = block.content || '(Nota vazia - duplo clique para editar)';
+    if (!block.content) contentView.classList.add('is-empty');
+    inner.appendChild(contentView);
 
     const footer = document.createElement('div');
-    footer.className = 'quadro-nota-footer';
+    footer.className = 'quadro-block-footer quadro-nota-footer';
 
     const editedSpan = document.createElement('span');
     editedSpan.textContent = `editado ${relativeTimeLabel(block.updatedAt)}`;
@@ -801,11 +929,9 @@ function buildBlockElement(block: QuadroBlock): HTMLElement {
     authorBtn.className = 'quadro-nota-author';
     authorBtn.textContent = block.assignee ? `· ${block.assignee}` : '· + autor';
     authorBtn.addEventListener('mousedown', (e) => e.stopPropagation());
-    authorBtn.addEventListener('click', async (e) => {
+    authorBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const value = await promptText('Autor', 'Iniciais', block.assignee ?? '');
-      if (value === null) return;
-      void quadroState.updateBlock({ blockId: block.id, assignee: value.trim() });
+      void openEditBlockModal(block);
     });
     footer.appendChild(authorBtn);
 
@@ -833,14 +959,14 @@ function buildBlockElement(block: QuadroBlock): HTMLElement {
     inner.appendChild(daysRow);
 
     const footer = document.createElement('div');
-    footer.className = 'quadro-routine-footer';
+    footer.className = 'quadro-block-footer quadro-routine-footer';
 
     const streak = block.streakCount ?? 0;
     const streakBtn = document.createElement('button');
     streakBtn.type = 'button';
     streakBtn.className = 'quadro-routine-streak';
-    streakBtn.textContent = `${streak} dia${streak === 1 ? '' : 's'} seguido${streak === 1 ? '' : 's'}`;
-    streakBtn.title = 'Marcar mais um dia seguido';
+    streakBtn.textContent = `🔥 ${streak} dia${streak === 1 ? '' : 's'}`;
+    streakBtn.title = 'Marcar mais um dia seguido (+1)';
     streakBtn.addEventListener('mousedown', (e) => e.stopPropagation());
     streakBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -849,7 +975,7 @@ function buildBlockElement(block: QuadroBlock): HTMLElement {
     footer.appendChild(streakBtn);
 
     const nextSpan = document.createElement('span');
-    nextSpan.textContent = ` · próxima ${nextOccurrenceLabel(block.routineDays, block.routineTime)}`;
+    nextSpan.textContent = ` · ${nextOccurrenceLabel(block.routineDays, block.routineTime)}`;
     footer.appendChild(nextSpan);
 
     inner.appendChild(footer);
@@ -1063,11 +1189,18 @@ export function render(container: HTMLElement, state: QuadroFile): void {
   const floatingToolbar = document.createElement('div');
   floatingToolbar.className = 'quadro-floating-toolbar';
 
+  const TYPE_ICONS: Record<QuadroBlockType, string> = {
+    nota: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+    tarefa: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+    rotina: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
+  };
+
   (['nota', 'tarefa', 'rotina'] as QuadroBlockType[]).forEach((type) => {
     const count = state.blocks.filter((b) => b.type === type).length;
     const btn = document.createElement('button');
+    btn.type = 'button';
     btn.className = `btn btn-secondary quadro-toolbar-type quadro-toolbar-type--${type}`;
-    btn.textContent = count > 0 ? `+ ${BLOCK_TYPE_LABELS[type]} ${count}` : `+ ${BLOCK_TYPE_LABELS[type]}`;
+    btn.innerHTML = `${TYPE_ICONS[type]} <span>+ ${BLOCK_TYPE_LABELS[type]}${count > 0 ? ` (${count})` : ''}</span>`;
     btn.addEventListener('click', () => void handleAddBlock(type));
     floatingToolbar.appendChild(btn);
   });
@@ -1077,8 +1210,9 @@ export function render(container: HTMLElement, state: QuadroFile): void {
   floatingToolbar.appendChild(divider);
 
   const sendKanbanBtn = document.createElement('button');
+  sendKanbanBtn.type = 'button';
   sendKanbanBtn.className = 'btn quadro-send-kanban';
-  sendKanbanBtn.textContent = 'Mandar p/ Kanban';
+  sendKanbanBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg><span>Mandar p/ Kanban</span>';
   sendKanbanBtn.disabled = selectedBlockId === null;
   sendKanbanBtn.addEventListener('click', () => void handleSendToKanban());
   floatingToolbar.appendChild(sendKanbanBtn);

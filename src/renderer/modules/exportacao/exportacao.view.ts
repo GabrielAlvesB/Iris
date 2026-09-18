@@ -1,5 +1,7 @@
 import type { IpcResult } from '../../../shared/types/common.types';
 import type { FileOpResult } from '../../../shared/types/export.types';
+import type {} from '../../../shared/types/preload-api.types';
+import { openConfirmModal } from '../../ui/modal.js';
 
 let statusEl: HTMLElement | null = null;
 
@@ -46,9 +48,11 @@ async function handleExportArquivosCsv(): Promise<void> {
 }
 
 async function handleImportAll(): Promise<void> {
-  const confirmed = window.confirm(
-    'Importar vai SUBSTITUIR todos os dados atuais (Kanban, Quadro, Arquivos, Sheets e Links) pelo conteúdo do arquivo escolhido. Deseja continuar?',
-  );
+  const confirmed = await openConfirmModal({
+    title: 'Substituir dados atuais?',
+    message: 'Importar vai SUBSTITUIR todos os dados atuais (Kanban, Quadro, Arquivos, Sheets e Links) pelo conteúdo do arquivo escolhido. Deseja continuar?',
+    confirmText: 'Importar e substituir',
+  });
   if (!confirmed) return;
 
   await runAction(

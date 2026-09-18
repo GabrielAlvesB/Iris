@@ -2,6 +2,7 @@ import type { ArquivosFile, WhitelistItem } from '../../../shared/types/arquivos
 import * as arquivosState from './arquivos.state.js';
 import * as kanbanState from '../kanban/kanban.state.js';
 import * as exportacaoView from '../exportacao/exportacao.view.js';
+import { openConfirmModal } from '../../ui/modal.js';
 
 type FilterTab = 'todos' | 'documentos' | 'imagens' | 'ligados';
 
@@ -67,7 +68,12 @@ function matchesFilter(item: WhitelistItem, filter: FilterTab): boolean {
 }
 
 async function handleDelete(item: WhitelistItem): Promise<void> {
-  if (!window.confirm(`Remover "${item.fileName}" da lista?`)) return;
+  const confirmed = await openConfirmModal({
+    title: 'Remover arquivo',
+    message: `Remover "${item.fileName}" da lista de arquivos?`,
+    confirmText: 'Remover',
+  });
+  if (!confirmed) return;
   await arquivosState.deleteItem(item.id);
 }
 

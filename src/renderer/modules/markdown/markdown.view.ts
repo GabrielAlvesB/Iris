@@ -2,7 +2,7 @@ import type { MarkdownConfig, MarkdownFileMeta } from '../../../shared/types/mar
 import * as markdownState from './markdown.state.js';
 import * as kanbanState from '../kanban/kanban.state.js';
 import { renderMarkdownToHtml } from './markdown.render.js';
-import { promptText } from '../../ui/modal.js';
+import { promptText, openConfirmModal } from '../../ui/modal.js';
 
 type ViewMode = 'escrever' | 'dividido' | 'ler';
 
@@ -55,7 +55,13 @@ function formatRelativeTime(iso: string): string {
 
 async function ensureSafeToLeave(): Promise<boolean> {
   if (!isDirty()) return true;
-  return window.confirm('Você tem alterações não salvas neste arquivo. Descartar e continuar?');
+  return await openConfirmModal({
+    title: 'Descartar alterações?',
+    message: 'Você tem alterações não salvas neste arquivo. Descartar e continuar?',
+    confirmText: 'Descartar alterações',
+    cancelText: 'Voltar ao arquivo',
+    danger: true,
+  });
 }
 
 async function handleSelectFile(path: string): Promise<void> {
@@ -135,17 +141,23 @@ function buildToolbar(getTextarea: () => HTMLTextAreaElement | null): HTMLElemen
   const toolbar = document.createElement('div');
   toolbar.className = 'markdown-toolbar';
 
-  const buttons: Array<[string, string, () => void]> = [
-    ['H1', 'Título', () => insertLinePrefix(getTextarea()!, '# ')],
-    ['B', 'Negrito', () => insertAtCursor(getTextarea()!, '**', '**', 'texto')],
-    ['i', 'Itálico', () => insertAtCursor(getTextarea()!, '_', '_', 'texto')],
-    ['lista', 'Lista', () => insertLinePrefix(getTextarea()!, '- ')],
-    ['link', 'Link', () => insertAtCursor(getTextarea()!, '[', '](https://)', 'texto')],
-    ['código', 'Código', () => insertAtCursor(getTextarea()!, '`', '`', 'código')],
-    ['tabela', 'Tabela', () => insertAtCursor(getTextarea()!, '\n| Coluna 1 | Coluna 2 |\n| --- | --- |\n| valor | valor |\n', '', '')],
+  const buttons: Array<{ label: string; title: string; action: () => void }> = [
+    { label: 'H1', title: 'Título 1', action: () => insertLinePrefix(getTextarea()!, '# ') },
+    { label: 'H2', title: 'Título 2', action: () => insertLinePrefix(getTextarea()!, '## ') },
+    { label: 'B', title: 'Negrito (**texto**)', action: () => insertAtCursor(getTextarea()!, '**', '**', 'texto') },
+    { label: 'I', title: 'Itálico (*texto*)', action: () => insertAtCursor(getTextarea()!, '*', '*', 'texto') },
+    { label: 'S', title: 'Tachado (~~texto~~)', action: () => insertAtCursor(getTextarea()!, '~~', '~~', 'texto') },
+    { label: '• Lista', title: 'Lista com marcadores', action: () => insertLinePrefix(getTextarea()!, '- ') },
+    { label: '☑ Tarefas', title: 'Lista de tarefas (- [ ])', action: () => insertLinePrefix(getTextarea()!, '- [ ] ') },
+    { label: '“ Citação', title: 'Citação (> )', action: () => insertLinePrefix(getTextarea()!, '> ') },
+    { label: '` Código', title: 'Código inline', action: () => insertAtCursor(getTextarea()!, '`', '`', 'código') },
+    { label: '``` Bloco', title: 'Bloco de código', action: () => insertAtCursor(getTextarea()!, '```\n', '\n```', 'código') },
+    { label: '⊞ Tabela', title: 'Tabela Markdown', action: () => insertAtCursor(getTextarea()!, '\n| Coluna 1 | Coluna 2 |\n| --- | --- |\n| Item A | Valor 1 |\n| Item B | Valor 2 |\n', '', '') },
+    { label: '🔗 Link', title: 'Inserir link', action: () => insertAtCursor(getTextarea()!, '[', '](https://)', 'texto') },
+    { label: '— Linha', title: 'Divisor horizontal', action: () => insertAtCursor(getTextarea()!, '\n---\n', '', '') },
   ];
 
-  buttons.forEach(([label, title, action]) => {
+  buttons.forEach(({ label, title, action }) => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'markdown-toolbar-btn';
@@ -164,7 +176,7 @@ function buildToolbar(getTextarea: () => HTMLTextAreaElement | null): HTMLElemen
 
   const pureLabel = document.createElement('span');
   pureLabel.className = 'markdown-toolbar-hint';
-  pureLabel.textContent = 'markdown puro';
+  pureLabel.textContent = 'markdown live';
   toolbar.appendChild(pureLabel);
 
   return toolbar;
@@ -226,7 +238,7 @@ function buildSidebar(config: MarkdownConfig): HTMLElement {
 
   const newBtn = document.createElement('button');
   newBtn.className = 'btn';
-  newBtn.textContent = 'Novo';
+  newBtn.textContent = '+ Novo';
   newBtn.addEventListener('click', () => void handleNewFile());
   headerActions.appendChild(newBtn);
 
@@ -237,7 +249,7 @@ function buildSidebar(config: MarkdownConfig): HTMLElement {
   searchWrap.className = 'markdown-search';
   const searchInput = document.createElement('input');
   searchInput.type = 'text';
-  searchInput.placeholder = 'Buscar nos arquivos';
+  searchInput.placeholder = '🔍 Buscar nos arquivos...';
   searchInput.value = searchQuery;
   searchInput.addEventListener('input', () => {
     searchQuery = searchInput.value;
@@ -278,15 +290,25 @@ function buildSidebar(config: MarkdownConfig): HTMLElement {
       item.className = 'markdown-file-item';
       item.classList.toggle('active', file.path === selectedPath);
 
+      const iconEl = document.createElement('span');
+      iconEl.className = 'markdown-file-icon';
+      iconEl.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+      item.appendChild(iconEl);
+
+      const contentWrap = document.createElement('div');
+      contentWrap.className = 'markdown-file-content';
+
       const nameEl = document.createElement('div');
       nameEl.className = 'markdown-file-name';
       nameEl.textContent = file.name.replace(/\.md$/, '');
-      item.appendChild(nameEl);
+      contentWrap.appendChild(nameEl);
 
       const metaEl = document.createElement('div');
       metaEl.className = 'markdown-file-meta';
       metaEl.textContent = formatRelativeTime(file.mtime);
-      item.appendChild(metaEl);
+      contentWrap.appendChild(metaEl);
+
+      item.appendChild(contentWrap);
 
       item.addEventListener('click', () => void handleSelectFile(file.path));
       groupEl.appendChild(item);
@@ -301,7 +323,7 @@ function buildSidebar(config: MarkdownConfig): HTMLElement {
   footer.className = 'markdown-sidebar-footer';
   const chooseBtn = document.createElement('button');
   chooseBtn.className = 'btn btn-secondary';
-  chooseBtn.textContent = 'Abrir outra pasta...';
+  chooseBtn.textContent = '📁 Abrir outra pasta...';
   chooseBtn.addEventListener('click', () => void handleChooseFolder());
   footer.appendChild(chooseBtn);
 
@@ -348,12 +370,17 @@ function buildMain(config: MarkdownConfig): HTMLElement {
 
   const modeTabs = document.createElement('div');
   modeTabs.className = 'markdown-mode-tabs';
-  (['escrever', 'dividido', 'ler'] as ViewMode[]).forEach((mode) => {
+  const MODES: Array<{ mode: ViewMode; label: string; icon: string }> = [
+    { mode: 'escrever', label: 'Escrever', icon: '✏️' },
+    { mode: 'dividido', label: 'Dividido', icon: '◫' },
+    { mode: 'ler', label: 'Visualizar', icon: '👁️' },
+  ];
+  MODES.forEach(({ mode, label, icon }) => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'markdown-mode-tab';
     btn.classList.toggle('active', viewMode === mode);
-    btn.textContent = mode === 'escrever' ? 'Escrever' : mode === 'dividido' ? 'Dividido' : 'Ler';
+    btn.innerHTML = `<span>${icon}</span> <span>${label}</span>`;
     btn.addEventListener('click', () => {
       viewMode = mode;
       renderAll();
@@ -368,7 +395,7 @@ function buildMain(config: MarkdownConfig): HTMLElement {
   const dirtyBadge = document.createElement('span');
   dirtyBadge.className = 'markdown-dirty-badge';
   dirtyBadge.hidden = !isDirty();
-  dirtyBadge.textContent = 'alterações não salvas';
+  dirtyBadge.textContent = '● alterações não salvas';
   headerActions.appendChild(dirtyBadge);
 
   const exportBtn = document.createElement('button');

@@ -1,83 +1,22 @@
+/* ==========================================================================
+   QUADRO (CANVAS / WHITEBOARD) - Solid Crisp Cards & Modal Editing
+   ========================================================================== */
+
 .quadro-shell {
   position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
-}
-
-.quadro-floating-toolbar {
-  position: absolute;
-  left: 50%;
-  bottom: 34px;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 6px 8px;
-  box-shadow: var(--shadow);
-  z-index: 20;
-}
-
-.quadro-toolbar-type {
-  border-radius: 999px !important;
-  font-size: 12px;
-}
-
-.quadro-toolbar-divider {
-  width: 1px;
-  height: 20px;
-  background: var(--border);
-}
-
-.quadro-send-kanban {
-  border-radius: 999px !important;
-}
-
-.quadro-send-kanban:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.quadro-minimap {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  background: rgba(20, 22, 28, 0.85);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
   overflow: hidden;
-  z-index: 5;
 }
 
-.quadro-minimap.is-empty {
-  display: none;
-}
-
-.quadro-minimap-block {
-  position: absolute;
-  border-radius: 2px;
-  background: var(--text-faint);
-}
-
-.quadro-minimap-block--tarefa { background: var(--accent); }
-.quadro-minimap-block--rotina { background: var(--success); }
-.quadro-minimap-block--nota { background: var(--warning); }
-
-.quadro-minimap-viewport {
-  position: absolute;
-  border: 1px solid var(--text);
-  background: rgba(255, 255, 255, 0.06);
-  pointer-events: none;
-}
+/* ---------- Header ---------- */
 
 .quadro-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 14px;
+  margin-bottom: 14px;
   flex-wrap: wrap;
   flex-shrink: 0;
 }
@@ -85,25 +24,33 @@
 .quadro-header h1 {
   font-family: 'Space Grotesk', var(--font-sans);
   font-weight: 700;
-  font-size: 21px;
+  font-size: 22px;
   margin: 0;
   color: var(--text);
+  letter-spacing: -0.01em;
 }
 
 .quadro-board-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);
-  background: var(--bg-elevated-2);
+  background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 4px 12px;
+  padding: 5px 14px;
   cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 .quadro-board-badge:hover {
   border-color: var(--accent);
   color: var(--text);
+  background: var(--bg-elevated-2);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .quadro-header-spacer {
@@ -111,9 +58,14 @@
 }
 
 .quadro-zoom-readout {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
+  font-weight: 600;
   color: var(--text-faint);
+  background: var(--bg-elevated);
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-soft);
 }
 
 .quadro-shortcuts-wrap {
@@ -125,12 +77,12 @@
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  width: 240px;
+  width: 260px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 10px 12px;
+  padding: 12px 14px;
   z-index: 30;
 }
 
@@ -139,15 +91,18 @@
 }
 
 .quadro-shortcuts-item {
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--text-muted);
-  padding: 4px 0;
+  padding: 6px 0;
   border-bottom: 1px solid var(--border-soft);
+  line-height: 1.4;
 }
 
 .quadro-shortcuts-item:last-child {
   border-bottom: none;
 }
+
+/* ---------- Viewport & Canvas ---------- */
 
 .quadro-viewport {
   position: relative;
@@ -156,11 +111,12 @@
   min-height: 0;
   overflow: hidden;
   background: var(--bg);
-  background-image: radial-gradient(var(--border) 1px, transparent 1px);
-  background-size: 24px 24px;
+  background-image: radial-gradient(var(--border) 1.2px, transparent 1.2px);
+  background-size: 28px 28px;
   border: 1px solid var(--border-soft);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   cursor: grab;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 .quadro-viewport:active {
@@ -180,6 +136,8 @@
   cursor: crosshair;
 }
 
+/* ---------- SVG Connections Layer ---------- */
+
 .quadro-connections {
   position: absolute;
   top: 0;
@@ -192,20 +150,24 @@
 
 .quadro-connection-line {
   fill: none;
-  stroke: var(--text-faint);
-  stroke-width: 1.8;
-  transition: stroke 0.15s ease, stroke-width 0.15s ease;
+  stroke: var(--accent);
+  stroke-opacity: 0.75;
+  stroke-width: 2.2;
+  transition: stroke 0.15s ease, stroke-width 0.15s ease, stroke-opacity 0.15s ease;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
 }
 
 .quadro-connection-line.is-hovered {
-  stroke: var(--accent);
-  stroke-width: 2.4;
+  stroke: #ffffff;
+  stroke-opacity: 1;
+  stroke-width: 2.8;
+  filter: drop-shadow(0 0 10px var(--accent));
 }
 
 .quadro-connection-hit {
   fill: none;
   stroke: transparent;
-  stroke-width: 16;
+  stroke-width: 20;
   pointer-events: stroke;
   cursor: pointer;
 }
@@ -213,10 +175,11 @@
 .quadro-connection-preview {
   fill: none;
   stroke: var(--accent);
-  stroke-width: 2;
+  stroke-width: 2.2;
   stroke-dasharray: 6 5;
   pointer-events: none;
   animation: quadro-dash-flow 0.6s linear infinite;
+  filter: drop-shadow(0 0 8px var(--accent));
 }
 
 @keyframes quadro-dash-flow {
@@ -226,126 +189,169 @@
 }
 
 .quadro-arrow-head {
-  fill: var(--text-faint);
-  fill: context-stroke;
+  fill: var(--accent);
+  fill-opacity: 0.9;
+  transition: fill-opacity 0.15s ease, fill 0.15s ease;
+}
+
+.quadro-arrow-head--preview {
+  fill: var(--accent);
+  fill-opacity: 1;
 }
 
 .connection-delete {
   position: absolute;
-  z-index: 5;
+  z-index: 10;
   transform: translate(-50%, -50%);
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   border: 1px solid var(--border);
-  background: var(--bg-elevated-2);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
-  font-size: 10px;
+  background: var(--bg-elevated);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  font-size: 11px;
   line-height: 1;
   cursor: pointer;
   color: var(--text-muted);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
 .connection-delete.is-visible {
   opacity: 1;
   pointer-events: auto;
+  transform: translate(-50%, -50%) scale(1);
 }
 
 .connection-delete:hover {
-  background: var(--danger-soft);
-  color: var(--danger);
+  background: var(--danger);
+  color: #ffffff;
   border-color: var(--danger);
+  transform: translate(-50%, -50%) scale(1.15);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.6);
 }
+
+/* ---------- Canvas Blocks (Cards - Solid Crisp Look) ---------- */
 
 .quadro-block {
   position: absolute;
-  z-index: 1;
+  z-index: 2;
+  user-select: none;
+  cursor: pointer;
+}
+
+.quadro-block.is-selected {
+  z-index: 4;
 }
 
 .quadro-block-inner {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--bg-elevated-2);
+  background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--warning);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3);
   overflow: hidden;
-  transition: box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
-.quadro-block--tarefa .quadro-block-inner {
-  border-left-color: var(--accent);
-}
-
-.quadro-block--nota .quadro-block-inner {
-  background: var(--warning-soft);
-  border-color: rgba(245, 158, 11, 0.3);
-}
-
-.quadro-block--rotina .quadro-block-inner {
-  border-left-color: var(--success);
-  background: var(--success-soft);
-  border-color: rgba(34, 197, 94, 0.3);
+.quadro-block:hover .quadro-block-inner {
+  border-color: var(--border-soft);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
 }
 
 .quadro-block.is-selected .quadro-block-inner {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent), 0 12px 36px rgba(0, 0, 0, 0.6);
 }
 
 .quadro-block.is-connect-source .quadro-block-inner {
-  outline: 2px dashed var(--accent);
-  outline-offset: 3px;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
 }
 
 .quadro-block.is-drop-target .quadro-block-inner {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-  box-shadow: 0 0 0 6px var(--accent-soft), 0 4px 12px rgba(0, 0, 0, 0.35);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent), 0 0 20px var(--accent);
+  transform: scale(1.02);
 }
+
+/* ---------- Card Type Specific Colors (Solid/High-Contrast) ---------- */
+
+/* Tarefa (Task) */
+.quadro-block--tarefa .quadro-block-inner {
+  border-top: 3.5px solid var(--accent);
+  background: var(--bg-elevated);
+}
+
+/* Nota (Sticky Note) */
+.quadro-block--nota .quadro-block-inner {
+  border-top: 3.5px solid var(--warning);
+  background: #181612;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.quadro-block--nota:hover .quadro-block-inner {
+  border-color: rgba(245, 158, 11, 0.5);
+}
+
+/* Rotina (Habit / Routine) */
+.quadro-block--rotina .quadro-block-inner {
+  border-top: 3.5px solid var(--success);
+  background: #121815;
+  border-color: rgba(34, 197, 94, 0.28);
+}
+
+.quadro-block--rotina:hover .quadro-block-inner {
+  border-color: rgba(34, 197, 94, 0.45);
+}
+
+/* ---------- Connect Handles ---------- */
 
 .quadro-connect-handle {
   position: absolute;
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   padding: 0;
   background: var(--bg-elevated);
   border: 2px solid var(--accent);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5), 0 0 8px var(--accent);
   opacity: 0;
-  transform: scale(0.5);
-  transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease;
+  transform: scale(0.6);
+  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease;
   cursor: crosshair;
-  z-index: 4;
+  z-index: 6;
 }
 
 .quadro-connect-handle--top {
-  top: -6px;
+  top: -7px;
   left: 50%;
-  margin-left: -6px;
+  margin-left: -7px;
 }
 
 .quadro-connect-handle--bottom {
-  bottom: -6px;
+  bottom: -7px;
   left: 50%;
-  margin-left: -6px;
+  margin-left: -7px;
 }
 
 .quadro-connect-handle--left {
-  left: -6px;
+  left: -7px;
   top: 50%;
-  margin-top: -6px;
+  margin-top: -7px;
 }
 
 .quadro-connect-handle--right {
-  right: -6px;
+  right: -7px;
   top: 50%;
-  margin-top: -6px;
+  margin-top: -7px;
 }
 
 .quadro-block:hover .quadro-connect-handle {
@@ -355,7 +361,8 @@
 
 .quadro-connect-handle:hover {
   background: var(--accent);
-  transform: scale(1.3);
+  transform: scale(1.35);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.6), 0 0 14px var(--accent);
 }
 
 .quadro-canvas.connecting .quadro-connect-handle {
@@ -363,28 +370,46 @@
   pointer-events: none;
 }
 
+/* ---------- Block Header ---------- */
+
 .quadro-block-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 8px;
+  padding: 8px 12px 6px;
+  background: var(--bg-elevated-2);
+  border-bottom: 1px solid var(--border-soft);
   cursor: grab;
-  background: rgba(255, 255, 255, 0.03);
 }
 
 .quadro-block-header:active {
   cursor: grabbing;
 }
 
+.quadro-block-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.quadro-block-header-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
 .quadro-block-type {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 10px;
+  gap: 6px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  color: var(--text-faint);
-  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
   min-width: 0;
 }
 
@@ -403,34 +428,84 @@
   flex-shrink: 0;
 }
 
-.quadro-block--tarefa .quadro-block-dot { background: var(--accent); }
-.quadro-block--rotina .quadro-block-dot { background: var(--success); }
+.quadro-block--tarefa .quadro-block-dot {
+  background: var(--accent);
+}
+
+.quadro-block--rotina .quadro-block-dot {
+  background: var(--success);
+}
+
+/* ---------- Status Pill (Task) ---------- */
 
 .quadro-status-pill {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  border: none;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 2px 7px;
+  padding: 2px 8px;
   cursor: pointer;
   background: var(--bg-elevated-3);
   color: var(--text-faint);
+  transition: all 0.15s ease;
+  line-height: 1.3;
 }
 
-.quadro-status-pill--todo { background: var(--bg-elevated-3); color: var(--text-muted); }
-.quadro-status-pill--doing { background: var(--warning-soft); color: var(--warning); }
-.quadro-status-pill--done { background: var(--success-soft); color: var(--success); }
-.quadro-status-pill--empty { opacity: 0.5; }
-.quadro-status-pill--empty:hover { opacity: 1; }
+.quadro-status-pill--todo {
+  background: var(--bg-elevated-3);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
 
-.quadro-block-header-left {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  overflow: hidden;
+.quadro-status-pill--doing {
+  background: var(--warning-soft);
+  color: var(--warning);
+  border-color: var(--warning);
+}
+
+.quadro-status-pill--done {
+  background: var(--success-soft);
+  color: var(--success);
+  border-color: var(--success);
+}
+
+.quadro-status-pill--empty {
+  opacity: 0.6;
+}
+
+.quadro-status-pill:hover {
+  filter: brightness(1.2);
+  transform: scale(1.04);
+}
+
+/* ---------- Routine Time Badge ---------- */
+
+.quadro-routine-time-badge {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  border-radius: 999px;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+/* ---------- Card Menu & Edit Button ---------- */
+
+.quadro-block-edit-btn {
+  font-size: 11px;
+  padding: 2px 5px;
+  color: var(--text-faint);
+  border-radius: 4px;
+}
+
+.quadro-block-edit-btn:hover {
+  color: var(--text);
+  background: var(--bg-elevated-3);
 }
 
 .quadro-block-menu-wrap {
@@ -441,6 +516,16 @@
 .quadro-block-menu-btn {
   font-weight: 700;
   line-height: 1;
+  font-size: 13px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--text-faint);
+  transition: all 0.15s ease;
+}
+
+.quadro-block-menu-btn:hover {
+  color: var(--text);
+  background: var(--bg-elevated-3);
 }
 
 .quadro-block-menu {
@@ -453,7 +538,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow);
-  z-index: 10;
+  z-index: 20;
   overflow: hidden;
 }
 
@@ -465,12 +550,13 @@
   display: block;
   width: 100%;
   text-align: left;
-  padding: 8px 10px;
+  padding: 8px 12px;
   font-size: 12px;
   background: transparent;
   border: none;
   color: var(--text);
   cursor: pointer;
+  transition: background 0.12s ease;
 }
 
 .quadro-block-menu-item:hover {
@@ -485,136 +571,286 @@
   background: var(--danger-soft);
 }
 
-.quadro-block-title {
-  border: none;
-  background: transparent;
-  color: var(--text);
-  font-size: 13px;
+/* ---------- Clean Card Views (Non-Input Surface) ---------- */
+
+.quadro-block-title-view {
+  font-size: 13.5px;
   font-weight: 600;
-  padding: 6px 8px 2px;
-  width: 100%;
-}
-
-.quadro-block-title:focus {
-  outline: 1px solid var(--accent);
-  background: var(--bg-elevated-3);
-}
-
-.quadro-block-content {
-  flex: 1;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  resize: none;
-  font-size: 12px;
-  padding: 2px 8px 8px;
-  font-family: inherit;
-}
-
-.quadro-block-content:focus {
-  outline: 1px solid var(--accent);
-  background: var(--bg-elevated-3);
   color: var(--text);
+  padding: 8px 12px 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
 }
 
-.quadro-block-content::placeholder {
+.quadro-block-title-view.is-empty {
   color: var(--text-faint);
+  font-style: italic;
 }
 
-.quadro-block--tarefa .quadro-block-content {
-  padding-bottom: 34px;
+.quadro-block-content-view {
+  flex: 1;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 4px 12px 8px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
+
+.quadro-block-content-view.is-empty {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.quadro-block-content-view--nota {
+  color: #fde047;
+  font-size: 12.5px;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+}
+
+/* ---------- Dedicated Card Footer ---------- */
+
+.quadro-block-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px 8px;
+  margin-top: auto;
+  border-top: 1px solid var(--border-soft);
+  background: var(--bg-elevated-2);
+  font-size: 11px;
+}
+
+/* Tarefa Footer & Avatar */
+.quadro-task-footer {
+  justify-content: space-between;
+}
+
+.quadro-task-hint {
+  font-size: 10px;
+  color: var(--text-faint);
 }
 
 .quadro-avatar {
-  position: absolute;
-  right: 8px;
-  bottom: 8px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: none;
-  background: var(--accent);
-  color: var(--bg);
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-elevated-3);
+  color: var(--text);
+  font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 700;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  padding: 2px 8px;
+  transition: all 0.15s ease;
 }
 
-.quadro-block-content--nota {
-  color: var(--warning);
-  font-size: 13px;
-  padding-top: 4px;
+.quadro-avatar:hover {
+  background: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent);
 }
 
+.quadro-avatar-icon {
+  font-size: 11px;
+  line-height: 1;
+}
+
+/* Nota Footer */
 .quadro-nota-footer {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 8px 8px;
-  font-size: 10px;
   color: var(--text-faint);
-  flex-shrink: 0;
+  font-size: 10.5px;
 }
 
 .quadro-nota-author {
   background: transparent;
   border: none;
-  color: var(--text-faint);
-  font-size: 10px;
+  color: #fbbf24;
+  font-size: 10.5px;
   cursor: pointer;
   padding: 0;
+  font-weight: 500;
 }
 
-.quadro-nota-author:hover {
-  color: var(--text-muted);
-}
+/* Rotina Weekdays & Footer */
 
 .quadro-routine-days {
   display: flex;
-  gap: 6px;
-  padding: 8px 8px 0;
+  gap: 5px;
+  padding: 6px 12px 8px;
+  justify-content: space-between;
 }
 
 .quadro-routine-day {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
+  flex: 1;
+  height: 24px;
+  max-width: 30px;
+  border-radius: 6px;
   border: 1px solid var(--border);
   background: var(--bg-elevated-3);
   color: var(--text-faint);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   cursor: pointer;
   padding: 0;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quadro-routine-day:hover {
+  border-color: var(--success);
+  color: var(--text);
 }
 
 .quadro-routine-day.is-active {
-  background: var(--success-soft);
+  background: var(--success);
   border-color: var(--success);
-  color: var(--success);
+  color: #ffffff;
 }
 
 .quadro-routine-footer {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0;
-  padding: 8px 8px 8px;
-  font-size: 10px;
   color: var(--text-faint);
-  margin-top: auto;
+  font-size: 10.5px;
 }
 
 .quadro-routine-streak {
   background: transparent;
   border: none;
   color: var(--success);
-  font-weight: 600;
-  font-size: 10px;
+  font-weight: 700;
+  font-size: 11px;
   cursor: pointer;
   padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  transition: transform 0.15s ease;
+}
+
+.quadro-routine-streak:hover {
+  transform: scale(1.05);
+}
+
+/* ---------- Floating Toolbar ---------- */
+
+.quadro-floating-toolbar {
+  position: absolute;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 10px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  z-index: 20;
+}
+
+.quadro-toolbar-type {
+  border-radius: 999px !important;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  transition: all 0.15s ease;
+}
+
+.quadro-toolbar-type--nota:hover {
+  border-color: var(--warning);
+  color: var(--warning);
+  background: var(--warning-soft);
+}
+
+.quadro-toolbar-type--tarefa:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.quadro-toolbar-type--rotina:hover {
+  border-color: var(--success);
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+.quadro-toolbar-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--border);
+}
+
+.quadro-send-kanban {
+  border-radius: 999px !important;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 7px 16px;
+  box-shadow: 0 4px 14px var(--accent-soft);
+  transition: all 0.15s ease;
+}
+
+.quadro-send-kanban:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ---------- Minimap ---------- */
+
+.quadro-minimap {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  z-index: 5;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.quadro-minimap.is-empty {
+  display: none;
+}
+
+.quadro-minimap-block {
+  position: absolute;
+  border-radius: 3px;
+  background: var(--text-faint);
+}
+
+.quadro-minimap-block--tarefa {
+  background: var(--accent);
+}
+
+.quadro-minimap-block--rotina {
+  background: var(--success);
+}
+
+.quadro-minimap-block--nota {
+  background: var(--warning);
+}
+
+.quadro-minimap-viewport {
+  position: absolute;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
 }

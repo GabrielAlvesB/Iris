@@ -7,7 +7,9 @@ function inlineFormat(text: string): string {
   out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
   out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   out = out.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+  out = out.replace(/~~([^~]+)~~/g, '<del>$1</del>');
   out = out.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  out = out.replace(/_([^_]+)_/g, '<em>$1</em>');
   out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
   return out;
 }
@@ -66,6 +68,15 @@ export function renderMarkdownToHtml(markdown: string): string {
       continue;
     }
 
+    // Horizontal Rule
+    if (/^(\*{3,}|-{3,}|_{3,})$/.test(line.trim())) {
+      flushParagraph();
+      closeLists();
+      html.push('<hr />');
+      i += 1;
+      continue;
+    }
+
     const headerMatch = line.match(/^(#{1,6})\s+(.*)$/);
     if (headerMatch) {
       flushParagraph();
@@ -104,6 +115,23 @@ export function renderMarkdownToHtml(markdown: string): string {
       });
       table += '</tbody></table>';
       html.push(table);
+      continue;
+    }
+
+    // Task list items: - [ ] or - [x]
+    const taskMatch = line.match(/^\s*[-*+]\s+\[([ xX])\]\s+(.*)$/);
+    if (taskMatch) {
+      flushParagraph();
+      if (listStack[listStack.length - 1] !== 'ul') {
+        closeLists();
+        html.push('<ul class="task-list">');
+        listStack.push('ul');
+      }
+      const isChecked = taskMatch[1].toLowerCase() === 'x';
+      html.push(
+        `<li class="task-list-item${isChecked ? ' is-checked' : ''}"><input type="checkbox" ${isChecked ? 'checked' : ''} disabled /> <span>${inlineFormat(taskMatch[2])}</span></li>`,
+      );
+      i += 1;
       continue;
     }
 
@@ -146,3 +174,4 @@ export function renderMarkdownToHtml(markdown: string): string {
 
   return html.join('\n');
 }
+

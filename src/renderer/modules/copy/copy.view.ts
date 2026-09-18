@@ -1,6 +1,6 @@
 import type { CopyFile, CopySnippet } from '../../../shared/types/copy.types';
 import * as copyState from './copy.state.js';
-import { promptText } from '../../ui/modal.js';
+import { promptText, openConfirmModal } from '../../ui/modal.js';
 
 const DEFAULT_GROUP = 'Sem grupo';
 const VARIABLES = ['nome', 'data', 'empresa'];
@@ -42,7 +42,12 @@ async function handleCopy(snippet: CopySnippet, btn: HTMLElement): Promise<void>
 }
 
 async function handleDelete(snippet: CopySnippet): Promise<void> {
-  if (!window.confirm(`Excluir o texto "${snippet.title}"?`)) return;
+  const confirmed = await openConfirmModal({
+    title: 'Excluir texto',
+    message: `Excluir o texto "${snippet.title}"? Essa ação não pode ser desfeita.`,
+    confirmText: 'Excluir',
+  });
+  if (!confirmed) return;
   await copyState.deleteSnippet(snippet.id);
 }
 

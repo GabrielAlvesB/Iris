@@ -1,7 +1,7 @@
 import type { KanbanBoard, KanbanCard, KanbanColumn, KanbanSubtask } from '../../../shared/types/kanban.types';
 import * as kanbanState from './kanban.state.js';
 import { destroySortables, initSortables } from './kanban.dragdrop.js';
-import { openFormModal } from '../../ui/modal.js';
+import { openFormModal, openConfirmModal } from '../../ui/modal.js';
 
 type ViewTab = 'quadro' | 'lista' | 'calendario';
 
@@ -310,7 +310,13 @@ async function handleSetWipLimit(column: KanbanColumn): Promise<void> {
 }
 
 async function handleDeleteColumn(column: KanbanColumn): Promise<void> {
-  if (!window.confirm(`Excluir a coluna "${column.title}" e todos os seus cards?`)) return;
+  const ok = await openConfirmModal({
+    title: 'Excluir coluna?',
+    message: `A coluna "${column.title}" e todos os seus cards serão removidos permanentemente.`,
+    confirmText: 'Excluir coluna',
+    danger: true,
+  });
+  if (!ok) return;
   await kanbanState.deleteColumn(column.id);
 }
 
@@ -683,7 +689,13 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
     deleteBtn.textContent = 'Excluir';
     deleteBtn.addEventListener('click', async () => {
       if (!panelCardId) return;
-      if (!window.confirm('Excluir este card?')) return;
+      const ok = await openConfirmModal({
+        title: 'Excluir card?',
+        message: 'Este card e todas as suas subtarefas serão removidos permanentemente.',
+        confirmText: 'Excluir card',
+        danger: true,
+      });
+      if (!ok) return;
       await kanbanState.deleteCard(panelCardId);
       closeCardPanel();
     });
@@ -740,134 +752,357 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
 
 // ---------- Lista tab ----------
 
+type SortKey = 'title' | 'column' | 'assignee' | 'priority' | 'dueDate';
+let listSortKey: SortKey = 'dueDate';
+let listSortAsc = true;
+
+function dueBadge(dueDate?: string): HTMLElement {
+  const span = document.createElement('span');
+  if (!dueDate) {
+    span.className = 'kanban-due-badge kanban-due-badge--none';
+    span.textContent = 'Sem data';
+    return span;
+  }
+  const today = isoDate(new Date());
+  const tomorrow = isoDate(new Date(Date.now() + 86400000));
+  if (dueDate < today) {
+    span.className = 'kanban-due-badge kanban-due-badge--overdue';
+    span.textContent = `⚠ ${formatDueDate(dueDate)}`;
+  } else if (dueDate === today) {
+    span.className = 'kanban-due-badge kanban-due-badge--today';
+    span.textContent = `Hoje`;
+  } else if (dueDate === tomorrow) {
+    span.className = 'kanban-due-badge kanban-due-badge--tomorrow';
+    span.textContent = `Amanhã`;
+  } else {
+    span.className = 'kanban-due-badge';
+    span.textContent = formatDueDate(dueDate);
+  }
+  return span;
+}
+
 function buildListView(board: KanbanBoard): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'kanban-list-view';
 
-  const header = document.createElement('div');
-  header.className = 'kanban-list-row kanban-list-row--header';
-  ['Título', 'Coluna', 'Responsável', 'Prioridade', 'Prazo'].forEach((label) => {
-    const cell = document.createElement('span');
-    cell.textContent = label;
-    header.appendChild(cell);
-  });
-  wrap.appendChild(header);
-
   const columnsById = new Map(board.columns.map((c) => [c.id, c]));
-  const cards = filteredCards(board).slice().sort((a, b) => (a.dueDate ?? '').localeCompare(b.dueDate ?? ''));
+  const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2, '': 3 };
 
-  if (cards.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'kanban-list-empty';
-    empty.textContent = 'Nenhum card corresponde aos filtros atuais.';
-    wrap.appendChild(empty);
-    return wrap;
-  }
-
-  cards.forEach((card) => {
-    const row = document.createElement('div');
-    row.className = 'kanban-list-row';
-    row.addEventListener('click', () => {
-      const column = columnsById.get(card.columnId);
-      if (column) openCardPanel(card, column);
-    });
-
-    const titleCell = document.createElement('span');
-    titleCell.className = 'kanban-list-title';
-    titleCell.textContent = card.title;
-    row.appendChild(titleCell);
-
-    const columnCell = document.createElement('span');
-    columnCell.textContent = columnsById.get(card.columnId)?.title ?? '';
-    row.appendChild(columnCell);
-
-    const assigneeCell = document.createElement('span');
-    if (card.assignee) {
-      assigneeCell.appendChild(avatarEl(card.assignee, 18));
-      assigneeCell.append(` ${card.assignee}`);
-    }
-    row.appendChild(assigneeCell);
-
-    const priorityCell = document.createElement('span');
-    if (card.priority) {
-      priorityCell.className = `card-priority priority-${card.priority}`;
-      priorityCell.textContent = PRIORITY_LABELS[card.priority].toUpperCase();
-    }
-    row.appendChild(priorityCell);
-
-    const dueCell = document.createElement('span');
-    dueCell.className = 'kanban-cell-mono';
-    dueCell.textContent = formatDueDate(card.dueDate);
-    row.appendChild(dueCell);
-
-    wrap.appendChild(row);
+  let cards = filteredCards(board).slice();
+  cards.sort((a, b) => {
+    let cmp = 0;
+    if (listSortKey === 'title') cmp = a.title.localeCompare(b.title);
+    else if (listSortKey === 'column') cmp = (columnsById.get(a.columnId)?.title ?? '').localeCompare(columnsById.get(b.columnId)?.title ?? '');
+    else if (listSortKey === 'assignee') cmp = (a.assignee ?? '').localeCompare(b.assignee ?? '');
+    else if (listSortKey === 'priority') cmp = (PRIORITY_ORDER[a.priority ?? ''] ?? 3) - (PRIORITY_ORDER[b.priority ?? ''] ?? 3);
+    else cmp = (a.dueDate ?? 'zzzz').localeCompare(b.dueDate ?? 'zzzz');
+    return listSortAsc ? cmp : -cmp;
   });
 
+  // Search bar
+  const searchWrap = document.createElement('div');
+  searchWrap.className = 'kanban-list-search-wrap';
+  const searchInput = document.createElement('input');
+  searchInput.type = 'text';
+  searchInput.placeholder = '🔍 Buscar cards...';
+  searchInput.className = 'kanban-list-search';
+  searchWrap.appendChild(searchInput);
+  wrap.appendChild(searchWrap);
+
+  const table = document.createElement('div');
+  table.className = 'kanban-list-table';
+
+  const COLS: Array<{ label: string; key: SortKey; className?: string }> = [
+    { label: 'Título', key: 'title', className: 'kanban-list-col--title' },
+    { label: 'Coluna', key: 'column' },
+    { label: 'Responsável', key: 'assignee' },
+    { label: 'Prioridade', key: 'priority' },
+    { label: 'Prazo', key: 'dueDate' },
+  ];
+
+  const headerRow = document.createElement('div');
+  headerRow.className = 'kanban-list-row kanban-list-row--header';
+  COLS.forEach(({ label, key, className }) => {
+    const cell = document.createElement('button');
+    cell.type = 'button';
+    cell.className = `kanban-list-header-cell${className ? ' ' + className : ''}`;
+    const isActive = listSortKey === key;
+    cell.innerHTML = `${label}<span class="kanban-sort-arrow">${isActive ? (listSortAsc ? ' ↑' : ' ↓') : ''}</span>`;
+    if (isActive) cell.classList.add('kanban-list-header-cell--active');
+    cell.addEventListener('click', () => {
+      if (listSortKey === key) listSortAsc = !listSortAsc;
+      else { listSortKey = key; listSortAsc = true; }
+      if (currentBoard) render(wrap.closest('.kanban-list-view')!.parentElement as HTMLElement, currentBoard);
+    });
+    headerRow.appendChild(cell);
+  });
+  table.appendChild(headerRow);
+
+  const renderRows = (filter: string) => {
+    // Remove old data rows
+    table.querySelectorAll('.kanban-list-row:not(.kanban-list-row--header)').forEach((r) => r.remove());
+    const empty = table.querySelector('.kanban-list-empty');
+    if (empty) empty.remove();
+
+    const filtered = filter ? cards.filter((c) => c.title.toLowerCase().includes(filter.toLowerCase()) || (c.assignee ?? '').toLowerCase().includes(filter.toLowerCase()) || (c.tags ?? []).some((t) => t.toLowerCase().includes(filter.toLowerCase()))) : cards;
+
+    if (filtered.length === 0) {
+      const emptyEl = document.createElement('div');
+      emptyEl.className = 'kanban-list-empty';
+      emptyEl.textContent = filter ? 'Nenhum card encontrado.' : 'Nenhum card corresponde aos filtros.';
+      table.appendChild(emptyEl);
+      return;
+    }
+
+    filtered.forEach((card) => {
+      const row = document.createElement('div');
+      row.className = 'kanban-list-row';
+      row.addEventListener('click', () => {
+        const column = columnsById.get(card.columnId);
+        if (column) openCardPanel(card, column);
+      });
+
+      // Title + tags
+      const titleCell = document.createElement('div');
+      titleCell.className = 'kanban-list-title kanban-list-col--title';
+      const titleText = document.createElement('span');
+      titleText.className = 'kanban-list-title-text';
+      titleText.textContent = card.title;
+      titleCell.appendChild(titleText);
+      if (card.tags?.length) {
+        const tagsWrap = document.createElement('div');
+        tagsWrap.className = 'kanban-list-tags';
+        (card.tags ?? []).slice(0, 3).forEach((tag) => {
+          const chip = document.createElement('span');
+          chip.className = 'kanban-list-tag';
+          chip.textContent = tag;
+          tagsWrap.appendChild(chip);
+        });
+        titleCell.appendChild(tagsWrap);
+      }
+      row.appendChild(titleCell);
+
+      // Column badge
+      const columnCell = document.createElement('div');
+      const colTitle = columnsById.get(card.columnId)?.title ?? '';
+      const colBadge = document.createElement('span');
+      colBadge.className = 'kanban-list-column-badge';
+      colBadge.textContent = colTitle;
+      columnCell.appendChild(colBadge);
+      row.appendChild(columnCell);
+
+      // Assignee
+      const assigneeCell = document.createElement('div');
+      assigneeCell.className = 'kanban-list-assignee';
+      if (card.assignee) {
+        assigneeCell.appendChild(avatarEl(card.assignee, 20));
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'kanban-list-assignee-name';
+        nameSpan.textContent = card.assignee;
+        assigneeCell.appendChild(nameSpan);
+      }
+      row.appendChild(assigneeCell);
+
+      // Priority
+      const priorityCell = document.createElement('div');
+      if (card.priority) {
+        const badge = document.createElement('span');
+        badge.className = `card-priority priority-${card.priority}`;
+        badge.textContent = PRIORITY_LABELS[card.priority].toUpperCase();
+        priorityCell.appendChild(badge);
+      }
+      row.appendChild(priorityCell);
+
+      // Due date
+      const dueCell = document.createElement('div');
+      dueCell.appendChild(dueBadge(card.dueDate));
+
+      // Subtask progress
+      const { done, total } = subtaskProgress(card);
+      if (total > 0) {
+        const progressWrap = document.createElement('div');
+        progressWrap.className = 'kanban-list-subtask-wrap';
+        const progressBar = document.createElement('div');
+        progressBar.className = 'kanban-list-subtask-bar';
+        const fill = document.createElement('div');
+        fill.className = 'kanban-list-subtask-fill';
+        fill.style.width = `${Math.round((done / total) * 100)}%`;
+        progressBar.appendChild(fill);
+        progressWrap.appendChild(progressBar);
+        const label = document.createElement('span');
+        label.className = 'kanban-list-subtask-label';
+        label.textContent = `${done}/${total}`;
+        progressWrap.appendChild(label);
+        dueCell.appendChild(progressWrap);
+      }
+      row.appendChild(dueCell);
+
+      table.appendChild(row);
+    });
+  };
+
+  searchInput.addEventListener('input', () => renderRows(searchInput.value));
+  renderRows('');
+  wrap.appendChild(table);
   return wrap;
 }
 
-// ---------- Calendário tab (grouped by date) ----------
+// ---------- Calendário tab (monthly grid) ----------
+
+let calendarViewDate: Date = new Date();
 
 function buildCalendarView(board: KanbanBoard): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'kanban-calendar-view';
 
   const columnsById = new Map(board.columns.map((c) => [c.id, c]));
-  const cards = filteredCards(board);
-  const groups = new Map<string, KanbanCard[]>();
-  cards.forEach((card) => {
-    const key = card.dueDate ?? 'sem-data';
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key)!.push(card);
+  const allCards = filteredCards(board);
+
+  // Nav bar
+  const nav = document.createElement('div');
+  nav.className = 'kanban-cal-nav';
+
+  const prevBtn = document.createElement('button');
+  prevBtn.type = 'button';
+  prevBtn.className = 'btn btn-secondary kanban-cal-nav-btn';
+  prevBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>';
+  prevBtn.addEventListener('click', () => {
+    calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1);
+    if (currentBoard) render(wrap.closest('[class]')!.parentElement as HTMLElement, currentBoard);
+  });
+  nav.appendChild(prevBtn);
+
+  const monthLabel = document.createElement('span');
+  monthLabel.className = 'kanban-cal-month-label';
+  monthLabel.textContent = calendarViewDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  nav.appendChild(monthLabel);
+
+  const todayBtn = document.createElement('button');
+  todayBtn.type = 'button';
+  todayBtn.className = 'btn btn-secondary kanban-cal-nav-btn';
+  todayBtn.textContent = 'Hoje';
+  todayBtn.addEventListener('click', () => {
+    calendarViewDate = new Date();
+    if (currentBoard) render(wrap.closest('[class]')!.parentElement as HTMLElement, currentBoard);
+  });
+  nav.appendChild(todayBtn);
+
+  const nextBtn = document.createElement('button');
+  nextBtn.type = 'button';
+  nextBtn.className = 'btn btn-secondary kanban-cal-nav-btn';
+  nextBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>';
+  nextBtn.addEventListener('click', () => {
+    calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1);
+    if (currentBoard) render(wrap.closest('[class]')!.parentElement as HTMLElement, currentBoard);
+  });
+  nav.appendChild(nextBtn);
+
+  wrap.appendChild(nav);
+
+  // Day-of-week headers (Mon–Sun)
+  const DOW_LABELS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+  const dowRow = document.createElement('div');
+  dowRow.className = 'kanban-cal-dow-row';
+  DOW_LABELS.forEach((d) => {
+    const cell = document.createElement('div');
+    cell.className = 'kanban-cal-dow';
+    cell.textContent = d;
+    dowRow.appendChild(cell);
+  });
+  wrap.appendChild(dowRow);
+
+  // Build grid
+  const grid = document.createElement('div');
+  grid.className = 'kanban-cal-grid';
+
+  const year = calendarViewDate.getFullYear();
+  const month = calendarViewDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const todayStr = isoDate(new Date());
+
+  // Cards indexed by date
+  const cardsByDate = new Map<string, KanbanCard[]>();
+  const unscheduled: KanbanCard[] = [];
+  allCards.forEach((card) => {
+    if (!card.dueDate) { unscheduled.push(card); return; }
+    if (!cardsByDate.has(card.dueDate)) cardsByDate.set(card.dueDate, []);
+    cardsByDate.get(card.dueDate)!.push(card);
   });
 
-  const keys = Array.from(groups.keys()).sort((a, b) => {
-    if (a === 'sem-data') return 1;
-    if (b === 'sem-data') return -1;
-    return a.localeCompare(b);
-  });
+  // Start on Monday (ISO week)
+  const startOffset = (firstDay.getDay() + 6) % 7;
 
-  if (keys.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'kanban-list-empty';
-    empty.textContent = 'Nenhum card corresponde aos filtros atuais.';
-    wrap.appendChild(empty);
-    return wrap;
+  const totalCells = Math.ceil((startOffset + lastDay.getDate()) / 7) * 7;
+
+  for (let i = 0; i < totalCells; i++) {
+    const dayOffset = i - startOffset;
+    const date = new Date(year, month, 1 + dayOffset);
+    const dateStr = isoDate(date);
+    const isCurrentMonth = date.getMonth() === month;
+    const isToday = dateStr === todayStr;
+
+    const cell = document.createElement('div');
+    cell.className = 'kanban-cal-day';
+    if (!isCurrentMonth) cell.classList.add('kanban-cal-day--other-month');
+    if (isToday) cell.classList.add('kanban-cal-day--today');
+
+    const dayNum = document.createElement('div');
+    dayNum.className = 'kanban-cal-day-num';
+    dayNum.textContent = String(date.getDate());
+    cell.appendChild(dayNum);
+
+    const dayCards = cardsByDate.get(dateStr) ?? [];
+    dayCards.forEach((card) => {
+      const chip = document.createElement('div');
+      chip.className = `kanban-cal-card-chip${card.priority ? ` kanban-cal-chip--${card.priority}` : ''}`;
+      chip.textContent = card.title;
+      chip.title = card.title;
+      chip.addEventListener('click', () => {
+        const col = columnsById.get(card.columnId);
+        if (col) openCardPanel(card, col);
+      });
+      cell.appendChild(chip);
+    });
+
+    if (dayCards.length > 3) {
+      const more = document.createElement('div');
+      more.className = 'kanban-cal-more';
+      more.textContent = `+${dayCards.length - 3} mais`;
+      cell.appendChild(more);
+    }
+
+    grid.appendChild(cell);
   }
 
-  keys.forEach((key) => {
-    const group = document.createElement('div');
-    group.className = 'kanban-calendar-group';
+  wrap.appendChild(grid);
 
-    const heading = document.createElement('div');
-    heading.className = 'kanban-calendar-date';
-    heading.textContent = key === 'sem-data' ? 'Sem data' : formatDueDate(key);
-    group.appendChild(heading);
+  // Unscheduled drawer
+  if (unscheduled.length > 0) {
+    const drawer = document.createElement('div');
+    drawer.className = 'kanban-cal-unscheduled';
 
-    const list = document.createElement('div');
-    list.className = 'kanban-calendar-cards';
-    groups.get(key)!.forEach((card) => {
+    const drawerLabel = document.createElement('div');
+    drawerLabel.className = 'kanban-cal-unscheduled-label';
+    drawerLabel.textContent = `${unscheduled.length} card${unscheduled.length > 1 ? 's' : ''} sem data`;
+    drawer.appendChild(drawerLabel);
+
+    const chips = document.createElement('div');
+    chips.className = 'kanban-cal-unscheduled-chips';
+    unscheduled.forEach((card) => {
       const chip = document.createElement('div');
-      chip.className = 'kanban-calendar-card';
+      chip.className = 'kanban-cal-card-chip kanban-cal-chip--unscheduled';
+      chip.textContent = card.title;
+      chip.title = card.title;
       chip.addEventListener('click', () => {
-        const column = columnsById.get(card.columnId);
-        if (column) openCardPanel(card, column);
+        const col = columnsById.get(card.columnId);
+        if (col) openCardPanel(card, col);
       });
-
-      const title = document.createElement('span');
-      title.textContent = card.title;
-      chip.appendChild(title);
-
-      const columnTag = document.createElement('span');
-      columnTag.className = 'kanban-calendar-column-tag';
-      columnTag.textContent = columnsById.get(card.columnId)?.title ?? '';
-      chip.appendChild(columnTag);
-
-      list.appendChild(chip);
+      chips.appendChild(chip);
     });
-    group.appendChild(list);
-    wrap.appendChild(group);
-  });
+    drawer.appendChild(chips);
+    wrap.appendChild(drawer);
+  }
 
   return wrap;
 }
@@ -926,12 +1161,29 @@ function buildHeader(board: KanbanBoard, onTabChange: () => void): HTMLElement {
 
   const tabs = document.createElement('div');
   tabs.className = 'kanban-tabs';
-  (['quadro', 'lista', 'calendario'] as ViewTab[]).forEach((tab) => {
+  const TAB_META: Array<{ tab: ViewTab; label: string; icon: string }> = [
+    {
+      tab: 'quadro',
+      label: 'Quadro',
+      icon: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>',
+    },
+    {
+      tab: 'lista',
+      label: 'Lista',
+      icon: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>',
+    },
+    {
+      tab: 'calendario',
+      label: 'Calendário',
+      icon: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+    },
+  ];
+  TAB_META.forEach(({ tab, label, icon }) => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'kanban-tab';
     btn.classList.toggle('active', activeTab === tab);
-    btn.textContent = tab === 'quadro' ? 'Quadro' : tab === 'lista' ? 'Lista' : 'Calendário';
+    btn.innerHTML = `${icon}<span>${label}</span>`;
     btn.addEventListener('click', () => {
       activeTab = tab;
       onTabChange();
