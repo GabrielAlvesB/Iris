@@ -1,19 +1,27 @@
 import { registerKanbanIpc } from './kanban.ipc';
 import { registerQuadroIpc } from './quadro.ipc';
-import { registerArquivosIpc } from './arquivos.ipc';
 import { registerSheetsIpc } from './sheets.ipc';
 import { registerExportIpc } from './export.ipc';
 import { registerLinksIpc } from './links.ipc';
 import { registerCopyIpc } from './copy.ipc';
-import { registerMarkdownIpc } from './markdown.ipc';
+import { registerPensamentosIpc } from './pensamentos.ipc';
+import { registerExploradorIpc } from './explorador.ipc';
+import { registerServidoresIpc } from './servidores.ipc';
+import { registerN8nIpc } from './n8n.ipc';
+import { registerGithubIpc } from './github.ipc';
+import { registerAjustesIpc } from './ajustes.ipc';
 
 export function registerAllIpcHandlers(): void {
   registerKanbanIpc();
   registerQuadroIpc();
-  registerArquivosIpc();
   registerSheetsIpc();
   registerExportIpc();
   registerLinksIpc();
   registerCopyIpc();
-  registerMarkdownIpc();
+  registerPensamentosIpc();
+  registerExploradorIpc();
+  registerServidoresIpc();
+  registerN8nIpc();
+  registerGithubIpc();
+  registerAjustesIpc();
 }

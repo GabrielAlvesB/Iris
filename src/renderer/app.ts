@@ -2,18 +2,41 @@ import * as kanbanState from './modules/kanban/kanban.state.js';
 import * as kanbanView from './modules/kanban/kanban.view.js';
 import * as quadroState from './modules/quadro/quadro.state.js';
 import * as quadroView from './modules/quadro/quadro.view.js';
-import * as arquivosState from './modules/arquivos/arquivos.state.js';
-import * as arquivosView from './modules/arquivos/arquivos.view.js';
 import * as sheetsState from './modules/sheets/sheets.state.js';
 import * as sheetsView from './modules/sheets/sheets.view.js';
 import * as linksState from './modules/links/links.state.js';
 import * as linksView from './modules/links/links.view.js';
 import * as copyState from './modules/copy/copy.state.js';
 import * as copyView from './modules/copy/copy.view.js';
-import * as markdownState from './modules/markdown/markdown.state.js';
-import * as markdownView from './modules/markdown/markdown.view.js';
+import * as pensamentosState from './modules/pensamentos/pensamentos.state.js';
+import * as pensamentosView from './modules/pensamentos/pensamentos.view.js';
+import * as exploradorState from './modules/explorador/explorador.state.js';
+import * as exploradorView from './modules/explorador/explorador.view.js';
+import * as servidoresState from './modules/servidores/servidores.state.js';
+import * as servidoresView from './modules/servidores/servidores.view.js';
+import * as n8nState from './modules/n8n/n8n.state.js';
+import * as n8nView from './modules/n8n/n8n.view.js';
+import * as ajustesState from './modules/ajustes/ajustes.state.js';
+import * as ajustesView from './modules/ajustes/ajustes.view.js';
+import * as githubState from './modules/github/github.state.js';
+import * as githubView from './modules/github/github.view.js';
+import * as tutorialState from './modules/tutorial/tutorial.state.js';
+import * as tutorialView from './modules/tutorial/tutorial.view.js';
+import { registrarAtendente } from './core/navegacao.js';
 
-type ModuleName = 'kanban' | 'quadro' | 'arquivos' | 'sheets' | 'links' | 'copy' | 'markdown';
+type ModuleName =
+  | 'kanban'
+  | 'quadro'
+  | 'explorador'
+  | 'sheets'
+  | 'links'
+  | 'copy'
+  | 'pensamentos'
+  | 'servidores'
+  | 'n8n'
+  | 'github'
+  | 'tutorial'
+  | 'ajustes';
 
 interface AppModule {
   mount(viewRoot: HTMLElement): void;
@@ -28,6 +51,7 @@ const modules: Record<ModuleName, AppModule> = {
     },
     destroy() {
       kanbanView.destroy();
+      kanbanState.offBoardChange();
     },
   },
   quadro: {
@@ -39,13 +63,14 @@ const modules: Record<ModuleName, AppModule> = {
       quadroView.destroy();
     },
   },
-  arquivos: {
+  explorador: {
     mount(viewRoot) {
-      arquivosState.onStateChange((state) => arquivosView.render(viewRoot, state));
-      void arquivosState.loadItems();
+      exploradorState.onStateChange((state) => exploradorView.render(viewRoot, state));
+      void exploradorState.carregarRaizes();
     },
     destroy() {
-      // No listeners or timers to tear down for this module.
+      exploradorView.destroy();
+      exploradorState.offStateChange();
     },
   },
   sheets: {
@@ -76,14 +101,70 @@ const modules: Record<ModuleName, AppModule> = {
       copyState.offStateChange();
     },
   },
-  markdown: {
+  pensamentos: {
     mount(viewRoot) {
-      markdownState.onConfigChange((config) => markdownView.render(viewRoot, config));
-      void markdownState.loadConfig();
+      pensamentosState.onStateChange((state) => pensamentosView.render(viewRoot, state));
+      void pensamentosState.loadPensamentos();
     },
     destroy() {
-      markdownView.destroy();
-      markdownState.offConfigChange();
+      pensamentosView.destroy();
+      pensamentosState.offStateChange();
+    },
+  },
+  servidores: {
+    mount(viewRoot) {
+      servidoresState.onStateChange((state) => servidoresView.render(viewRoot, state));
+      void servidoresState.loadState();
+    },
+    destroy() {
+      servidoresView.destroy();
+      servidoresState.offStateChange();
+    },
+  },
+  n8n: {
+    mount(viewRoot) {
+      n8nState.onStateChange((state) => n8nView.render(viewRoot, state));
+      void n8nState.load().then(() => {
+        // Busca dados frescos ao abrir, sem precisar encurtar o intervalo do poll.
+        void n8nState.atualizarAgora().catch(() => undefined);
+      });
+    },
+    destroy() {
+      n8nView.destroy();
+      n8nState.offStateChange();
+    },
+  },
+  github: {
+    mount(viewRoot) {
+      githubState.onStateChange((state) => githubView.render(viewRoot, state));
+      void githubState.load();
+    },
+    destroy() {
+      githubView.destroy();
+      githubState.offStateChange();
+    },
+  },
+  tutorial: {
+    mount(viewRoot) {
+      tutorialState.onStateChange((state) => tutorialView.render(viewRoot, state));
+      // Desenha na hora com o estado atual e confere em seguida, para a tela
+      // não ficar em branco esperando as verificações.
+      tutorialView.render(viewRoot, tutorialState.getCurrentState());
+      void tutorialState.conferir();
+    },
+    destroy() {
+      tutorialView.destroy();
+      tutorialState.offStateChange();
+    },
+  },
+  ajustes: {
+    mount(viewRoot) {
+      ajustesState.onStateChange((state) => ajustesView.render(viewRoot, state));
+      void ajustesState.load();
+    },
+    destroy() {
+      ajustesView.destroy();
+      ajustesState.offStateChange();
     },
   },
 };
@@ -98,20 +179,44 @@ function switchModule(name: ModuleName, viewRoot: HTMLElement): void {
   modules[name].mount(viewRoot);
 }
 
+function marcarAtivo(name: ModuleName): void {
+  document.querySelectorAll('.nav-item').forEach((el) => el.classList.remove('active'));
+  document.querySelector(`.nav-item[data-module="${name}"]`)?.classList.add('active');
+}
+
 function bootstrap(): void {
   const viewRoot = document.getElementById('view-root');
   if (!viewRoot) return;
 
+  // Permite que um módulo peça navegação sem importar este arquivo de volta
+  // (o que criaria ciclo, já que app.ts importa todos eles).
+  registrarAtendente((modulo) => {
+    const nome = modulo as ModuleName;
+    if (!modules[nome]) return;
+    marcarAtivo(nome);
+    switchModule(nome, viewRoot);
+  });
+
   document.querySelectorAll<HTMLButtonElement>('.nav-item[data-module]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const moduleName = btn.dataset.module as ModuleName;
-      document.querySelectorAll('.nav-item').forEach((el) => el.classList.remove('active'));
-      btn.classList.add('active');
+      marcarAtivo(moduleName);
       switchModule(moduleName, viewRoot);
     });
   });
 
-  switchModule('kanban', viewRoot);
+  // Abre no módulo escolhido em Ajustes; se a leitura falhar, cai no Kanban.
+  void window.irisAPI.ajustes
+    .getAjustes()
+    .then((result) => {
+      const inicial = result.ok && modules[result.data.moduloInicial] ? result.data.moduloInicial : 'kanban';
+      marcarAtivo(inicial);
+      switchModule(inicial, viewRoot);
+    })
+    .catch(() => {
+      marcarAtivo('kanban');
+      switchModule('kanban', viewRoot);
+    });
 }
 
 document.addEventListener('DOMContentLoaded', bootstrap);

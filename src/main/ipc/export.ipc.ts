@@ -44,19 +44,6 @@ async function exportAll(senderWindow: BrowserWindow | null): Promise<FileOpResu
   );
 }
 
-async function exportArquivosCsv(senderWindow: BrowserWindow | null): Promise<FileOpResult> {
-  const csv = await exportService.buildArquivosCsv();
-  return saveTextFile(
-    senderWindow,
-    {
-      title: 'Exportar Arquivos (CSV)',
-      defaultPath: `iris-arquivos-${dateStamp()}.csv`,
-      filters: [{ name: 'CSV', extensions: ['csv'] }],
-    },
-    csv,
-  );
-}
-
 async function importAll(senderWindow: BrowserWindow | null): Promise<FileOpResult> {
   const options: OpenDialogOptions = {
     title: 'Importar dados do Iris',
@@ -81,9 +68,5 @@ export function registerExportIpc(): void {
 
   ipcMain.handle(EXPORT_CHANNELS.importAll, (event) =>
     toResult<FileOpResult>(importAll(BrowserWindow.fromWebContents(event.sender))),
-  );
-
-  ipcMain.handle(EXPORT_CHANNELS.exportArquivosCsv, (event) =>
-    toResult<FileOpResult>(exportArquivosCsv(BrowserWindow.fromWebContents(event.sender))),
   );
 }

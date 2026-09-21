@@ -12,8 +12,3 @@ export function getDataFilePath(fileName: string): string {
   return path.join(getDataDir(), fileName);
 }
 
-export function getMarkdownNotesDir(): string {
-  const dir = path.join(app.getPath('userData'), 'markdown-notes');
-  fs.mkdirSync(dir, { recursive: true });
-  return dir;
-}

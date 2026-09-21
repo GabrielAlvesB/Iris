@@ -1,0 +1,250 @@
+/* Servidores — health check HTTP e execução de comandos por SSH. */
+
+.servidores-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  gap: 12px;
+}
+
+.servidores-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.servidores-titulo {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.servidores-contagem {
+  font-size: 11px;
+  color: var(--text-faint);
+  padding: 3px 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+}
+
+.servidor-espaco {
+  flex: 1;
+}
+
+.servidores-ciclo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.servidores-lista {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.servidores-vazio {
+  padding: 40px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+/* ---- Card ---- */
+
+.servidor-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: 11px 13px;
+}
+
+.servidor-card:hover {
+  border-color: var(--border);
+}
+
+.servidor-topo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.servidor-bolinha {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.servidor-bolinha.is-ok {
+  background: var(--success);
+  box-shadow: 0 0 0 3px var(--success-soft);
+}
+
+.servidor-bolinha.is-falha {
+  background: var(--danger);
+  box-shadow: 0 0 0 3px var(--danger-soft);
+}
+
+.servidor-bolinha.is-neutro {
+  background: var(--text-faint);
+}
+
+.servidor-nome {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.servidor-tipo {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  background: var(--bg-elevated-3);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+}
+
+.servidor-alvo {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 340px;
+}
+
+.servidor-btn-pequeno {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.servidor-mini {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.servidor-mini--danger:hover {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.servidor-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 7px;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.servidor-detalhe.is-ok {
+  color: var(--success);
+}
+
+.servidor-detalhe.is-falha {
+  color: var(--danger);
+}
+
+.servidor-ciclo {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+/* ---- Sparkline ---- */
+
+.servidor-sparkline {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 26px;
+  margin-top: 9px;
+}
+
+.servidor-barra {
+  flex: 1;
+  max-width: 7px;
+  min-height: 3px;
+  border-radius: 1.5px;
+  opacity: 0.85;
+}
+
+.servidor-barra.is-ok {
+  background: var(--success);
+}
+
+.servidor-barra.is-falha {
+  background: var(--danger);
+}
+
+/* ---- Painel SSH ---- */
+
+.servidor-painel {
+  margin-top: 11px;
+  padding-top: 11px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.servidor-comandos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 9px;
+}
+
+.servidor-comando {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.servidor-btn-comando {
+  padding: 5px 11px;
+  font-size: 12px;
+}
+
+.servidor-btn-novo {
+  border-style: dashed;
+}
+
+.servidor-dica {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  margin-bottom: 9px;
+}
+
+.servidor-saida {
+  margin: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.servidor-saida:empty {
+  display: none;
+}
+
+.servidores-vazio-guia {
+  align-self: center;
+}

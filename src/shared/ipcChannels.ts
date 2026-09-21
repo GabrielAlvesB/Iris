@@ -22,16 +22,6 @@ export const QUADRO_CHANNELS = {
   updateBoardName: 'quadro:updateBoardName',
 } as const;
 
-export const ARQUIVOS_CHANNELS = {
-  getItems: 'arquivos:getItems',
-  importFiles: 'arquivos:importFiles',
-  toggleDone: 'arquivos:toggleDone',
-  toggleVerified: 'arquivos:toggleVerified',
-  updateNote: 'arquivos:updateNote',
-  deleteItem: 'arquivos:deleteItem',
-  linkFileToCard: 'arquivos:linkFileToCard',
-} as const;
-
 export const SHEETS_CHANNELS = {
   getFile: 'sheets:getFile',
   detectImport: 'sheets:detectImport',
@@ -52,7 +42,6 @@ export const SHEETS_CHANNELS = {
 export const EXPORT_CHANNELS = {
   exportAll: 'export:exportAll',
   importAll: 'export:importAll',
-  exportArquivosCsv: 'export:exportArquivosCsv',
 } as const;
 
 export const LINKS_CHANNELS = {
@@ -71,14 +60,71 @@ export const COPY_CHANNELS = {
   importTxt: 'copy:importTxt',
 } as const;
 
-export const MARKDOWN_CHANNELS = {
-  getConfig: 'markdown:getConfig',
-  chooseFolder: 'markdown:chooseFolder',
-  openFile: 'markdown:openFile',
-  listFiles: 'markdown:listFiles',
-  readFile: 'markdown:readFile',
-  writeFile: 'markdown:writeFile',
-  createFile: 'markdown:createFile',
-  linkFileToCard: 'markdown:linkFileToCard',
-  exportPdf: 'markdown:exportPdf',
+/** Canal físico único de push main→renderer; os tópicos vivem em events.types.ts. */
+export const PUSH_CHANNEL = 'iris:event';
+
+export const EXPLORADOR_CHANNELS = {
+  getRaizes: 'explorador:getRaizes',
+  adicionarRaiz: 'explorador:adicionarRaiz',
+  removerRaiz: 'explorador:removerRaiz',
+  listarDiretorio: 'explorador:listarDiretorio',
+  criar: 'explorador:criar',
+  renomear: 'explorador:renomear',
+  mover: 'explorador:mover',
+  excluir: 'explorador:excluir',
+  revelarNoSistema: 'explorador:revelarNoSistema',
+  abrirNoSistema: 'explorador:abrirNoSistema',
 } as const;
+
+export const SERVIDORES_CHANNELS = {
+  getState: 'servidores:getState',
+  criarHttp: 'servidores:criarHttp',
+  criarSsh: 'servidores:criarSsh',
+  atualizar: 'servidores:atualizar',
+  remover: 'servidores:remover',
+  checarAgora: 'servidores:checarAgora',
+  checarTodos: 'servidores:checarTodos',
+  salvarComando: 'servidores:salvarComando',
+  removerComando: 'servidores:removerComando',
+  rodarComando: 'servidores:rodarComando',
+  configHealth: 'servidores:configHealth',
+  escolherChave: 'servidores:escolherChave',
+} as const;
+
+export const N8N_CHANNELS = {
+  getConfig: 'n8n:getConfig',
+  salvarConfig: 'n8n:salvarConfig',
+  getSnapshot: 'n8n:getSnapshot',
+  atualizarAgora: 'n8n:atualizarAgora',
+  testarConexao: 'n8n:testarConexao',
+  dispararWorkflow: 'n8n:dispararWorkflow',
+  alternarAtivo: 'n8n:alternarAtivo',
+  definirVinculo: 'n8n:definirVinculo',
+  abrirExecucao: 'n8n:abrirExecucao',
+} as const;
+
+export const GITHUB_CHANNELS = {
+  getConfig: 'github:getConfig',
+  salvarConfig: 'github:salvarConfig',
+  getSnapshot: 'github:getSnapshot',
+  atualizarAgora: 'github:atualizarAgora',
+  testarConexao: 'github:testarConexao',
+  adicionarPasta: 'github:adicionarPasta',
+  removerPasta: 'github:removerPasta',
+  abrirRepo: 'github:abrirRepo',
+} as const;
+
+export const AJUSTES_CHANNELS = {
+  getAjustes: 'ajustes:getAjustes',
+  setModuloInicial: 'ajustes:setModuloInicial',
+} as const;
+
+export const PENSAMENTOS_CHANNELS = {
+  getPensamentos: 'pensamentos:getPensamentos',
+  createPensamento: 'pensamentos:createPensamento',
+  updatePensamento: 'pensamentos:updatePensamento',
+  deletePensamento: 'pensamentos:deletePensamento',
+  togglePin: 'pensamentos:togglePin',
+  marcarPromovido: 'pensamentos:marcarPromovido',
+} as const;
+

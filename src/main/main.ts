@@ -2,6 +2,7 @@ import { app, BrowserWindow, net, protocol } from 'electron';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { registerAllIpcHandlers } from './ipc';
+import { startBackgroundServices, stopBackgroundServices } from './core/backgroundServices';
 
 // Renderer TS compiles to ES modules; ES module scripts require a CORS-capable
 // origin and are blocked when loaded from plain file:// URLs. Serving the
@@ -69,12 +70,19 @@ app.whenReady().then(() => {
   registerAppProtocol();
   registerAllIpcHandlers();
   createMainWindow();
+  void startBackgroundServices();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createMainWindow();
     }
   });
+});
+
+// Aborta fetches em voo e fecha os watchers antes do processo morrer, para
+// nenhum callback disparar em um app já se desmontando.
+app.on('before-quit', () => {
+  stopBackgroundServices();
 });
 
 app.on('window-all-closed', () => {

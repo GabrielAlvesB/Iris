@@ -1,0 +1,243 @@
+/* GitHub — repositórios em cartões. Base visual em pagina.css. */
+
+/* ---- Pastas de projeto ---- */
+
+.gh-pastas {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.gh-pastas-rotulo {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 2px;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.gh-pasta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 3px 5px 3px 11px;
+}
+
+.gh-pasta-remover {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  color: var(--text-faint);
+  background: none;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.gh-pasta-remover:hover {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.gh-pasta-add {
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  color: var(--accent);
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+
+.gh-pasta-add:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* ---- Grade de repositórios ---- */
+
+.gh-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 10px;
+}
+
+.gh-repo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 15px 16px 13px;
+  overflow: hidden;
+}
+
+/* Filete de acento: este repositório também existe no computador. */
+.gh-repo.is-local::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--accent);
+}
+
+.gh-repo-topo {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.gh-repo-titulo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.gh-repo-dono {
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+.gh-repo-nome {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.gh-repo-selos {
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.gh-repo-topo .pg-botao {
+  width: 30px;
+  height: 30px;
+  margin: -4px -6px 0 0;
+}
+
+.gh-repo-descricao {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.gh-repo-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.gh-linguagem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+}
+
+.gh-linguagem-cor {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--bg-elevated);
+}
+
+/* ---- Estado local ---- */
+
+.gh-local {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 9px 11px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 9px;
+}
+
+.gh-local-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+}
+
+.gh-local-caminho {
+  flex-basis: 100%;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Commits ---- */
+
+.gh-commits {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 8px;
+}
+
+.gh-commit {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 4px 0;
+  font-size: 12px;
+}
+
+.gh-commit.is-local {
+  opacity: 0.85;
+}
+
+.gh-commit-hash {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 5px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+
+.gh-commit-mensagem {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.gh-commit-data {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  flex-shrink: 0;
+}

@@ -1,49 +1,80 @@
 import * as kanbanService from '../kanban/kanban.service';
 import * as quadroService from '../quadro/quadro.service';
-import * as arquivosService from '../arquivos/arquivos.service';
 import * as sheetsService from '../sheets/sheets.service';
 import * as linksService from '../links/links.service';
+import * as pensamentosService from '../pensamentos/pensamentos.service';
+import * as exploradorService from '../explorador/explorador.service';
+import * as servidoresService from '../servidores/servidores.service';
+import * as n8nService from '../n8n/n8n.service';
+import * as githubService from '../github/github.service';
+import * as ajustesService from '../ajustes/ajustes.service';
 import type { ExportBundle } from '../../../shared/types/export.types';
 
 const SCHEMA_VERSION = 1;
 
+/**
+ * Deliberadamente FORA do backup: secrets.json.
+ *
+ * São credenciais, e no Windows o safeStorage as cifra com DPAPI atrelado ao
+ * usuário do SO — o valor nem seria decifrável em outra máquina. Por isso
+ * servidores.json guarda só host/porta/usuário/caminho da chave, e n8n.json só
+ * a baseUrl: as credenciais ficam no cofre, referenciadas por chave.
+ */
 export async function buildExportBundle(): Promise<ExportBundle> {
-  const [kanban, quadro, arquivos, sheets, links] = await Promise.all([
-    kanbanService.getFullFile(),
-    quadroService.getFullFile(),
-    arquivosService.getFullFile(),
-    sheetsService.getFullFile(),
-    linksService.getFullFile(),
-  ]);
+  const [kanban, quadro, sheets, links, pensamentos, explorador, servidores, n8n, github, ajustes] =
+    await Promise.all([
+      kanbanService.getFullFile(),
+      quadroService.getFullFile(),
+      sheetsService.getFullFile(),
+      linksService.getFullFile(),
+      pensamentosService.getFullFile(),
+      exploradorService.getFullFile(),
+      servidoresService.getFullFile(),
+      n8nService.getFullFile(),
+      githubService.getFullFile(),
+      ajustesService.getFullFile(),
+    ]);
 
   return {
     schemaVersion: SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
     kanban,
     quadro,
-    arquivos,
     sheets,
     links,
+    pensamentos,
+    explorador,
+    servidores,
+    n8n,
+    github,
+    ajustes,
   };
 }
 
 function isValidBundle(value: unknown): value is ExportBundle {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<ExportBundle>;
-  return Boolean(candidate.kanban && candidate.quadro && candidate.arquivos);
+  // 'arquivos' saiu do bundle quando o Explorador substituiu aquele módulo.
+  // Exports antigos ainda trazem o campo; ele é simplesmente ignorado.
+  return Boolean(candidate.kanban && candidate.quadro);
 }
 
 export async function restoreFromBundle(raw: unknown): Promise<void> {
   if (!isValidBundle(raw)) {
-    throw new Error('Arquivo de importação inválido: faltam dados de um ou mais módulos (kanban, quadro, arquivos).');
+    throw new Error('Arquivo de importação inválido: faltam dados de Kanban e/ou Quadro.');
   }
 
   await Promise.all([
     kanbanService.replaceFile(raw.kanban),
     quadroService.replaceFile(raw.quadro),
-    arquivosService.replaceFile(raw.arquivos),
     raw.sheets ? sheetsService.replaceFile(raw.sheets) : Promise.resolve(),
     raw.links ? linksService.replaceFile(raw.links) : Promise.resolve(),
+    raw.pensamentos ? pensamentosService.replaceFile(raw.pensamentos) : Promise.resolve(),
+    raw.explorador ? exploradorService.replaceFile(raw.explorador) : Promise.resolve(),
+    raw.servidores ? servidoresService.replaceFile(raw.servidores) : Promise.resolve(),
+    raw.n8n ? n8nService.replaceFile(raw.n8n) : Promise.resolve(),
+    raw.github ? githubService.replaceFile(raw.github) : Promise.resolve(),
+    raw.ajustes ? ajustesService.replaceFile(raw.ajustes) : Promise.resolve(),
   ]);
 }
 
@@ -56,16 +87,4 @@ function escapeCsvCell(cell: string): string {
 
 export function buildCsv(headers: string[], rows: string[][]): string {
   return [headers, ...rows].map((row) => row.map(escapeCsvCell).join(',')).join('\r\n');
-}
-
-export async function buildArquivosCsv(): Promise<string> {
-  const file = await arquivosService.getFullFile();
-  const headers = ['Nome do arquivo', 'Feito', 'Verificado', 'Observação'];
-  const rows = file.items.map((item) => [
-    item.fileName,
-    item.done ? 'sim' : 'não',
-    item.verified ? 'sim' : 'não',
-    item.note ?? '',
-  ]);
-  return buildCsv(headers, rows);
 }

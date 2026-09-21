@@ -1,0 +1,391 @@
+/* Pensamentos — stream cronológico de capturas rápidas. */
+
+.pensamentos-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  gap: 12px;
+}
+
+/* ---- Cabeçalho ---- */
+
+.pensamentos-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pensamentos-titulo {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.pensamentos-contagem {
+  font-size: 11px;
+  color: var(--text-faint);
+  padding: 3px 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+}
+
+.pensamentos-header-espaco {
+  flex: 1;
+}
+
+.pensamentos-busca-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.pensamentos-busca {
+  width: 240px;
+  padding: 7px 56px 7px 11px;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  color: var(--text);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  outline: none;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+
+.pensamentos-busca::placeholder {
+  color: var(--text-faint);
+}
+
+.pensamentos-busca:focus {
+  border-color: var(--accent);
+  background: var(--bg-elevated-2);
+}
+
+.pensamentos-busca-kbd {
+  position: absolute;
+  right: 8px;
+  pointer-events: none;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-faint);
+  background: var(--bg-elevated-3);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 2px 5px;
+}
+
+.pensamentos-periodos {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+}
+
+.pensamentos-periodo {
+  padding: 5px 11px;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+
+.pensamentos-periodo:hover {
+  color: var(--text);
+}
+
+.pensamentos-periodo.is-ativo {
+  color: var(--text);
+  background: var(--bg-elevated-3);
+}
+
+/* ---- Barra de tags ---- */
+
+.pensamentos-tags-barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  padding-bottom: 2px;
+}
+
+.pensamentos-limpar-filtro {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--text-faint);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 2px 4px;
+}
+
+.pensamentos-limpar-filtro:hover {
+  color: var(--text-muted);
+}
+
+/* ---- Stream ---- */
+
+.pensamentos-stream {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-right: 4px;
+}
+
+.pensamentos-dia {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pensamentos-dia-label {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  align-self: flex-start;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-faint);
+  background: var(--bg);
+  padding: 3px 0 5px;
+}
+
+.pensamentos-dia--fixados .pensamentos-dia-label {
+  color: var(--accent);
+}
+
+.pensamentos-vazio {
+  padding: 40px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+/* ---- Card ---- */
+
+.pensamento-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: 11px 13px 12px;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+
+.pensamento-card:hover {
+  border-color: var(--border);
+  background: var(--bg-elevated-2);
+}
+
+.pensamento-card--fixado {
+  border-color: var(--accent-soft);
+  background: var(--bg-elevated-2);
+}
+
+.pensamento-topo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  min-height: 22px;
+}
+
+.pensamento-hora {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+
+.pensamento-selo {
+  font-size: 9.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--success);
+  background: var(--success-soft);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+}
+
+.pensamento-acoes {
+  margin-left: auto;
+  display: flex;
+  gap: 1px;
+  opacity: 0;
+  transition: opacity 0.14s ease;
+}
+
+.pensamento-card:hover .pensamento-acoes,
+.pensamento-acoes:focus-within {
+  opacity: 1;
+}
+
+.pensamento-acao.is-ativo {
+  color: var(--accent);
+  opacity: 1;
+}
+
+.pensamento-card--fixado .pensamento-acoes {
+  opacity: 1;
+}
+
+.pensamento-acao--danger:hover {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.pensamento-texto {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.pensamento-tag-inline {
+  color: var(--accent);
+}
+
+.pensamento-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.pensamento-chip {
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  color: var(--text-muted);
+  background: var(--bg-elevated-3);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 3px 9px;
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+
+.pensamento-chip:hover {
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.pensamento-chip.is-ativo {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: var(--accent-soft);
+}
+
+/* ---- Edição inline ---- */
+
+.pensamento-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pensamento-editor-input {
+  width: 100%;
+  min-height: 80px;
+  resize: vertical;
+  padding: 9px 11px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  outline: none;
+}
+
+.pensamento-editor-acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ---- Composer ---- */
+
+.pensamentos-composer {
+  flex-shrink: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 10px 12px;
+  box-shadow: var(--shadow);
+}
+
+.pensamentos-composer-input {
+  width: 100%;
+  min-height: 38px;
+  max-height: 200px;
+  resize: none;
+  overflow-y: auto;
+  padding: 4px 0;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.pensamentos-composer-input::placeholder {
+  color: var(--text-faint);
+}
+
+.pensamentos-sugestoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.pensamentos-sugestoes:not(:empty) {
+  padding: 6px 0 2px;
+}
+
+.pensamentos-sugestao {
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: none;
+  border-radius: 999px;
+  padding: 3px 9px;
+  cursor: pointer;
+}
+
+.pensamentos-sugestao:hover {
+  background: var(--accent-hover);
+  color: var(--accent-text);
+}
+
+.pensamentos-composer-rodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.pensamentos-dica {
+  font-size: 10.5px;
+  color: var(--text-faint);
+}

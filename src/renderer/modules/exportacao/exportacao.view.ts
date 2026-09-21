@@ -39,18 +39,10 @@ async function handleExportAll(): Promise<void> {
   );
 }
 
-async function handleExportArquivosCsv(): Promise<void> {
-  await runAction(
-    () => window.irisAPI.export.exportArquivosCsv(),
-    'Exportação cancelada.',
-    (path) => `Lista de arquivos exportada (CSV) para: ${path}`,
-  );
-}
-
 async function handleImportAll(): Promise<void> {
   const confirmed = await openConfirmModal({
     title: 'Substituir dados atuais?',
-    message: 'Importar vai SUBSTITUIR todos os dados atuais (Kanban, Quadro, Arquivos, Sheets e Links) pelo conteúdo do arquivo escolhido. Deseja continuar?',
+    message: 'Importar vai SUBSTITUIR todos os dados atuais (Kanban, Quadro, Sheets, Links, Pensamentos, Explorador, Servidores, n8n e GitHub) pelo conteúdo do arquivo escolhido. Credenciais não são restauradas. Deseja continuar?',
     confirmText: 'Importar e substituir',
   });
   if (!confirmed) return;
@@ -76,7 +68,7 @@ export function render(container: HTMLElement): void {
   const intro = document.createElement('p');
   intro.className = 'exportacao-intro';
   intro.textContent =
-    'Exporte todos os dados do Iris para um arquivo aberto (JSON), para backup ou uso em outro sistema. Você também pode exportar Arquivos separadamente em CSV, ou importar um export anterior para restaurar seus dados.';
+    'Exporte todos os dados do Iris para um arquivo JSON, para backup ou uso em outro sistema, ou importe um export anterior para restaurar seus dados. Credenciais (API key, token, passphrases) nunca entram no arquivo.';
   container.appendChild(intro);
 
   const exportSection = document.createElement('section');
@@ -94,12 +86,6 @@ export function render(container: HTMLElement): void {
   exportAllBtn.textContent = 'Exportar tudo (JSON)';
   exportAllBtn.addEventListener('click', () => void handleExportAll());
   exportButtons.appendChild(exportAllBtn);
-
-  const exportArquivosBtn = document.createElement('button');
-  exportArquivosBtn.className = 'btn btn-secondary';
-  exportArquivosBtn.textContent = 'Exportar Arquivos (CSV)';
-  exportArquivosBtn.addEventListener('click', () => void handleExportArquivosCsv());
-  exportButtons.appendChild(exportArquivosBtn);
 
   exportSection.appendChild(exportButtons);
   container.appendChild(exportSection);
@@ -127,4 +113,12 @@ export function render(container: HTMLElement): void {
   statusEl = document.createElement('div');
   statusEl.className = 'exportacao-status';
   container.appendChild(statusEl);
+}
+
+/**
+ * statusEl é uma variável de módulo: sem zerar aqui, showStatus escreveria em
+ * um nó já removido do DOM depois que o usuário troca de módulo.
+ */
+export function destroy(): void {
+  statusEl = null;
 }

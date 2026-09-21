@@ -30,6 +30,85 @@
   box-sizing: border-box;
 }
 
+/* ---------- Barras de rolagem ----------
+   Discretas em repouso, destacando quando o mouse entra no contêiner.
+
+   ATENÇÃO: a partir do Chromium 121 (este app roda no 126), definir
+   scrollbar-width ou scrollbar-color num elemento faz o motor IGNORAR todo o
+   bloco ::-webkit-scrollbar dele. Por isso as propriedades padrão ficam
+   isoladas no @supports lá embaixo, que nunca casa aqui. */
+
+:root {
+  --scrollbar-largura: 10px;
+  --scrollbar-thumb: rgba(148, 152, 163, 0.16);
+  --scrollbar-thumb-hover: rgba(148, 152, 163, 0.42);
+}
+
+/* Largura constante nos três estados: mudá-la no hover reflui o contêiner e
+   faz o conteúdo saltar. O efeito de "aparecer" vem só da cor. */
+::-webkit-scrollbar {
+  width: var(--scrollbar-largura);
+  height: var(--scrollbar-largura);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  /* Borda transparente + background-clip afina o polegar para 6px sem
+     encolher a área de clique. */
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+  transition: background-color 0.18s ease;
+}
+
+:hover::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb-hover);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: var(--accent);
+}
+
+/* Sem setas nas pontas: zerar tamanho junto, senão o Chromium reserva o espaço. */
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Encontro das duas barras — as tabelas do Sheets rolam nos dois eixos. */
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Reserva de espaço só nos contêineres que enquadram layout, para o conteúdo
+   não deslocar quando a barra aparece ao filtrar ou digitar. */
+#view-root,
+.modal,
+.explorador-lista,
+.pensamentos-stream,
+.servidores-lista,
+.n8n-lista {
+  scrollbar-gutter: stable;
+}
+
+/* Fora do Chromium não existe ::-webkit-scrollbar; aqui este bloco nunca casa,
+   e serve como porte futuro sem desativar as regras acima. */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+}
+
 html, body {
   margin: 0;
   height: 100%;

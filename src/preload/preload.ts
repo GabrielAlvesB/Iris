@@ -1,20 +1,63 @@
-import { clipboard, contextBridge, ipcRenderer, shell } from 'electron';
+import { clipboard, contextBridge, ipcRenderer, shell, type IpcRendererEvent } from 'electron';
 import {
-  ARQUIVOS_CHANNELS,
+  AJUSTES_CHANNELS,
   COPY_CHANNELS,
+  EXPLORADOR_CHANNELS,
   EXPORT_CHANNELS,
+  GITHUB_CHANNELS,
   KANBAN_CHANNELS,
   LINKS_CHANNELS,
-  MARKDOWN_CHANNELS,
+  N8N_CHANNELS,
+  PENSAMENTOS_CHANNELS,
+  PUSH_CHANNEL,
   QUADRO_CHANNELS,
+  SERVIDORES_CHANNELS,
   SHEETS_CHANNELS,
 } from '../shared/ipcChannels';
+import type {
+  IrisEvent,
+  IrisEventPayload,
+  IrisEventTopic,
+  Unsubscribe,
+} from '../shared/types/events.types';
 import type { IrisApi } from '../shared/types/preload-api.types';
 
 function openExternalLink(url: string): void {
   if (/^https?:\/\//i.test(url)) {
     void shell.openExternal(url);
   }
+}
+
+// Vários assinantes lógicos compartilham um único canal físico; sem isto o
+// EventEmitter reclama ao passar de 10 listeners.
+ipcRenderer.setMaxListeners(64);
+
+/**
+ * O contextBridge não consegue devolver a identidade do listener para um
+ * removeListener do lado do renderer, então quem cancela é esta closure.
+ */
+function subscribe<T extends IrisEventTopic>(
+  topic: T,
+  callback: (payload: IrisEventPayload<T>) => void,
+): Unsubscribe {
+  const handler = (_event: IpcRendererEvent, incoming: IrisEvent): void => {
+    if (!incoming || incoming.topic !== topic) return;
+    try {
+      callback(incoming.payload as IrisEventPayload<T>);
+    } catch (error) {
+      // Um listener que lança não pode derrubar os outros assinantes do canal.
+      console.error(`[irisAPI.events] listener falhou em "${topic}"`, error);
+    }
+  };
+
+  ipcRenderer.on(PUSH_CHANNEL, handler);
+
+  let ativo = true;
+  return () => {
+    if (!ativo) return; // cancelamento idempotente
+    ativo = false;
+    ipcRenderer.off(PUSH_CHANNEL, handler);
+  };
 }
 
 const irisAPI: IrisApi = {
@@ -40,15 +83,6 @@ const irisAPI: IrisApi = {
     updateViewport: (viewport) => ipcRenderer.invoke(QUADRO_CHANNELS.updateViewport, viewport),
     updateBoardName: (boardName) => ipcRenderer.invoke(QUADRO_CHANNELS.updateBoardName, boardName),
   },
-  arquivos: {
-    getItems: () => ipcRenderer.invoke(ARQUIVOS_CHANNELS.getItems),
-    importFiles: () => ipcRenderer.invoke(ARQUIVOS_CHANNELS.importFiles),
-    toggleDone: (itemId) => ipcRenderer.invoke(ARQUIVOS_CHANNELS.toggleDone, itemId),
-    toggleVerified: (itemId) => ipcRenderer.invoke(ARQUIVOS_CHANNELS.toggleVerified, itemId),
-    updateNote: (input) => ipcRenderer.invoke(ARQUIVOS_CHANNELS.updateNote, input),
-    deleteItem: (itemId) => ipcRenderer.invoke(ARQUIVOS_CHANNELS.deleteItem, itemId),
-    linkFileToCard: (input) => ipcRenderer.invoke(ARQUIVOS_CHANNELS.linkFileToCard, input),
-  },
   sheets: {
     getFile: () => ipcRenderer.invoke(SHEETS_CHANNELS.getFile),
     detectImport: () => ipcRenderer.invoke(SHEETS_CHANNELS.detectImport),
@@ -72,7 +106,6 @@ const irisAPI: IrisApi = {
   export: {
     exportAll: () => ipcRenderer.invoke(EXPORT_CHANNELS.exportAll),
     importAll: () => ipcRenderer.invoke(EXPORT_CHANNELS.importAll),
-    exportArquivosCsv: () => ipcRenderer.invoke(EXPORT_CHANNELS.exportArquivosCsv),
   },
   links: {
     getLinks: () => ipcRenderer.invoke(LINKS_CHANNELS.getLinks),
@@ -88,16 +121,68 @@ const irisAPI: IrisApi = {
     deleteSnippet: (snippetId) => ipcRenderer.invoke(COPY_CHANNELS.deleteSnippet, snippetId),
     importTxt: () => ipcRenderer.invoke(COPY_CHANNELS.importTxt),
   },
-  markdown: {
-    getConfig: () => ipcRenderer.invoke(MARKDOWN_CHANNELS.getConfig),
-    chooseFolder: () => ipcRenderer.invoke(MARKDOWN_CHANNELS.chooseFolder),
-    openFile: () => ipcRenderer.invoke(MARKDOWN_CHANNELS.openFile),
-    listFiles: () => ipcRenderer.invoke(MARKDOWN_CHANNELS.listFiles),
-    readFile: (filePath) => ipcRenderer.invoke(MARKDOWN_CHANNELS.readFile, filePath),
-    writeFile: (input) => ipcRenderer.invoke(MARKDOWN_CHANNELS.writeFile, input),
-    createFile: (input) => ipcRenderer.invoke(MARKDOWN_CHANNELS.createFile, input),
-    linkFileToCard: (input) => ipcRenderer.invoke(MARKDOWN_CHANNELS.linkFileToCard, input),
-    exportPdf: (input) => ipcRenderer.invoke(MARKDOWN_CHANNELS.exportPdf, input),
+  pensamentos: {
+    getPensamentos: () => ipcRenderer.invoke(PENSAMENTOS_CHANNELS.getPensamentos),
+    createPensamento: (input) => ipcRenderer.invoke(PENSAMENTOS_CHANNELS.createPensamento, input),
+    updatePensamento: (input) => ipcRenderer.invoke(PENSAMENTOS_CHANNELS.updatePensamento, input),
+    deletePensamento: (pensamentoId) =>
+      ipcRenderer.invoke(PENSAMENTOS_CHANNELS.deletePensamento, pensamentoId),
+    togglePin: (pensamentoId) => ipcRenderer.invoke(PENSAMENTOS_CHANNELS.togglePin, pensamentoId),
+    marcarPromovido: (input) => ipcRenderer.invoke(PENSAMENTOS_CHANNELS.marcarPromovido, input),
+  },
+  explorador: {
+    getRaizes: () => ipcRenderer.invoke(EXPLORADOR_CHANNELS.getRaizes),
+    adicionarRaiz: () => ipcRenderer.invoke(EXPLORADOR_CHANNELS.adicionarRaiz),
+    removerRaiz: (raizId) => ipcRenderer.invoke(EXPLORADOR_CHANNELS.removerRaiz, raizId),
+    listarDiretorio: (input) => ipcRenderer.invoke(EXPLORADOR_CHANNELS.listarDiretorio, input),
+    criar: (input) => ipcRenderer.invoke(EXPLORADOR_CHANNELS.criar, input),
+    renomear: (input) => ipcRenderer.invoke(EXPLORADOR_CHANNELS.renomear, input),
+    mover: (input) => ipcRenderer.invoke(EXPLORADOR_CHANNELS.mover, input),
+    excluir: (input) => ipcRenderer.invoke(EXPLORADOR_CHANNELS.excluir, input),
+    revelarNoSistema: (caminho) => ipcRenderer.invoke(EXPLORADOR_CHANNELS.revelarNoSistema, caminho),
+    abrirNoSistema: (caminho) => ipcRenderer.invoke(EXPLORADOR_CHANNELS.abrirNoSistema, caminho),
+  },
+  servidores: {
+    getState: () => ipcRenderer.invoke(SERVIDORES_CHANNELS.getState),
+    criarHttp: (input) => ipcRenderer.invoke(SERVIDORES_CHANNELS.criarHttp, input),
+    criarSsh: (input) => ipcRenderer.invoke(SERVIDORES_CHANNELS.criarSsh, input),
+    atualizar: (input) => ipcRenderer.invoke(SERVIDORES_CHANNELS.atualizar, input),
+    remover: (servidorId) => ipcRenderer.invoke(SERVIDORES_CHANNELS.remover, servidorId),
+    checarAgora: (servidorId) => ipcRenderer.invoke(SERVIDORES_CHANNELS.checarAgora, servidorId),
+    checarTodos: () => ipcRenderer.invoke(SERVIDORES_CHANNELS.checarTodos),
+    salvarComando: (input) => ipcRenderer.invoke(SERVIDORES_CHANNELS.salvarComando, input),
+    removerComando: (input) => ipcRenderer.invoke(SERVIDORES_CHANNELS.removerComando, input),
+    rodarComando: (input) => ipcRenderer.invoke(SERVIDORES_CHANNELS.rodarComando, input),
+    configHealth: (input) => ipcRenderer.invoke(SERVIDORES_CHANNELS.configHealth, input),
+    escolherChave: () => ipcRenderer.invoke(SERVIDORES_CHANNELS.escolherChave),
+  },
+  n8n: {
+    getConfig: () => ipcRenderer.invoke(N8N_CHANNELS.getConfig),
+    salvarConfig: (input) => ipcRenderer.invoke(N8N_CHANNELS.salvarConfig, input),
+    getSnapshot: () => ipcRenderer.invoke(N8N_CHANNELS.getSnapshot),
+    atualizarAgora: () => ipcRenderer.invoke(N8N_CHANNELS.atualizarAgora),
+    testarConexao: () => ipcRenderer.invoke(N8N_CHANNELS.testarConexao),
+    dispararWorkflow: (input) => ipcRenderer.invoke(N8N_CHANNELS.dispararWorkflow, input),
+    alternarAtivo: (input) => ipcRenderer.invoke(N8N_CHANNELS.alternarAtivo, input),
+    definirVinculo: (input) => ipcRenderer.invoke(N8N_CHANNELS.definirVinculo, input),
+    abrirExecucao: (execucaoId) => ipcRenderer.invoke(N8N_CHANNELS.abrirExecucao, execucaoId),
+  },
+  github: {
+    getConfig: () => ipcRenderer.invoke(GITHUB_CHANNELS.getConfig),
+    salvarConfig: (input) => ipcRenderer.invoke(GITHUB_CHANNELS.salvarConfig, input),
+    getSnapshot: () => ipcRenderer.invoke(GITHUB_CHANNELS.getSnapshot),
+    atualizarAgora: () => ipcRenderer.invoke(GITHUB_CHANNELS.atualizarAgora),
+    testarConexao: () => ipcRenderer.invoke(GITHUB_CHANNELS.testarConexao),
+    adicionarPasta: () => ipcRenderer.invoke(GITHUB_CHANNELS.adicionarPasta),
+    removerPasta: (pastaId) => ipcRenderer.invoke(GITHUB_CHANNELS.removerPasta, pastaId),
+    abrirRepo: (url) => ipcRenderer.invoke(GITHUB_CHANNELS.abrirRepo, url),
+  },
+  ajustes: {
+    getAjustes: () => ipcRenderer.invoke(AJUSTES_CHANNELS.getAjustes),
+    setModuloInicial: (modulo) => ipcRenderer.invoke(AJUSTES_CHANNELS.setModuloInicial, modulo),
+  },
+  events: {
+    on: subscribe,
   },
 };
 
