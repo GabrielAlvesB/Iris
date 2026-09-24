@@ -308,3 +308,66 @@ select.aj-input {
   font-size: 12.5px;
   border-radius: 9px;
 }
+
+/* ---- Slider de largura da sidebar em Preferências ---- */
+
+.aj-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.aj-slider {
+  flex: 1;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--bg-elevated-3);
+  border-radius: 999px;
+  outline: none;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.aj-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.aj-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.aj-slider-valor {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  min-width: 52px;
+  text-align: right;
+}
+
+/* ---- Assinatura dos relatórios ---- */
+
+.aj-textarea {
+  height: auto;
+  min-height: 72px;
+  padding: 9px 11px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.aj-assinatura-previa {
+  padding: 14px;
+  background: var(--bg-elevated-2);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+}

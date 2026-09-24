@@ -1,6 +1,8 @@
 import type { CopyFile, CopySnippet } from '../../../shared/types/copy.types';
 import * as copyState from './copy.state.js';
-import { promptText, openConfirmModal } from '../../ui/modal.js';
+import { promptText, openConfirmModal, openCustomModal, buildSecaoModal } from '../../ui/modal.js';
+import { campo, erroInline, input, textarea } from '../../ui/campos.js';
+import { buildBotao } from '../../ui/pagina.js';
 
 const DEFAULT_GROUP = 'Sem grupo';
 const VARIABLES = ['nome', 'data', 'empresa'];
@@ -114,178 +116,136 @@ function buildSnippetCard(snippet: CopySnippet, shortcutIndex: number | null): H
 // ---------- Create/edit dialog ----------
 
 function openSnippetDialog(snippet: CopySnippet | null): Promise<void> {
-  return new Promise((resolve) => {
-    const existingGroups = Array.from(
-      new Set((copyState.getCurrentState()?.snippets ?? []).map((s) => s.group || DEFAULT_GROUP)),
-    );
+  const existingGroups = Array.from(
+    new Set((copyState.getCurrentState()?.snippets ?? []).map((s) => s.group || DEFAULT_GROUP)),
+  );
 
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
+  return openCustomModal(
+    snippet ? 'Editar texto' : 'Novo texto',
+    ({ corpo, rodape, fechar }) => {
+      const nameInput = input('text', snippet?.title ?? '', 'Ex.: Boas-vindas ao cliente');
+      nameInput.classList.add('is-grande');
+      corpo.appendChild(campo('Nome (só você vê)', nameInput));
 
-    function finish(): void {
-      document.removeEventListener('keydown', onKeyDown);
-      overlay.remove();
-      resolve();
-    }
-    function onKeyDown(e: KeyboardEvent): void {
-      if (e.key === 'Escape') finish();
-    }
-    document.addEventListener('keydown', onKeyDown);
-    overlay.addEventListener('mousedown', (e) => {
-      if (e.target === overlay) finish();
-    });
+      const conteudo = buildSecaoModal('Texto', 'Use variáveis para preencher na hora de copiar.');
+      const textArea = textarea(snippet?.text ?? '', 'O texto que vai para a área de transferência', 6);
+      conteudo.conteudo.appendChild(textArea);
 
-    const modal = document.createElement('div');
-    modal.className = 'modal copy-dialog';
-
-    const heading = document.createElement('h2');
-    heading.textContent = snippet ? 'Editar texto' : 'Novo texto';
-    modal.appendChild(heading);
-
-    const nameLabel = document.createElement('label');
-    nameLabel.className = 'modal-field';
-    const nameSpan = document.createElement('span');
-    nameSpan.textContent = 'Nome (só você vê)';
-    nameLabel.appendChild(nameSpan);
-    const nameInput = document.createElement('input');
-    nameInput.type = 'text';
-    nameInput.value = snippet?.title ?? '';
-    nameLabel.appendChild(nameInput);
-    modal.appendChild(nameLabel);
-
-    const textLabel = document.createElement('label');
-    textLabel.className = 'modal-field';
-    const textSpan = document.createElement('span');
-    textSpan.textContent = 'Texto';
-    textLabel.appendChild(textSpan);
-    const textArea = document.createElement('textarea');
-    textArea.value = snippet?.text ?? '';
-    textArea.rows = 5;
-    textLabel.appendChild(textArea);
-    modal.appendChild(textLabel);
-
-    const varsRow = document.createElement('div');
-    varsRow.className = 'copy-dialog-variables';
-    const varsLabel = document.createElement('span');
-    varsLabel.textContent = 'Variáveis:';
-    varsRow.appendChild(varsLabel);
-    VARIABLES.forEach((varName) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'copy-dialog-var-btn';
-      btn.textContent = `{${varName}}`;
-      btn.addEventListener('click', () => {
-        const start = textArea.selectionStart ?? textArea.value.length;
-        const end = textArea.selectionEnd ?? textArea.value.length;
-        const insert = `{${varName}}`;
-        textArea.value = textArea.value.slice(0, start) + insert + textArea.value.slice(end);
-        textArea.focus();
-        textArea.selectionStart = textArea.selectionEnd = start + insert.length;
+      const varsRow = document.createElement('div');
+      varsRow.className = 'md-pilulas copy-dialog-variables';
+      VARIABLES.forEach((varName) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'md-pilula copy-dialog-var-btn';
+        btn.textContent = `{${varName}}`;
+        btn.addEventListener('click', () => {
+          const start = textArea.selectionStart ?? textArea.value.length;
+          const end = textArea.selectionEnd ?? textArea.value.length;
+          const insert = `{${varName}}`;
+          textArea.value = textArea.value.slice(0, start) + insert + textArea.value.slice(end);
+          textArea.focus();
+          textArea.selectionStart = textArea.selectionEnd = start + insert.length;
+          renderPreview();
+        });
+        varsRow.appendChild(btn);
       });
-      varsRow.appendChild(btn);
-    });
-    modal.appendChild(varsRow);
+      conteudo.conteudo.appendChild(campo('Inserir variável', varsRow));
+      corpo.appendChild(conteudo.secao);
 
-    const groupLabel = document.createElement('div');
-    groupLabel.className = 'copy-dialog-group-label';
-    groupLabel.textContent = 'Grupo';
-    modal.appendChild(groupLabel);
+      const grupo = buildSecaoModal('Grupo');
+      const groupRow = document.createElement('div');
+      groupRow.className = 'md-pilulas';
+      let selectedGroup = snippet?.group || existingGroups[0] || DEFAULT_GROUP;
 
-    const groupRow = document.createElement('div');
-    groupRow.className = 'copy-dialog-groups';
-    let selectedGroup = snippet?.group || existingGroups[0] || DEFAULT_GROUP;
-
-    function renderGroups(): void {
-      groupRow.innerHTML = '';
-      existingGroups.forEach((group) => {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'copy-dialog-group-chip';
-        chip.classList.toggle('active', group === selectedGroup);
-        chip.textContent = group;
-        chip.addEventListener('click', () => {
-          selectedGroup = group;
+      function renderGroups(): void {
+        groupRow.innerHTML = '';
+        existingGroups.forEach((group) => {
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'md-pilula';
+          chip.classList.toggle('is-ativa', group === selectedGroup);
+          chip.setAttribute('aria-pressed', String(group === selectedGroup));
+          chip.textContent = group;
+          chip.addEventListener('click', () => {
+            selectedGroup = group;
+            renderGroups();
+          });
+          groupRow.appendChild(chip);
+        });
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'md-pilula copy-dialog-group-chip--add';
+        addBtn.textContent = '+ novo';
+        addBtn.addEventListener('click', async () => {
+          const name = await promptText('Novo grupo', 'Nome do grupo');
+          if (!name || !name.trim()) return;
+          if (!existingGroups.includes(name.trim())) existingGroups.push(name.trim());
+          selectedGroup = name.trim();
           renderGroups();
         });
-        groupRow.appendChild(chip);
-      });
-      const addBtn = document.createElement('button');
-      addBtn.type = 'button';
-      addBtn.className = 'copy-dialog-group-chip copy-dialog-group-chip--add';
-      addBtn.textContent = '+ novo';
-      addBtn.addEventListener('click', async () => {
-        const name = await promptText('Novo grupo', 'Nome do grupo');
-        if (!name || !name.trim()) return;
-        if (!existingGroups.includes(name.trim())) existingGroups.push(name.trim());
-        selectedGroup = name.trim();
-        renderGroups();
-      });
-      groupRow.appendChild(addBtn);
-    }
-    renderGroups();
-    modal.appendChild(groupRow);
-
-    const preview = document.createElement('div');
-    preview.className = 'copy-dialog-preview';
-    const previewLabel = document.createElement('div');
-    previewLabel.className = 'copy-dialog-preview-label';
-    previewLabel.textContent = 'PRÉVIA DO QUE SERÁ COPIADO';
-    preview.appendChild(previewLabel);
-    const previewText = document.createElement('div');
-    previewText.className = 'copy-dialog-preview-text';
-    preview.appendChild(previewText);
-    const previewHint = document.createElement('div');
-    previewHint.className = 'copy-dialog-preview-hint';
-    preview.appendChild(previewHint);
-
-    function renderPreview(): void {
-      previewText.textContent = textArea.value || '—';
-      const vars = extractVariables(textArea.value);
-      previewHint.textContent =
-        vars.length > 0 ? `Ao copiar, o Iris pergunta o valor de ${vars.map((v) => `{${v}}`).join(', ')}.` : '';
-    }
-    textArea.addEventListener('input', renderPreview);
-    renderPreview();
-    modal.appendChild(preview);
-
-    const actions = document.createElement('div');
-    actions.className = 'modal-actions';
-
-    const cancelBtn = document.createElement('button');
-    cancelBtn.type = 'button';
-    cancelBtn.className = 'btn btn-secondary';
-    cancelBtn.textContent = 'Cancelar';
-    cancelBtn.addEventListener('click', () => finish());
-    actions.appendChild(cancelBtn);
-
-    const saveBtn = document.createElement('button');
-    saveBtn.type = 'button';
-    saveBtn.className = 'btn';
-    saveBtn.textContent = 'Salvar texto';
-    saveBtn.addEventListener('click', async () => {
-      if (!nameInput.value.trim() || !textArea.value.trim()) {
-        (nameInput.value.trim() ? textArea : nameInput).focus();
-        return;
+        groupRow.appendChild(addBtn);
       }
-      if (snippet) {
-        await copyState.updateSnippet({
-          snippetId: snippet.id,
-          title: nameInput.value.trim(),
-          text: textArea.value,
-          group: selectedGroup,
-        });
-      } else {
-        await copyState.createSnippet({ title: nameInput.value.trim(), text: textArea.value, group: selectedGroup });
-      }
-      finish();
-    });
-    actions.appendChild(saveBtn);
+      renderGroups();
+      grupo.conteudo.appendChild(groupRow);
+      corpo.appendChild(grupo.secao);
 
-    modal.appendChild(actions);
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
-    nameInput.focus();
-  });
+      const preview = document.createElement('div');
+      preview.className = 'copy-dialog-preview';
+      const previewLabel = document.createElement('div');
+      previewLabel.className = 'md-rotulo';
+      previewLabel.textContent = 'Prévia do que será copiado';
+      preview.appendChild(previewLabel);
+      const previewText = document.createElement('div');
+      previewText.className = 'copy-dialog-preview-text';
+      preview.appendChild(previewText);
+      const previewHint = document.createElement('div');
+      previewHint.className = 'copy-dialog-preview-hint';
+      preview.appendChild(previewHint);
+
+      function renderPreview(): void {
+        previewText.textContent = textArea.value || '—';
+        const vars = extractVariables(textArea.value);
+        previewHint.textContent =
+          vars.length > 0 ? `Ao copiar, o Iris pergunta o valor de ${vars.map((v) => `{${v}}`).join(', ')}.` : '';
+      }
+      textArea.addEventListener('input', renderPreview);
+      renderPreview();
+      corpo.appendChild(preview);
+
+      const cancelBtn = buildBotao('Cancelar', { variante: 'fantasma' });
+      cancelBtn.addEventListener('click', fechar);
+      const saveBtn = buildBotao('Salvar texto', { variante: 'primario' });
+      saveBtn.addEventListener('click', async () => {
+        if (!nameInput.value.trim() || !textArea.value.trim()) {
+          (nameInput.value.trim() ? textArea : nameInput).focus();
+          erroInline(corpo, nameInput.value.trim() ? 'Escreva o texto.' : 'Dê um nome ao texto.');
+          return;
+        }
+        try {
+          if (snippet) {
+            await copyState.updateSnippet({
+              snippetId: snippet.id,
+              title: nameInput.value.trim(),
+              text: textArea.value,
+              group: selectedGroup,
+            });
+          } else {
+            await copyState.createSnippet({ title: nameInput.value.trim(), text: textArea.value, group: selectedGroup });
+          }
+          fechar();
+        } catch (erro) {
+          erroInline(corpo, erro);
+        }
+      });
+      rodape.append(cancelBtn, saveBtn);
+      nameInput.focus();
+    },
+    {
+      largura: 560,
+      icone: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+      subtitulo: 'Textos prontos para copiar com um clique ou Ctrl+1…9.',
+    },
+  );
 }
 
 async function handleImportTxt(): Promise<void> {

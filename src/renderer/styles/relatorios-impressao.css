@@ -1,0 +1,44 @@
+/*
+ * Impressão do relatório. O main chama printToPDF na própria janela do app;
+ * o renderer põe o documento em #impressao e esta folha esconde todo o resto.
+ * Assim a prévia e o PDF são o mesmo DOM (ver relatorios.ipc.ts).
+ */
+
+/* As margens de cima e de baixo (onde fica o rodapé com as páginas) vêm do
+   printToPDF; as laterais são o padding do próprio documento. */
+@page {
+  size: A4;
+}
+
+@media print {
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+
+  body > *:not(#impressao) {
+    display: none !important;
+  }
+
+  #impressao {
+    display: block !important;
+  }
+
+  .rd-documento {
+    padding-bottom: 0;
+  }
+
+  /* Cartões e blocos inteiros não se partem entre páginas quando cabem. */
+  .rd-item,
+  .rd-meta,
+  .rd-indicadores,
+  .rd-assinatura {
+    break-inside: avoid;
+  }
+
+  .rd-secao + .rd-secao {
+    break-before: auto;
+  }
+}

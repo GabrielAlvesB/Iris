@@ -6,9 +6,9 @@ import type {
   ServidoresFile,
 } from '../../../shared/types/servidores.types';
 import * as servidoresState from './servidores.state.js';
-import { openConfirmModal, openFormModal } from '../../ui/modal.js';
+import { openAvisoModal, openConfirmModal, openFormModal } from '../../ui/modal.js';
 import { abrirTutorial } from '../../core/navegacao.js';
-import { buildBotaoAjuda } from '../../ui/pagina.js';
+import { ICONES, buildBotaoAjuda } from '../../ui/pagina.js';
 
 let containerAtual: HTMLElement | null = null;
 /** Servidores SSH com o painel de comandos aberto. */
@@ -28,14 +28,12 @@ function rerender(): void {
 }
 
 async function avisar(titulo: string, mensagem: string): Promise<void> {
-  await openConfirmModal({
-    title: titulo,
-    message: mensagem,
-    confirmText: 'Entendi',
-    cancelText: 'Fechar',
-    danger: false,
-  });
+  await openAvisoModal(titulo, mensagem, { erro: true, botao: 'Entendi' });
 }
+
+const ICONE_TERMINAL = '<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>';
+const OPCOES_HTTP = { icone: ICONES.servidor, subtitulo: 'Checagem de saúde por HTTP: o Iris chama a URL e confere o status.', largura: 540 };
+const OPCOES_SSH = { icone: ICONE_TERMINAL, subtitulo: 'Conexão por chave privada para rodar comandos salvos.', largura: 540 };
 
 function ultimaChecagem(servidor: Servidor): Checagem | undefined {
   return servidor.historico[servidor.historico.length - 1];
@@ -78,25 +76,28 @@ async function editarServidor(servidor: Servidor): Promise<void> {
     const resposta = await openFormModal(
       'Editar servidor HTTP',
       [
-        { name: 'nome', label: 'Nome', defaultValue: servidor.nome },
-        { name: 'url', label: 'URL', defaultValue: servidor.url },
+        { name: 'nome', label: 'Nome', defaultValue: servidor.nome, secao: 'Identificação' },
+        { name: 'url', label: 'URL', type: 'url', defaultValue: servidor.url, secao: 'Identificação' },
         {
           name: 'metodo',
           label: 'Método',
           type: 'select',
+          secao: 'Checagem',
+          metade: true,
           defaultValue: servidor.metodo,
           options: [
             { value: 'GET', label: 'GET' },
             { value: 'HEAD', label: 'HEAD' },
           ],
         },
-        { name: 'statusEsperado', label: 'Status esperado', defaultValue: String(servidor.statusEsperado) },
-        { name: 'timeoutMs', label: 'Timeout (ms)', defaultValue: String(servidor.timeoutMs) },
-        { name: 'intervalo', label: 'Checar a cada (segundos; 0 = manual)', defaultValue: String(servidor.intervaloSegundos) },
+        { name: 'statusEsperado', label: 'Status esperado', type: 'number', defaultValue: String(servidor.statusEsperado), secao: 'Checagem', metade: true },
+        { name: 'timeoutMs', label: 'Timeout (ms)', type: 'number', defaultValue: String(servidor.timeoutMs), secao: 'Checagem', metade: true },
+        { name: 'intervalo', label: 'Checar a cada (s)', type: 'number', defaultValue: String(servidor.intervaloSegundos), secao: 'Checagem', metade: true, dica: '0 = só manual' },
         {
           name: 'tls',
           label: 'Certificado autoassinado',
           type: 'select',
+          secao: 'Checagem',
           defaultValue: servidor.permitirTlsInseguro ? 'sim' : 'nao',
           options: [
             { value: 'nao', label: 'Não aceitar (recomendado)' },
@@ -105,6 +106,7 @@ async function editarServidor(servidor: Servidor): Promise<void> {
         },
       ],
       'Salvar',
+      OPCOES_HTTP,
     );
     if (!resposta) return;
 
@@ -124,20 +126,22 @@ async function editarServidor(servidor: Servidor): Promise<void> {
   const resposta = await openFormModal(
     'Editar servidor SSH',
     [
-      { name: 'nome', label: 'Nome', defaultValue: servidor.nome },
-      { name: 'host', label: 'Host', defaultValue: servidor.host },
-      { name: 'porta', label: 'Porta', defaultValue: String(servidor.porta) },
-      { name: 'usuario', label: 'Usuário', defaultValue: servidor.usuario },
-      { name: 'caminhoChave', label: 'Caminho da chave privada', defaultValue: servidor.caminhoChave },
+      { name: 'nome', label: 'Nome', defaultValue: servidor.nome, secao: 'Conexão' },
+      { name: 'host', label: 'Host', defaultValue: servidor.host, secao: 'Conexão' },
+      { name: 'porta', label: 'Porta', type: 'number', defaultValue: String(servidor.porta), secao: 'Conexão', metade: true },
+      { name: 'usuario', label: 'Usuário', defaultValue: servidor.usuario, secao: 'Conexão', metade: true },
+      { name: 'caminhoChave', label: 'Caminho da chave privada', defaultValue: servidor.caminhoChave, secao: 'Chave' },
       {
         name: 'passphrase',
-        label: servidor.temPassphrase
-          ? 'Passphrase (em branco mantém a atual)'
-          : 'Passphrase (opcional)',
+        label: 'Passphrase',
+        type: 'password',
+        secao: 'Chave',
+        dica: servidor.temPassphrase ? 'Em branco mantém a atual.' : 'Opcional; guardada cifrada neste computador.',
         defaultValue: '',
       },
     ],
     'Salvar',
+    OPCOES_SSH,
   );
   if (!resposta) return;
 
@@ -157,22 +161,25 @@ async function novoHttp(): Promise<void> {
   const resposta = await openFormModal(
     'Novo servidor HTTP',
     [
-      { name: 'nome', label: 'Nome', placeholder: 'API de produção' },
-      { name: 'url', label: 'URL', placeholder: 'https://meuservidor.com/health' },
+      { name: 'nome', label: 'Nome', placeholder: 'API de produção', secao: 'Identificação' },
+      { name: 'url', label: 'URL', type: 'url', placeholder: 'https://meuservidor.com/health', secao: 'Identificação' },
       {
         name: 'metodo',
         label: 'Método',
         type: 'select',
+        secao: 'Checagem',
+        metade: true,
         defaultValue: 'GET',
         options: [
           { value: 'GET', label: 'GET' },
           { value: 'HEAD', label: 'HEAD' },
         ],
       },
-      { name: 'statusEsperado', label: 'Status esperado', defaultValue: '200' },
-      { name: 'intervalo', label: 'Checar a cada (segundos; 0 = manual)', defaultValue: '60' },
+      { name: 'statusEsperado', label: 'Status esperado', type: 'number', defaultValue: '200', secao: 'Checagem', metade: true },
+      { name: 'intervalo', label: 'Checar a cada (s)', type: 'number', defaultValue: '60', secao: 'Checagem', dica: '0 = só manual' },
     ],
     'Adicionar',
+    OPCOES_HTTP,
   );
   if (!resposta) return;
 
@@ -198,13 +205,14 @@ async function novoSsh(): Promise<void> {
   const resposta = await openFormModal(
     'Novo servidor SSH',
     [
-      { name: 'nome', label: 'Nome', placeholder: 'VPS principal' },
-      { name: 'host', label: 'Host', placeholder: '203.0.113.10' },
-      { name: 'porta', label: 'Porta', defaultValue: '22' },
-      { name: 'usuario', label: 'Usuário', defaultValue: 'root' },
-      { name: 'passphrase', label: 'Passphrase da chave (se houver)', defaultValue: '' },
+      { name: 'nome', label: 'Nome', placeholder: 'VPS principal', secao: 'Conexão' },
+      { name: 'host', label: 'Host', placeholder: '203.0.113.10', secao: 'Conexão' },
+      { name: 'porta', label: 'Porta', type: 'number', defaultValue: '22', secao: 'Conexão', metade: true },
+      { name: 'usuario', label: 'Usuário', defaultValue: 'root', secao: 'Conexão', metade: true },
+      { name: 'passphrase', label: 'Passphrase da chave', type: 'password', defaultValue: '', secao: 'Chave', dica: 'Só se a chave tiver uma.' },
     ],
     'Adicionar',
+    { ...OPCOES_SSH, subtitulo: `Chave escolhida: ${caminhoChave}` },
   );
   if (!resposta) return;
 
@@ -246,9 +254,11 @@ async function editarComando(servidor: ServidorSsh, comandoId?: string): Promise
         type: 'textarea',
         defaultValue: existente?.comando ?? '',
         placeholder: 'docker ps',
+        dica: 'Roda no servidor pela conexão SSH; a saída aparece no painel.',
       },
     ],
     'Salvar',
+    { icone: ICONE_TERMINAL, subtitulo: servidor.nome },
   );
   if (!resposta) return;
 

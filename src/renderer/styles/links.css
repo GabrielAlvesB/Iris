@@ -452,17 +452,7 @@
   flex: 0 0 auto;
 }
 
-/* ---------- Modal & Dialogs ---------- */
-
-.link-dialog {
-  width: 420px;
-}
-
-.link-dialog-hint {
-  font-size: 12px;
-  color: var(--text-faint);
-  margin: -8px 0 16px;
-}
+/* ---------- Modal de link ---------- */
 
 .link-dialog-preview {
   display: flex;
@@ -472,7 +462,6 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 12px 14px;
-  margin-bottom: 18px;
 }
 
 .link-dialog-preview.is-empty {
@@ -603,77 +592,11 @@
   color: var(--text);
 }
 
-.link-dialog-title-input {
-  width: 100%;
-  background: var(--bg-elevated-3);
-  border: 1px solid var(--accent);
-  border-radius: 4px;
-  color: var(--text);
-  font-size: 13px;
-  font-family: inherit;
-  padding: 4px 8px;
-}
-
 .link-dialog-preview-domain {
   font-size: 11px;
   color: var(--text-faint);
   font-family: var(--font-mono);
   margin-top: 2px;
-}
-
-.link-dialog-edit-btn {
-  background: none;
-  border: none;
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  flex-shrink: 0;
-  padding: 4px 8px;
-  border-radius: 4px;
-}
-
-.link-dialog-edit-btn:hover {
-  background: var(--accent-soft);
-}
-
-.link-dialog-group-label {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-faint);
-  margin-bottom: 8px;
-}
-
-.link-dialog-groups {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 20px;
-}
-
-.link-dialog-group-chip {
-  background: var(--bg-elevated-2);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  border-radius: 999px;
-  padding: 5px 14px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.link-dialog-group-chip:hover {
-  border-color: var(--border);
-  color: var(--text);
-}
-
-.link-dialog-group-chip.active {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--text);
-  font-weight: 600;
 }
 
 .link-dialog-group-chip--add {

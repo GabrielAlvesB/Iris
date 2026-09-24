@@ -8,6 +8,10 @@ import type { ServidoresFile } from './servidores.types';
 import type { N8nFile } from './n8n.types';
 import type { GithubFile } from './github.types';
 import type { AjustesFile } from './ajustes.types';
+import type { CopyFile } from './copy.types';
+import type { VideosFile } from './videos.types';
+import type { ImagensFile } from './imagens.types';
+import type { RelatoriosFile } from './relatorios.types';
 
 export interface ExportBundle {
   schemaVersion: number;
@@ -23,6 +27,11 @@ export interface ExportBundle {
   n8n?: N8nFile;
   github?: GithubFile;
   ajustes?: AjustesFile;
+  copy?: CopyFile;
+  /** Chave mantida com o nome antigo: é o arquivo dos vídeos e do catálogo de postagens. */
+  videos?: VideosFile;
+  imagens?: ImagensFile;
+  relatorios?: RelatoriosFile;
   /** @deprecated O módulo Arquivos virou Explorador. Só existe em backups antigos. */
   arquivos?: unknown;
 }

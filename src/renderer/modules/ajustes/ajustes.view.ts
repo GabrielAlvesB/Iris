@@ -1,29 +1,25 @@
-import type { ModuloInicial } from '../../../shared/types/ajustes.types';
+import { FORMATOS_ASSINATURA, type AssinaturaRelatorio, type ModuloInicial } from '../../../shared/types/ajustes.types.js';
+import { MODULOS, rotuloCompleto } from '../../../shared/types/modulos.types.js';
 import * as ajustesState from './ajustes.state.js';
 import type { AjustesViewState } from './ajustes.state.js';
 import * as exportacaoView from '../exportacao/exportacao.view.js';
-import { abrirTutorial, type GuiaId } from '../../core/navegacao.js';
+import { abrirTutorial, consumirSecaoAjustes, type GuiaId } from '../../core/navegacao.js';
+import { buildAssinatura } from '../relatorios/relatorios.documento.js';
+import {
+  assinarSidebar,
+  definirLargura,
+  definirModoCompacto,
+  obterEstadoSidebar,
+  LARGURA_PADRAO,
+  LARGURA_MINIMA,
+  LARGURA_MAXIMA,
+} from '../../core/sidebar.js';
 import { ICONES, buildAviso, buildBotao, buildCabecalho, buildSelo, svg, type Tom } from '../../ui/pagina.js';
 
-type Secao = 'n8n' | 'github' | 'credenciais' | 'preferencias' | 'backup';
+type Secao = 'n8n' | 'github' | 'credenciais' | 'preferencias' | 'relatorios' | 'backup';
 
 let secaoAtiva: Secao = 'n8n';
 let containerAtual: HTMLElement | null = null;
-
-const MODULOS: Array<{ value: ModuloInicial; label: string }> = [
-  { value: 'kanban', label: 'Kanban' },
-  { value: 'quadro', label: 'Quadro' },
-  { value: 'explorador', label: 'Explorador' },
-  { value: 'sheets', label: 'Sheets' },
-  { value: 'links', label: 'Links rápidos' },
-  { value: 'copy', label: 'Copy' },
-  { value: 'pensamentos', label: 'Pensamentos' },
-  { value: 'servidores', label: 'Servidores' },
-  { value: 'n8n', label: 'n8n' },
-  { value: 'github', label: 'GitHub' },
-  { value: 'tutorial', label: 'Tutorial' },
-  { value: 'ajustes', label: 'Ajustes' },
-];
 
 interface ItemNav {
   id: Secao;
@@ -54,6 +50,12 @@ const NAV: ItemNav[] = [
       s.ajustes.criptografiaDisponivel ? { texto: 'cofre ativo', tom: 'ok' } : { texto: 'sem cofre', tom: 'erro' },
   },
   { id: 'preferencias', rotulo: 'Preferências', icone: ICONES.preferencias },
+  {
+    id: 'relatorios',
+    rotulo: 'Relatórios',
+    icone: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/>',
+    estado: (s) => (s.ajustes.assinatura.nome.trim() ? { texto: 'assinatura definida', tom: 'ok' } : { texto: 'sem assinatura', tom: 'neutro' }),
+  },
   { id: 'backup', rotulo: 'Backup', icone: ICONES.backup },
 ];
 
@@ -382,6 +384,104 @@ function buildSecaoCredenciais(state: AjustesViewState): HTMLElement {
   return painel;
 }
 
+const ICONE_ASSINATURA = '<path d="M3 17c3-3 5.5-8 7.5-8s-1 7 1 7 3-4 4.5-4 1 3 2.5 3H21"/><path d="M3 21h18"/>';
+
+/**
+ * Assinatura dos relatórios em PDF. Fica aqui, e não no gerador: mudar nome,
+ * texto ou formato não exige mexer no código do documento. A prévia usa o
+ * mesmo buildAssinatura do PDF.
+ */
+function buildSecaoRelatorios(state: AjustesViewState): HTMLElement {
+  const painel = buildPainel(
+    'Assinatura dos relatórios',
+    'Identificação no fim de cada relatório exportado em PDF. Deixe o nome em branco para sair sem assinatura.',
+    ICONE_ASSINATURA,
+  );
+
+  const rascunho: AssinaturaRelatorio = structuredClone(state.ajustes.assinatura);
+  const corpo = document.createElement('div');
+  corpo.className = 'aj-corpo';
+
+  const nome = buildInput('text', rascunho.nome, 'Ex.: Gabriel Alves Batista');
+  corpo.appendChild(buildCampo('Nome', nome));
+
+  const linhas = document.createElement('textarea');
+  linhas.className = 'aj-input aj-textarea';
+  linhas.rows = 3;
+  linhas.value = rascunho.linhas.join('\n');
+  linhas.placeholder = 'Direitos reservados\nTech';
+  corpo.appendChild(buildCampo('Texto abaixo do nome', linhas, 'Uma linha por item (até 4) — cargo, empresa, aviso de direitos.'));
+
+  const formatoCampo = document.createElement('div');
+  formatoCampo.className = 'aj-campo';
+  const formatoRotulo = document.createElement('span');
+  formatoRotulo.className = 'aj-campo-rotulo';
+  formatoRotulo.textContent = 'Formato';
+  const formatos = document.createElement('div');
+  formatos.className = 'md-pilulas';
+  const desenharFormatos = (): void => {
+    formatos.innerHTML = '';
+    FORMATOS_ASSINATURA.forEach((f) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'md-pilula';
+      btn.title = f.descricao;
+      btn.classList.toggle('is-ativa', rascunho.formato === f.id);
+      btn.setAttribute('aria-pressed', String(rascunho.formato === f.id));
+      btn.textContent = f.rotulo;
+      btn.addEventListener('click', () => {
+        rascunho.formato = f.id;
+        desenharFormatos();
+        desenharPrevia();
+      });
+      formatos.appendChild(btn);
+    });
+  };
+  formatoCampo.append(formatoRotulo, formatos);
+  corpo.appendChild(formatoCampo);
+
+  const data = buildOpcao('Data de emissão', 'Mostra "Emitido em …" junto da assinatura.', rascunho.mostrarData);
+  data.el.querySelector('.pg-interruptor')?.addEventListener('click', () => {
+    rascunho.mostrarData = data.valor();
+    desenharPrevia();
+  });
+  corpo.appendChild(data.el);
+
+  const previa = document.createElement('div');
+  previa.className = 'aj-assinatura-previa';
+  const desenharPrevia = (): void => {
+    const bloco = buildAssinatura({ ...rascunho, nome: nome.value, linhas: linhas.value.split('\n').map((l) => l.trim()).filter(Boolean) });
+    previa.replaceChildren(
+      bloco ?? Object.assign(document.createElement('p'), { className: 'aj-campo-dica', textContent: 'Sem nome, os relatórios saem sem assinatura.' }),
+    );
+  };
+  nome.addEventListener('input', desenharPrevia);
+  linhas.addEventListener('input', desenharPrevia);
+  desenharFormatos();
+  desenharPrevia();
+  corpo.appendChild(buildCampo('Prévia', previa));
+
+  const status = buildStatus();
+  const acoes = document.createElement('div');
+  acoes.className = 'aj-acoes';
+  const salvar = buildBotao('Salvar assinatura', { variante: 'primario' });
+  salvar.addEventListener('click', () => {
+    salvar.disabled = true;
+    void ajustesState
+      .setAssinatura({ ...rascunho, nome: nome.value, linhas: linhas.value.split('\n') })
+      .then(() => status.mostrar('Salvo — vale para os próximos PDFs', 'ok'))
+      .catch((error: unknown) => status.mostrar(mensagemDe(error), 'erro'))
+      .finally(() => (salvar.disabled = false));
+  });
+  acoes.appendChild(salvar);
+  corpo.append(acoes, status.el);
+
+  painel.appendChild(corpo);
+  return painel;
+}
+
+let unsubSidebar: (() => void) | null = null;
+
 function buildSecaoPreferencias(state: AjustesViewState): HTMLElement {
   const painel = buildPainel('Preferências', 'Comportamento geral do Iris.', ICONES.preferencias);
 
@@ -392,9 +492,9 @@ function buildSecaoPreferencias(state: AjustesViewState): HTMLElement {
   select.className = 'aj-input';
   MODULOS.forEach((modulo) => {
     const option = document.createElement('option');
-    option.value = modulo.value;
-    option.textContent = modulo.label;
-    if (state.ajustes.moduloInicial === modulo.value) option.selected = true;
+    option.value = modulo.id;
+    option.textContent = rotuloCompleto(modulo.id);
+    if (state.ajustes.moduloInicial === modulo.id) option.selected = true;
     select.appendChild(option);
   });
 
@@ -407,6 +507,69 @@ function buildSecaoPreferencias(state: AjustesViewState): HTMLElement {
   });
 
   corpo.appendChild(buildCampo('Abrir o Iris em', select, 'A área que aparece primeiro quando o app inicia.'));
+
+  // Controles do Menu Lateral (Navbar)
+  const estadoSidebar = obterEstadoSidebar();
+
+  const opcaoCompacto = buildOpcao(
+    'Menu lateral compacto (Clean)',
+    'Exibe apenas os ícones para uma interface minimalista e maior foco no conteúdo (Atalho: Ctrl+B).',
+    estadoSidebar.compacto,
+  );
+  const btnCompacto = opcaoCompacto.el.querySelector<HTMLButtonElement>('.pg-interruptor');
+  btnCompacto?.addEventListener('click', () => {
+    definirModoCompacto(opcaoCompacto.valor());
+  });
+  corpo.appendChild(opcaoCompacto.el);
+
+  const sliderRow = document.createElement('div');
+  sliderRow.className = 'aj-slider-row';
+
+  const range = document.createElement('input');
+  range.type = 'range';
+  range.className = 'aj-slider';
+  range.min = String(LARGURA_MINIMA);
+  range.max = String(LARGURA_MAXIMA);
+  range.step = '2';
+  range.value = String(estadoSidebar.largura);
+
+  const valorSpan = document.createElement('span');
+  valorSpan.className = 'aj-slider-valor';
+  valorSpan.textContent = `${estadoSidebar.largura} px`;
+
+  const resetBtn = buildBotao('Padrão (216px)', { variante: 'fantasma' });
+  resetBtn.addEventListener('click', () => {
+    definirLargura(LARGURA_PADRAO);
+    range.value = String(LARGURA_PADRAO);
+    valorSpan.textContent = `${LARGURA_PADRAO} px`;
+  });
+
+  range.addEventListener('input', () => {
+    const valor = Number(range.value);
+    valorSpan.textContent = `${valor} px`;
+    definirLargura(valor);
+  });
+
+  sliderRow.append(range, valorSpan, resetBtn);
+  corpo.appendChild(
+    buildCampo(
+      'Largura do menu lateral',
+      sliderRow,
+      'Ajuste o tamanho do menu. Você também pode arrastar a borda direita da barra lateral diretamente na tela.',
+    ),
+  );
+
+  // Sincroniza em tempo real caso o usuário arraste ou alterne a barra lateral
+  if (unsubSidebar) unsubSidebar();
+  unsubSidebar = assinarSidebar((est) => {
+    range.value = String(est.largura);
+    valorSpan.textContent = `${est.largura} px`;
+    if (btnCompacto) {
+      btnCompacto.classList.toggle('is-ligado', est.compacto);
+      btnCompacto.setAttribute('aria-checked', String(est.compacto));
+    }
+  });
+
   corpo.appendChild(status.el);
 
   painel.appendChild(corpo);
@@ -471,6 +634,9 @@ function buildNav(state: AjustesViewState): HTMLElement {
 
 export function render(container: HTMLElement, state: AjustesViewState): void {
   containerAtual = container;
+  // Outro módulo pode ter pedido uma seção (ex.: Relatórios → assinatura).
+  const pedida = consumirSecaoAjustes();
+  if (pedida && NAV.some((n) => n.id === pedida)) secaoAtiva = pedida as Secao;
   container.innerHTML = '';
 
   const view = document.createElement('div');
@@ -480,7 +646,7 @@ export function render(container: HTMLElement, state: AjustesViewState): void {
     buildCabecalho({
       icone: ICONES.ajustes,
       titulo: 'Ajustes',
-      subtitulo: 'Conexões, segurança, preferências e backup',
+      subtitulo: 'Conexões, segurança, preferências, relatórios e backup',
     }),
   );
 
@@ -496,6 +662,7 @@ export function render(container: HTMLElement, state: AjustesViewState): void {
     github: () => buildSecaoGithub(state),
     credenciais: () => buildSecaoCredenciais(state),
     preferencias: () => buildSecaoPreferencias(state),
+    relatorios: () => buildSecaoRelatorios(state),
     backup: () => buildSecaoBackup(),
   };
   conteudo.appendChild(secoes[secaoAtiva]());
@@ -506,6 +673,10 @@ export function render(container: HTMLElement, state: AjustesViewState): void {
 }
 
 export function destroy(): void {
+  if (unsubSidebar) {
+    unsubSidebar();
+    unsubSidebar = null;
+  }
   // O statusEl do módulo de exportação sobreviveria ao DOM destruído.
   exportacaoView.destroy();
   containerAtual = null;

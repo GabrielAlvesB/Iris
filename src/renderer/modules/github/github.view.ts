@@ -2,7 +2,7 @@ import type { PastaDeProjetos, RepoUnificado } from '../../../shared/types/githu
 import type { CommitResumo } from '../../../shared/types/explorador.types';
 import * as githubState from './github.state.js';
 import type { GithubViewState } from './github.state.js';
-import { openConfirmModal } from '../../ui/modal.js';
+import { openAvisoModal } from '../../ui/modal.js';
 import { abrirTutorial } from '../../core/navegacao.js';
 import {
   ICONES,
@@ -48,7 +48,7 @@ function rerender(): void {
 }
 
 async function avisar(titulo: string, mensagem: string): Promise<void> {
-  await openConfirmModal({ title: titulo, message: mensagem, confirmText: 'Entendi', cancelText: 'Fechar', danger: false });
+  await openAvisoModal(titulo, mensagem, { botao: 'Entendi' });
 }
 
 function mensagemDe(error: unknown): string {

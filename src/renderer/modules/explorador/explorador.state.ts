@@ -1,11 +1,15 @@
 import type { IpcResult } from '../../../shared/types/common.types';
 import type {
+  AtualizarRecursoInput,
+  BibliotecaInfo,
   CriarInput,
   ExcluirInput,
   ExploradorFile,
   ExploradorListagem,
   MoverInput,
   RenomearInput,
+  ResultadoBusca,
+  SalvarColecaoInput,
 } from '../../../shared/types/explorador.types';
 import { createPushBinding } from '../../core/pushBinding.js';
 
@@ -14,15 +18,21 @@ export interface ExploradorViewState {
   raizAtivaId: string | null;
   listagem: ExploradorListagem | null;
   erro: string | null;
+  biblioteca: BibliotecaInfo | null;
+  busca: ResultadoBusca | null;
+  buscando: boolean;
 }
 
 type Listener = (state: ExploradorViewState) => void;
 
 let state: ExploradorViewState = {
-  raizes: { schemaVersion: 1, updatedAt: '', raizes: [] },
+  raizes: { schemaVersion: 2, updatedAt: '', raizes: [], colecoes: [], recursos: [], recentes: [] },
   raizAtivaId: null,
   listagem: null,
   erro: null,
+  biblioteca: null,
+  busca: null,
+  buscando: false,
 };
 let listener: Listener | null = null;
 
@@ -147,7 +157,98 @@ export async function revelarNoSistema(caminho: string): Promise<void> {
 }
 
 export async function abrirNoSistema(caminho: string): Promise<void> {
-  unwrap(await window.irisAPI.explorador.abrirNoSistema(caminho));
+  try {
+    unwrap(await window.irisAPI.explorador.abrirNoSistema(caminho));
+    // Abrir entra nos Recentes; recarrega para a aba refletir.
+    if (state.biblioteca) await carregarBiblioteca();
+  } catch (error) {
+    aplicar({ erro: error instanceof Error ? error.message : String(error) });
+  }
+}
+
+// ---------- Biblioteca ----------
+
+/** Entrada do módulo: pastas e Biblioteca juntas, porque as abas dependem das duas. */
+export async function carregarTudo(): Promise<void> {
+  await Promise.all([carregarRaizes(), carregarBiblioteca()]);
+}
+
+export async function carregarBiblioteca(): Promise<void> {
+  try {
+    aplicar({ biblioteca: unwrap(await window.irisAPI.explorador.getBiblioteca()) });
+  } catch (error) {
+    aplicar({ erro: error instanceof Error ? error.message : String(error) });
+  }
+}
+
+async function aplicarBiblioteca(operacao: Promise<IpcResult<BibliotecaInfo>>): Promise<void> {
+  try {
+    aplicar({ biblioteca: unwrap(await operacao), erro: null });
+  } catch (error) {
+    aplicar({ erro: error instanceof Error ? error.message : String(error) });
+  }
+}
+
+/** Devolve quantos entraram; a view avisa quando algo foi recusado. */
+export async function adicionarRecurso(caminho: string, colecaoId?: string): Promise<boolean> {
+  try {
+    const resultado = unwrap(await window.irisAPI.explorador.adicionarRecurso({ caminho, colecaoId }));
+    aplicar({ biblioteca: resultado.biblioteca, erro: null });
+    return true;
+  } catch (error) {
+    aplicar({ erro: error instanceof Error ? error.message : String(error) });
+    return false;
+  }
+}
+
+export async function adicionarPorDialogo(colecaoId?: string): Promise<void> {
+  try {
+    const resultado = unwrap(await window.irisAPI.explorador.adicionarRecursosPorDialogo(colecaoId));
+    aplicar({
+      biblioteca: resultado.biblioteca,
+      erro: resultado.recusados.length
+        ? `${resultado.recusados.length} item(ns) ficaram de fora por não estarem numa pasta monitorada. Monitore a pasta deles primeiro (aba Pastas).`
+        : null,
+    });
+  } catch (error) {
+    aplicar({ erro: error instanceof Error ? error.message : String(error) });
+  }
+}
+
+export async function atualizarRecurso(input: AtualizarRecursoInput): Promise<void> {
+  await aplicarBiblioteca(window.irisAPI.explorador.atualizarRecurso(input));
+}
+
+export async function removerRecurso(recursoId: string): Promise<void> {
+  await aplicarBiblioteca(window.irisAPI.explorador.removerRecurso(recursoId));
+}
+
+export async function salvarColecao(input: SalvarColecaoInput): Promise<void> {
+  await aplicarBiblioteca(window.irisAPI.explorador.salvarColecao(input));
+}
+
+export async function excluirColecao(colecaoId: string): Promise<void> {
+  await aplicarBiblioteca(window.irisAPI.explorador.excluirColecao(colecaoId));
+}
+
+export async function limparRecentes(): Promise<void> {
+  await aplicarBiblioteca(window.irisAPI.explorador.limparRecentes());
+}
+
+export async function buscar(termo: string): Promise<void> {
+  if (termo.trim().length < 2) {
+    aplicar({ busca: null, buscando: false });
+    return;
+  }
+  aplicar({ buscando: true });
+  try {
+    const resultado = unwrap(await window.irisAPI.explorador.buscar({ termo }));
+    // Uma busca mais nova já começou; a resposta dela é que vale.
+    if (resultado.obsoleta) return;
+    aplicar({ busca: resultado, buscando: false });
+  } catch (error) {
+    aplicar({ buscando: false, erro: error instanceof Error ? error.message : String(error) });
+  }
 }
 
 export function limparErro(): void {

@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron';
 import { AJUSTES_CHANNELS } from '../../shared/ipcChannels';
 import type { IpcResult } from '../../shared/types/common.types';
-import type { AjustesInfo, ModuloInicial } from '../../shared/types/ajustes.types';
+import type { AjustesInfo, AssinaturaRelatorio, ModuloInicial } from '../../shared/types/ajustes.types';
 import * as ajustesService from '../modules/ajustes/ajustes.service';
 
 function toResult<T>(promise: Promise<T>): Promise<IpcResult<T>> {
@@ -18,5 +18,9 @@ export function registerAjustesIpc(): void {
 
   ipcMain.handle(AJUSTES_CHANNELS.setModuloInicial, (_event, modulo: ModuloInicial) =>
     toResult<AjustesInfo>(ajustesService.setModuloInicial(modulo)),
+  );
+
+  ipcMain.handle(AJUSTES_CHANNELS.setAssinatura, (_event, assinatura: AssinaturaRelatorio) =>
+    toResult<AjustesInfo>(ajustesService.setAssinatura(assinatura)),
   );
 }

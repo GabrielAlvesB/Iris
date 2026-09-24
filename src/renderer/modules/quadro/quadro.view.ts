@@ -7,7 +7,7 @@ import type {
 } from '../../../shared/types/quadro.types';
 import * as quadroState from './quadro.state.js';
 import * as kanbanState from '../kanban/kanban.state.js';
-import { openFormModal, promptText, openConfirmModal } from '../../ui/modal.js';
+import { ICONES_MODAL, openFormModal, promptText, openConfirmModal } from '../../ui/modal.js';
 
 interface Rect {
   x: number;
@@ -497,6 +497,12 @@ function computeSpawnPosition(width: number, height: number): { x: number; y: nu
   return { x: localX, y: localY };
 }
 
+const ICONE_BLOCO = {
+  nota: '<path d="M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3Z"/><path d="M15 3v6h6"/>',
+  tarefa: '<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+  rotina: '<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>',
+} as const;
+
 async function handleAddBlock(type: QuadroBlockType): Promise<void> {
   const { width, height } = DEFAULT_BLOCK_SIZE[type];
 
@@ -507,7 +513,8 @@ async function handleAddBlock(type: QuadroBlockType): Promise<void> {
         { name: 'content', label: 'Conteúdo', type: 'textarea', placeholder: 'Cliente quer exportar por período...' },
         { name: 'assignee', label: 'Autor (iniciais)', type: 'text', placeholder: 'Ex: MR' },
       ],
-      'Criar',
+      'Criar nota',
+      { icone: ICONE_BLOCO.nota, subtitulo: 'Uma ideia solta no quadro; o título sai das primeiras palavras.' },
     );
     if (!result || !result.content.trim()) return;
     const { x, y } = computeSpawnPosition(width, height);
@@ -532,7 +539,8 @@ async function handleAddBlock(type: QuadroBlockType): Promise<void> {
         { name: 'content', label: 'Descrição', type: 'textarea', placeholder: 'Validar fluxo ponta a ponta...' },
         { name: 'assignee', label: 'Responsável (iniciais)', type: 'text', placeholder: 'Ex: CD' },
       ],
-      'Criar',
+      'Criar tarefa',
+      { icone: ICONE_BLOCO.tarefa, subtitulo: 'Pode ir para o Kanban depois, pelo botão do quadro.' },
     );
     if (!result || !result.title.trim()) return;
     const { x, y } = computeSpawnPosition(width, height);
@@ -556,7 +564,8 @@ async function handleAddBlock(type: QuadroBlockType): Promise<void> {
       { name: 'days', label: 'Dias da semana', type: 'weekdays', defaultValue: '1,2,3,4,5' },
       { name: 'time', label: 'Horário', type: 'time', defaultValue: '18:00' },
     ],
-    'Criar',
+    'Criar rotina',
+    { icone: ICONE_BLOCO.rotina, subtitulo: 'Um hábito com dias e horário; o quadro conta os dias seguidos.' },
   );
   if (!result || !result.title.trim()) return;
   const { x, y } = computeSpawnPosition(width, height);
@@ -647,6 +656,7 @@ async function openEditBlockModal(block: QuadroBlock): Promise<void> {
         { name: 'assignee', label: 'Responsável (iniciais)', type: 'text', defaultValue: block.assignee ?? '', placeholder: 'Ex: MR' },
       ],
       'Salvar alterações',
+      { icone: ICONE_BLOCO.tarefa },
     );
     if (!result) return;
     await quadroState.updateBlock({
@@ -667,6 +677,7 @@ async function openEditBlockModal(block: QuadroBlock): Promise<void> {
         { name: 'assignee', label: 'Autor (iniciais)', type: 'text', defaultValue: block.assignee ?? '', placeholder: 'Ex: GA' },
       ],
       'Salvar alterações',
+      { icone: ICONE_BLOCO.nota },
     );
     if (!result || !result.content.trim()) return;
     await quadroState.updateBlock({
@@ -685,9 +696,10 @@ async function openEditBlockModal(block: QuadroBlock): Promise<void> {
         { name: 'title', label: 'Nome da rotina', type: 'text', defaultValue: block.title },
         { name: 'days', label: 'Dias da semana', type: 'weekdays', defaultValue: (block.routineDays ?? [1, 2, 3, 4, 5]).join(',') },
         { name: 'time', label: 'Horário', type: 'time', defaultValue: block.routineTime || '18:00' },
-        { name: 'streak', label: 'Contagem de dias seguidos (Streak)', type: 'text', defaultValue: String(block.streakCount ?? 0) },
+        { name: 'streak', label: 'Dias seguidos (streak)', type: 'number', defaultValue: String(block.streakCount ?? 0) },
       ],
       'Salvar alterações',
+      { icone: ICONE_BLOCO.rotina },
     );
     if (!result || !result.title.trim()) return;
     const routineDays = result.days
@@ -1076,7 +1088,7 @@ function buildConnectionDeleteButtons(state: QuadroFile): HTMLButtonElement[] {
 }
 
 async function handleRenameBoard(currentName: string): Promise<void> {
-  const value = await promptText('Renomear quadro', 'Nome do projeto', currentName);
+  const value = await promptText('Renomear quadro', 'Nome do projeto', currentName, { icone: ICONES_MODAL.texto });
   if (value === null || !value.trim()) return;
   await quadroState.updateBoardName(value.trim());
 }

@@ -2,7 +2,7 @@ import type { Pensamento, PensamentosFile, PromocaoTipo } from '../../../shared/
 import * as pensamentosState from './pensamentos.state.js';
 import * as kanbanState from '../kanban/kanban.state.js';
 import * as quadroState from '../quadro/quadro.state.js';
-import { openConfirmModal, openFormModal } from '../../ui/modal.js';
+import { mensagemDeErro, openAvisoModal, openConfirmModal, openFormModal } from '../../ui/modal.js';
 
 type Periodo = 'tudo' | 'hoje' | '7' | '30';
 
@@ -290,9 +290,14 @@ async function promover(pensamento: Pensamento): Promise<void> {
           { value: 'kanban', label: 'Card do Kanban' },
           { value: 'quadro', label: 'Bloco do Quadro' },
         ],
+        dica: 'O pensamento continua aqui, marcado como promovido.',
       },
     ],
     'Promover',
+    {
+      icone: '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+      subtitulo: tituloDe(pensamento.texto),
+    },
   );
   if (!escolha) return;
 
@@ -329,13 +334,7 @@ async function promover(pensamento: Pensamento): Promise<void> {
       return;
     }
   } catch (error) {
-    await openConfirmModal({
-      title: 'Não foi possível promover',
-      message: error instanceof Error ? error.message : String(error),
-      confirmText: 'Entendi',
-      cancelText: 'Fechar',
-      danger: false,
-    });
+    await openAvisoModal('Não foi possível promover', mensagemDeErro(error), { erro: true, botao: 'Entendi' });
   }
 }
 

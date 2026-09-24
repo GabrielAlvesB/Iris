@@ -153,68 +153,11 @@
   margin-left: 2px;
 }
 
-/* ---------- Dialog ---------- */
-
-.copy-dialog {
-  width: 460px;
-}
-
-.copy-dialog-variables {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: var(--text-faint);
-  margin: -6px 0 14px;
-  flex-wrap: wrap;
-}
+/* ---------- Modal de texto ---------- */
 
 .copy-dialog-var-btn {
-  background: var(--bg-elevated-3);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  border-radius: 999px;
-  padding: 2px 9px;
-  font-size: 11px;
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  cursor: pointer;
-}
-
-.copy-dialog-var-btn:hover {
-  color: var(--text);
-  border-color: var(--accent);
-}
-
-.copy-dialog-group-label {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-faint);
-  margin-bottom: 8px;
-}
-
-.copy-dialog-groups {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 16px;
-}
-
-.copy-dialog-group-chip {
-  background: var(--bg-elevated-2);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  border-radius: 999px;
-  padding: 5px 12px;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.copy-dialog-group-chip.active {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
 }
 
 .copy-dialog-group-chip--add {
@@ -223,19 +166,13 @@
 }
 
 .copy-dialog-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 13px 15px;
   background: var(--bg-elevated-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 10px 12px;
-  margin-bottom: 14px;
-}
-
-.copy-dialog-preview-label {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  color: var(--text-faint);
-  margin-bottom: 6px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
 }
 
 .copy-dialog-preview-text {
@@ -246,7 +183,10 @@
 }
 
 .copy-dialog-preview-hint {
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--accent);
-  margin-top: 6px;
+}
+
+.copy-dialog-preview-hint:empty {
+  display: none;
 }

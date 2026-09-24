@@ -17,6 +17,11 @@ import type {
   UpdateBlockInput,
 } from './quadro.types';
 import type {
+  AdicionarRecursoInput,
+  AdicionarRecursosResult,
+  AtualizarRecursoInput,
+  BibliotecaInfo,
+  BuscarInput,
   CriarInput,
   ExcluirInput,
   ExploradorFile,
@@ -24,6 +29,8 @@ import type {
   ListarDiretorioInput,
   MoverInput,
   RenomearInput,
+  ResultadoBusca,
+  SalvarColecaoInput,
 } from './explorador.types';
 import type {
   AtualizarServidorInput,
@@ -49,7 +56,33 @@ import type {
   GithubSnapshot,
   SalvarGithubConfigInput,
 } from './github.types';
-import type { AjustesInfo, ModuloInicial } from './ajustes.types';
+import type { AjustesInfo, AssinaturaRelatorio, ModuloInicial } from './ajustes.types';
+import type {
+  ArquivarImagemInput,
+  AtualizarImagemInput,
+  CriarImagemInput,
+  ImagensFile,
+  MoverImagemInput,
+} from './imagens.types';
+import type {
+  CriarRelatorioInput,
+  ExportarPdfInput,
+  Relatorio,
+  RelatoriosFile,
+  SalvarCategoriasInput,
+} from './relatorios.types';
+import type {
+  ArquivarVideoInput,
+  AtualizarVideoInput,
+  CriarVideoInput,
+  ImportarDeSheetsInput,
+  ImportarDeSheetsResult,
+  MoverVideoInput,
+  PreferenciasVideos,
+  SalvarRedeInput,
+  SalvarTagInput,
+  VideosFile,
+} from './videos.types';
 import type { IrisEventPayload, IrisEventTopic, Unsubscribe } from './events.types';
 import type {
   AddColumnInput,
@@ -114,6 +147,16 @@ export interface ExploradorApi {
   excluir(input: ExcluirInput): Promise<IpcResult<ExploradorListagem>>;
   revelarNoSistema(caminho: string): Promise<IpcResult<void>>;
   abrirNoSistema(caminho: string): Promise<IpcResult<void>>;
+  getBiblioteca(): Promise<IpcResult<BibliotecaInfo>>;
+  adicionarRecurso(input: AdicionarRecursoInput): Promise<IpcResult<AdicionarRecursosResult>>;
+  /** Seletor nativo de arquivos; cancelar devolve a Biblioteca inalterada. */
+  adicionarRecursosPorDialogo(colecaoId?: string): Promise<IpcResult<AdicionarRecursosResult>>;
+  atualizarRecurso(input: AtualizarRecursoInput): Promise<IpcResult<BibliotecaInfo>>;
+  removerRecurso(recursoId: string): Promise<IpcResult<BibliotecaInfo>>;
+  salvarColecao(input: SalvarColecaoInput): Promise<IpcResult<BibliotecaInfo>>;
+  excluirColecao(colecaoId: string): Promise<IpcResult<BibliotecaInfo>>;
+  limparRecentes(): Promise<IpcResult<BibliotecaInfo>>;
+  buscar(input: BuscarInput): Promise<IpcResult<ResultadoBusca>>;
 }
 
 export interface ServidoresApi {
@@ -159,6 +202,7 @@ export interface GithubApi {
 export interface AjustesApi {
   getAjustes(): Promise<IpcResult<AjustesInfo>>;
   setModuloInicial(modulo: ModuloInicial): Promise<IpcResult<AjustesInfo>>;
+  setAssinatura(assinatura: AssinaturaRelatorio): Promise<IpcResult<AjustesInfo>>;
 }
 
 export interface EventsApi {
@@ -224,6 +268,45 @@ export interface PensamentosApi {
   marcarPromovido(input: MarcarPromovidoInput): Promise<IpcResult<PensamentosFile>>;
 }
 
+export interface VideosApi {
+  getFile(): Promise<IpcResult<VideosFile>>;
+  criarVideo(input: CriarVideoInput): Promise<IpcResult<VideosFile>>;
+  atualizarVideo(input: AtualizarVideoInput): Promise<IpcResult<VideosFile>>;
+  moverVideo(input: MoverVideoInput): Promise<IpcResult<VideosFile>>;
+  arquivarVideo(input: ArquivarVideoInput): Promise<IpcResult<VideosFile>>;
+  restaurarVideo(videoId: string): Promise<IpcResult<VideosFile>>;
+  excluirVideo(videoId: string): Promise<IpcResult<VideosFile>>;
+  salvarTag(input: SalvarTagInput): Promise<IpcResult<VideosFile>>;
+  excluirTag(tagId: string): Promise<IpcResult<VideosFile>>;
+  salvarRede(input: SalvarRedeInput): Promise<IpcResult<VideosFile>>;
+  excluirRede(redeId: string): Promise<IpcResult<VideosFile>>;
+  importarDeSheets(input: ImportarDeSheetsInput): Promise<IpcResult<ImportarDeSheetsResult>>;
+  listarLinhasImportadas(tabelaId: string): Promise<IpcResult<string[]>>;
+  salvarPreferencias(preferencias: PreferenciasVideos): Promise<IpcResult<VideosFile>>;
+}
+
+export interface ImagensApi {
+  getFile(): Promise<IpcResult<ImagensFile>>;
+  criarImagem(input: CriarImagemInput): Promise<IpcResult<ImagensFile>>;
+  atualizarImagem(input: AtualizarImagemInput): Promise<IpcResult<ImagensFile>>;
+  moverImagem(input: MoverImagemInput): Promise<IpcResult<ImagensFile>>;
+  arquivarImagem(input: ArquivarImagemInput): Promise<IpcResult<ImagensFile>>;
+  restaurarImagem(imagemId: string): Promise<IpcResult<ImagensFile>>;
+  excluirImagem(imagemId: string): Promise<IpcResult<ImagensFile>>;
+}
+
+export interface RelatoriosApi {
+  getFile(): Promise<IpcResult<RelatoriosFile>>;
+  criarRelatorio(input: CriarRelatorioInput): Promise<IpcResult<RelatoriosFile>>;
+  salvarRelatorio(relatorio: Relatorio): Promise<IpcResult<RelatoriosFile>>;
+  duplicarRelatorio(relatorioId: string): Promise<IpcResult<RelatoriosFile>>;
+  excluirRelatorio(relatorioId: string): Promise<IpcResult<RelatoriosFile>>;
+  salvarCategorias(input: SalvarCategoriasInput): Promise<IpcResult<RelatoriosFile>>;
+  /** Imprime a própria janela (o documento em #impressao) e salva onde o usuário escolher. */
+  exportarPdf(input: ExportarPdfInput): Promise<IpcResult<FileOpResult>>;
+  abrirPdf(filePath: string): Promise<IpcResult<void>>;
+}
+
 export interface IrisApi {
   kanban: KanbanApi;
   quadro: QuadroApi;
@@ -238,6 +321,9 @@ export interface IrisApi {
   n8n: N8nApi;
   github: GithubApi;
   ajustes: AjustesApi;
+  videos: VideosApi;
+  imagens: ImagensApi;
+  relatorios: RelatoriosApi;
   events: EventsApi;
 }
 

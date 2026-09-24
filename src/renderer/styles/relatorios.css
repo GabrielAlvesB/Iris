@@ -1,0 +1,933 @@
+/* Relatórios — lista, editor, prévia e o documento (que é o mesmo do PDF). */
+
+/* ---- Lista ---- */
+
+.rel-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 14px;
+  align-content: start;
+  overflow-y: auto;
+  min-height: 0;
+  padding-bottom: 8px;
+}
+
+.rel-cartao {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 15px 16px 13px;
+  background:
+    radial-gradient(120% 70% at 0% 0%, var(--accent-soft), transparent 55%),
+    var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: border-color 0.12s ease, transform 0.12s ease;
+}
+
+.rel-cartao:hover,
+.rel-cartao:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.rel-cartao-topo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rel-cartao-acoes {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.rel-cartao:hover .rel-cartao-acoes,
+.rel-cartao:focus-within .rel-cartao-acoes {
+  opacity: 1;
+}
+
+.rel-cartao-acoes .pg-botao {
+  width: 28px;
+  height: 28px;
+}
+
+.rel-cartao-titulo {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.rel-cartao-periodo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.rel-cartao-contexto {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-faint);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.rel-cartao-rodape {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 8px;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  border-top: 1px solid var(--border-soft);
+}
+
+/* ---- Editor ---- */
+
+.rel-editor {
+  gap: 12px;
+}
+
+.rel-editor-barra {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.rel-editor-identidade {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rel-editor-titulo {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 46ch;
+}
+
+.rel-editor-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding-bottom: 32px;
+}
+
+.rel-bloco {
+  background: var(--bg-elevated);
+}
+
+.rel-secao-cab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rel-secao-numero {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 8px;
+}
+
+.md-input.rel-secao-titulo {
+  flex: 1;
+  height: 38px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.rel-itens {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rel-itens:empty {
+  display: none;
+}
+
+.rel-secao > .pg-botao {
+  align-self: flex-start;
+}
+
+.rel-nova-secao {
+  align-self: center;
+}
+
+.rel-item {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 15px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--vd-fase-pre);
+  border-radius: 12px;
+}
+
+.rel-item.is-imagem {
+  border-left-color: var(--vd-fase-producao);
+}
+
+.rel-item-cab {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rel-item-tipo {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.rel-item-titulo {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 0;
+}
+
+.rel-item-selos {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rel-item-acoes {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 2px;
+}
+
+.pg-botao.is-mini.is-so-icone {
+  width: 28px;
+  height: 28px;
+}
+
+.rel-item-dados {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.rel-item-dados summary {
+  cursor: pointer;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.rel-item-dados dl {
+  display: grid;
+  grid-template-columns: minmax(110px, max-content) 1fr;
+  gap: 5px 14px;
+  margin: 10px 0 6px;
+}
+
+.rel-item-dados dt {
+  color: var(--text-faint);
+}
+
+.rel-item-dados dd {
+  margin: 0;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Marcações */
+
+.rel-marcacoes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rel-marcacoes-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.rel-marcacoes-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rel-marcacao {
+  --tipo-cor: var(--text-faint);
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--tipo-cor);
+  border-radius: 10px;
+}
+
+.rel-marcacao.is-ponto-forte,
+.rel-tipo-selo.is-ponto-forte,
+.md-pilula.rel-tipo.is-ponto-forte { --tipo-cor: var(--success); }
+.rel-marcacao.is-ajuste,
+.rel-tipo-selo.is-ajuste,
+.md-pilula.rel-tipo.is-ajuste { --tipo-cor: var(--warning); }
+.rel-marcacao.is-problema,
+.rel-tipo-selo.is-problema,
+.md-pilula.rel-tipo.is-problema { --tipo-cor: var(--danger); }
+.rel-marcacao.is-ideia,
+.rel-tipo-selo.is-ideia,
+.md-pilula.rel-tipo.is-ideia { --tipo-cor: var(--accent); }
+.rel-marcacao.is-duvida,
+.rel-tipo-selo.is-duvida,
+.md-pilula.rel-tipo.is-duvida { --tipo-cor: oklch(0.72 0.12 250); }
+
+.md-pilula.rel-tipo.is-ativa {
+  border-color: var(--tipo-cor);
+  background: color-mix(in oklch, var(--tipo-cor) 18%, transparent);
+}
+
+.rel-marcacao-local {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.rel-marcacao-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.rel-marcacao-selos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.rel-tipo-selo {
+  --tipo-cor: var(--text-faint);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  background: color-mix(in oklch, var(--tipo-cor) 16%, transparent);
+  border: 1px solid color-mix(in oklch, var(--tipo-cor) 45%, transparent);
+  border-radius: 999px;
+}
+
+.rel-tipo-selo::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--tipo-cor);
+}
+
+.rel-categoria {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 0 7px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+}
+
+.rel-marcacao-texto,
+.rel-marcacao-obs {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.rel-marcacao-texto {
+  color: var(--text);
+}
+
+.rel-marcacao-obs {
+  color: var(--text-faint);
+}
+
+.rel-marcacao-acoes {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.rel-assinatura-opcao {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rel-assinatura-opcao > .pg-botao {
+  align-self: flex-start;
+}
+
+.rel-assinatura-previa {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ---- Seletor de postagens ---- */
+
+.rel-seletor-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.rel-seletor-topo .pg-busca {
+  flex: 1;
+  min-width: 200px;
+  width: auto;
+}
+
+.rel-seletor-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 220px;
+}
+
+.rel-seletor-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.rel-seletor-item:hover {
+  border-color: var(--border);
+}
+
+.rel-seletor-item input {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+}
+
+.rel-seletor-item.is-bloqueada {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.rel-seletor-textos {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rel-seletor-textos strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.rel-seletor-textos small {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+/* ---- Prévia (o papel) ---- */
+
+.rel-previa-aviso {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 820px;
+  margin: 0 auto 12px;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.rel-papel {
+  max-width: 820px;
+  margin: 0 auto 32px;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--border);
+}
+
+@media (max-width: 720px) {
+  .rel-marcacao {
+    grid-template-columns: 1fr;
+  }
+
+  .rel-editor-titulo {
+    max-width: 100%;
+  }
+}
+
+/* =====================================================================
+   Documento do relatório (prévia e PDF). Sempre claro, na identidade do
+   Iris: roxo como acento, Space Grotesk. As cores são tokens locais porque o
+   documento não segue o tema escuro do app.
+   ===================================================================== */
+
+.rd-documento {
+  --rd-papel: #ffffff;
+  --rd-tinta: #1d1b26;
+  --rd-suave: #5d5a6b;
+  --rd-fraca: #8b8898;
+  --rd-linha: #e6e3ee;
+  --rd-fundo: #f6f4fb;
+  --rd-acento: #7c4dff;
+  --rd-acento-escuro: #5b33d6;
+  --rd-acento-suave: #efe9ff;
+  --rd-ok: #1f9d55;
+  --rd-atencao: #b86e00;
+  --rd-erro: #d33a3a;
+  --rd-info: #2f6fd6;
+
+  font-family: var(--font-sans);
+  font-size: 10.5pt;
+  line-height: 1.55;
+  color: var(--rd-tinta);
+  background: var(--rd-papel);
+  padding: 0 15mm 14mm;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.rd-capa {
+  margin: 0 -15mm 8mm;
+  padding: 13mm 15mm 9mm;
+  background:
+    /* rgba do próprio acento em vez de transparent: impresso, o transparent
+       (preto sem alfa) deixava uma mancha cinza no degradê. */
+    radial-gradient(90% 120% at 100% 0%, var(--rd-acento-suave), rgba(239, 233, 255, 0) 60%),
+    var(--rd-fundo);
+  border-bottom: 3px solid var(--rd-acento);
+}
+
+.rd-marca {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 8.5pt;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rd-acento-escuro);
+}
+
+.rd-marca-logo {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: var(--rd-acento);
+  border-radius: 7px;
+}
+
+.rd-titulo {
+  margin: 6mm 0 3mm;
+  font-size: 24pt;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--rd-tinta);
+}
+
+.rd-contexto p {
+  margin: 0 0 2mm;
+  font-size: 11pt;
+  color: var(--rd-suave);
+}
+
+.rd-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(42mm, 1fr));
+  gap: 4mm;
+  margin: 6mm 0 0;
+}
+
+.rd-meta div {
+  padding: 3mm 3.5mm;
+  background: var(--rd-papel);
+  border: 1px solid var(--rd-linha);
+  border-radius: 6px;
+}
+
+.rd-meta dt {
+  font-size: 7.5pt;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rd-fraca);
+}
+
+.rd-meta dd {
+  margin: 1mm 0 0;
+  font-size: 10pt;
+  font-weight: 600;
+  color: var(--rd-tinta);
+}
+
+.rd-bloco {
+  margin: 0 0 8mm;
+}
+
+.rd-h2 {
+  display: flex;
+  align-items: center;
+  gap: 3mm;
+  margin: 0 0 4mm;
+  padding-bottom: 2mm;
+  font-size: 14pt;
+  font-weight: 700;
+  color: var(--rd-tinta);
+  border-bottom: 1px solid var(--rd-linha);
+  break-after: avoid;
+}
+
+.rd-h2::before {
+  content: '';
+  width: 4px;
+  height: 14pt;
+  border-radius: 2px;
+  background: var(--rd-acento);
+}
+
+.rd-h3 {
+  margin: 5mm 0 2mm;
+  font-size: 11pt;
+  font-weight: 600;
+  color: var(--rd-acento-escuro);
+  break-after: avoid;
+}
+
+.rd-h5 {
+  margin: 4mm 0 1.5mm;
+  font-size: 8pt;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rd-fraca);
+  break-after: avoid;
+}
+
+.rd-texto p {
+  margin: 0 0 2.5mm;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.rd-texto.rd-destaque {
+  padding: 3mm 4mm;
+  background: var(--rd-acento-suave);
+  border-left: 3px solid var(--rd-acento);
+  border-radius: 0 6px 6px 0;
+}
+
+.rd-texto.rd-destaque p:last-child {
+  margin-bottom: 0;
+}
+
+.rd-indicadores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3mm;
+  margin-top: 4mm;
+}
+
+.rd-indicador {
+  display: flex;
+  flex-direction: column;
+  min-width: 26mm;
+  padding: 2.5mm 3.5mm;
+  border: 1px solid var(--rd-linha);
+  border-radius: 6px;
+}
+
+.rd-indicador strong {
+  font-size: 15pt;
+  line-height: 1.1;
+}
+
+.rd-indicador span {
+  font-size: 8pt;
+  color: var(--rd-suave);
+}
+
+.rd-indicador.is-total strong { color: var(--rd-acento-escuro); }
+.rd-indicador.is-ponto-forte strong { color: var(--rd-ok); }
+.rd-indicador.is-ajuste strong { color: var(--rd-atencao); }
+.rd-indicador.is-problema strong,
+.rd-indicador.is-aberto strong { color: var(--rd-erro); }
+.rd-indicador.is-ideia strong { color: var(--rd-acento); }
+.rd-indicador.is-duvida strong { color: var(--rd-info); }
+
+.rd-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9pt;
+}
+
+.rd-tabela th {
+  padding: 2mm 2.5mm;
+  font-size: 7.5pt;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--rd-suave);
+  background: var(--rd-fundo);
+  border-bottom: 1px solid var(--rd-linha);
+}
+
+.rd-tabela td {
+  padding: 2mm 2.5mm;
+  vertical-align: top;
+  border-bottom: 1px solid var(--rd-linha);
+}
+
+.rd-tabela tr {
+  break-inside: avoid;
+}
+
+.rd-num {
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.rd-forte {
+  font-weight: 600;
+}
+
+.rd-item {
+  margin: 0 0 6mm;
+  padding: 4mm 5mm;
+  border: 1px solid var(--rd-linha);
+  border-left: 3px solid var(--rd-acento);
+  border-radius: 8px;
+}
+
+.rd-item.is-imagem {
+  border-left-color: var(--rd-atencao);
+}
+
+.rd-item-cab {
+  display: flex;
+  flex-direction: column;
+  gap: 1mm;
+  break-after: avoid;
+}
+
+.rd-item-tipo {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.5mm;
+  font-family: var(--font-mono);
+  font-size: 8pt;
+  color: var(--rd-fraca);
+}
+
+.rd-item-titulo {
+  margin: 0;
+  font-size: 12pt;
+  font-weight: 700;
+}
+
+.rd-item-meta {
+  margin: 1.5mm 0 2mm;
+  font-size: 8.5pt;
+  color: var(--rd-suave);
+}
+
+.rd-dados {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2mm 6mm;
+  margin: 0;
+}
+
+.rd-dados div {
+  break-inside: avoid;
+}
+
+.rd-dados dt {
+  font-size: 7.5pt;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--rd-fraca);
+}
+
+.rd-dados dd {
+  margin: 0.5mm 0 0;
+  font-size: 9pt;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.rd-marcacoes .rd-local {
+  font-weight: 600;
+  color: var(--rd-acento-escuro);
+}
+
+.rd-selo {
+  display: inline-block;
+  padding: 0.3mm 2mm;
+  font-size: 7.5pt;
+  font-weight: 700;
+  border-radius: 999px;
+  white-space: nowrap;
+  color: var(--rd-suave);
+  background: var(--rd-fundo);
+}
+
+.rd-selo.is-ponto-forte { color: var(--rd-ok); background: #e7f6ee; }
+.rd-selo.is-ajuste { color: var(--rd-atencao); background: #fdf1de; }
+.rd-selo.is-problema { color: var(--rd-erro); background: #fcebeb; }
+.rd-selo.is-ideia { color: var(--rd-acento-escuro); background: var(--rd-acento-suave); }
+.rd-selo.is-duvida { color: var(--rd-info); background: #e8f0fc; }
+
+.rd-status.is-resolvida { color: var(--rd-ok); }
+.rd-status.is-aberta,
+.rd-status.is-andamento { color: var(--rd-atencao); }
+.rd-status.is-descartada { color: var(--rd-fraca); text-decoration: line-through; }
+
+.rd-comentario {
+  display: block;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.rd-observacao {
+  display: block;
+  margin-top: 1mm;
+  font-size: 8.5pt;
+  color: var(--rd-suave);
+  white-space: pre-wrap;
+}
+
+/* Assinatura: o formato vem dos Ajustes. */
+
+.rd-assinatura {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8mm;
+  margin-top: 12mm;
+  padding-top: 5mm;
+  break-inside: avoid;
+  color: var(--rd-tinta);
+}
+
+.rd-assinatura.is-simples {
+  border-top: 1px solid var(--rd-linha);
+}
+
+.rd-assinatura.is-com-linha {
+  align-items: flex-start;
+}
+
+.rd-assinatura-linha {
+  width: 70mm;
+  margin-bottom: 2mm;
+  border-top: 1px solid var(--rd-tinta);
+}
+
+.rd-assinatura.is-centralizada {
+  align-items: center;
+  text-align: center;
+  border-top: 1px solid var(--rd-linha);
+}
+
+.rd-assinatura-nome {
+  font-size: 12pt;
+  font-weight: 700;
+}
+
+.rd-assinatura-texto {
+  font-size: 9.5pt;
+  color: var(--rd-suave);
+}
+
+.rd-assinatura-data {
+  margin-top: 1.5mm;
+  font-size: 8pt;
+  color: var(--rd-fraca);
+}
+
+/* Assinatura mostrada fora do papel (Ajustes, editor): um cartão claro. */
+.rel-assinatura-previa .rd-assinatura,
+.aj-assinatura-previa .rd-assinatura {
+  --rd-tinta: #1d1b26;
+  --rd-suave: #5d5a6b;
+  --rd-fraca: #8b8898;
+  --rd-linha: #e6e3ee;
+  margin: 0;
+  padding: 16px 18px;
+  font-family: var(--font-sans);
+  background: #ffffff;
+  border-radius: 10px;
+}
+
+/* Na tela, o contêiner de impressão nunca aparece. */
+#impressao {
+  display: none;
+}
