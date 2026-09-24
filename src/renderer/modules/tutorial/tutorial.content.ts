@@ -106,7 +106,7 @@ const GUIA_N8N: Guia = {
         {
           tipo: 'texto',
           texto:
-            'Abra a área n8n na barra lateral. No topo deve aparecer "conectado" em verde, com a lista dos seus workflows logo abaixo.',
+            'Abra a área n8n na barra lateral (categoria Sistema). No topo deve aparecer "conectado" em verde, com a lista dos seus workflows logo abaixo.',
         },
         {
           tipo: 'texto',
@@ -396,12 +396,12 @@ const GUIA_GITHUB: Guia = {
     },
     {
       id: 'gh.explorador',
-      titulo: '5. Informação de git no Explorador',
+      titulo: '5. Informação de git na Biblioteca',
       blocos: [
         {
           tipo: 'texto',
           texto:
-            'Quando você monitora uma pasta no Explorador e ela é um repositório git, aparece uma faixa no topo com o branch, o último commit e quantas alterações há. Na lista, cada arquivo ganha uma marca colorida à esquerda.',
+            'Na Biblioteca (categoria Arquivos), aba Pastas: quando uma pasta monitorada é um repositório git, aparece uma faixa no topo com o branch, o último commit e quantas alterações há. Na lista, cada arquivo ganha uma marca colorida à esquerda.',
         },
         {
           tipo: 'lista',

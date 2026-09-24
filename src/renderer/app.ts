@@ -22,21 +22,14 @@ import * as githubState from './modules/github/github.state.js';
 import * as githubView from './modules/github/github.view.js';
 import * as tutorialState from './modules/tutorial/tutorial.state.js';
 import * as tutorialView from './modules/tutorial/tutorial.view.js';
+import * as postagensView from './modules/postagens/postagens.view.js';
+import * as relatoriosView from './modules/relatorios/relatorios.view.js';
 import { registrarAtendente } from './core/navegacao.js';
+import { marcarAtivo, montarSidebar } from './core/sidebar.js';
+import { MODULO_PADRAO, isModuloId, type ModuloId } from '../shared/types/modulos.types.js';
 
-type ModuleName =
-  | 'kanban'
-  | 'quadro'
-  | 'explorador'
-  | 'sheets'
-  | 'links'
-  | 'copy'
-  | 'pensamentos'
-  | 'servidores'
-  | 'n8n'
-  | 'github'
-  | 'tutorial'
-  | 'ajustes';
+// O Record abaixo obriga todo módulo do catálogo a ter mount/destroy.
+type ModuleName = ModuloId;
 
 interface AppModule {
   mount(viewRoot: HTMLElement): void;
@@ -54,6 +47,23 @@ const modules: Record<ModuleName, AppModule> = {
       kanbanState.offBoardChange();
     },
   },
+  postagens: {
+    mount(viewRoot) {
+      // Vários tipos, vários arquivos: a própria tela assina os states e carrega.
+      postagensView.montar(viewRoot);
+    },
+    destroy() {
+      postagensView.destroy();
+    },
+  },
+  relatorios: {
+    mount(viewRoot) {
+      relatoriosView.montar(viewRoot);
+    },
+    destroy() {
+      relatoriosView.destroy();
+    },
+  },
   quadro: {
     mount(viewRoot) {
       quadroState.onStateChange((state) => quadroView.render(viewRoot, state));
@@ -66,7 +76,7 @@ const modules: Record<ModuleName, AppModule> = {
   explorador: {
     mount(viewRoot) {
       exploradorState.onStateChange((state) => exploradorView.render(viewRoot, state));
-      void exploradorState.carregarRaizes();
+      void exploradorState.carregarTudo();
     },
     destroy() {
       exploradorView.destroy();
@@ -79,7 +89,7 @@ const modules: Record<ModuleName, AppModule> = {
       void sheetsState.loadFile();
     },
     destroy() {
-      // No listeners or timers to tear down for this module.
+      sheetsView.destroy();
     },
   },
   links: {
@@ -179,44 +189,29 @@ function switchModule(name: ModuleName, viewRoot: HTMLElement): void {
   modules[name].mount(viewRoot);
 }
 
-function marcarAtivo(name: ModuleName): void {
-  document.querySelectorAll('.nav-item').forEach((el) => el.classList.remove('active'));
-  document.querySelector(`.nav-item[data-module="${name}"]`)?.classList.add('active');
-}
-
 function bootstrap(): void {
   const viewRoot = document.getElementById('view-root');
-  if (!viewRoot) return;
+  const navRoot = document.getElementById('sidebar-nav');
+  if (!viewRoot || !navRoot) return;
+
+  const abrir = (nome: ModuleName): void => {
+    marcarAtivo(nome);
+    switchModule(nome, viewRoot);
+  };
+
+  montarSidebar(navRoot, abrir);
 
   // Permite que um módulo peça navegação sem importar este arquivo de volta
   // (o que criaria ciclo, já que app.ts importa todos eles).
   registrarAtendente((modulo) => {
-    const nome = modulo as ModuleName;
-    if (!modules[nome]) return;
-    marcarAtivo(nome);
-    switchModule(nome, viewRoot);
+    if (isModuloId(modulo)) abrir(modulo);
   });
 
-  document.querySelectorAll<HTMLButtonElement>('.nav-item[data-module]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const moduleName = btn.dataset.module as ModuleName;
-      marcarAtivo(moduleName);
-      switchModule(moduleName, viewRoot);
-    });
-  });
-
-  // Abre no módulo escolhido em Ajustes; se a leitura falhar, cai no Kanban.
+  // Abre no módulo escolhido em Ajustes; se a leitura falhar, cai no padrão.
   void window.irisAPI.ajustes
     .getAjustes()
-    .then((result) => {
-      const inicial = result.ok && modules[result.data.moduloInicial] ? result.data.moduloInicial : 'kanban';
-      marcarAtivo(inicial);
-      switchModule(inicial, viewRoot);
-    })
-    .catch(() => {
-      marcarAtivo('kanban');
-      switchModule('kanban', viewRoot);
-    });
+    .then((result) => abrir(result.ok && isModuloId(result.data.moduloInicial) ? result.data.moduloInicial : MODULO_PADRAO))
+    .catch(() => abrir(MODULO_PADRAO));
 }
 
 document.addEventListener('DOMContentLoaded', bootstrap);

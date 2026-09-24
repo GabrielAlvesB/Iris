@@ -8,7 +8,11 @@ import type {
   SheetsFile,
 } from '../../../shared/types/sheets.types';
 import * as sheetsState from './sheets.state.js';
-import { promptText, openConfirmModal } from '../../ui/modal.js';
+import { ICONES_MODAL, promptText, openConfirmModal, openCustomModal, openAvisoModal, buildSecaoModal } from '../../ui/modal.js';
+import { campo, erroInline, input, select } from '../../ui/campos.js';
+import { buildBotao } from '../../ui/pagina.js';
+import * as videosState from '../postagens/videos/videos.state.js';
+import { enviarParaVideos } from './sheets.videos.js';
 
 const ICONS = {
   upload:
@@ -78,6 +82,43 @@ let selectionMode = false;
 let selectedRowIds = new Set<string>();
 let lastContainer: HTMLElement | null = null;
 let lastState: SheetsFile | null = null;
+
+// Linhas já enviadas para a pipeline de Vídeos, por tabela. Consultado sob
+// demanda (e não mantido em sincronia com o state de Vídeos) para os dois
+// módulos continuarem independentes.
+const linhasNaPipeline = new Map<string, Set<string>>();
+const consultando = new Set<string>();
+
+function naPipeline(tableId: string): Set<string> {
+  const conhecidas = linhasNaPipeline.get(tableId);
+  if (conhecidas) return conhecidas;
+  if (!consultando.has(tableId)) {
+    consultando.add(tableId);
+    void videosState
+      .listarLinhasImportadas(tableId)
+      .then((ids) => {
+        linhasNaPipeline.set(tableId, new Set(ids));
+        refresh();
+      })
+      .catch(() => linhasNaPipeline.set(tableId, new Set()))
+      .finally(() => consultando.delete(tableId));
+  }
+  return new Set();
+}
+
+/** Sem ids, envia as linhas selecionadas; com ids, só elas (botão da própria linha). */
+async function handleEnviarParaVideos(table: SheetTable, rowIds?: string[]): Promise<void> {
+  const ids = rowIds ?? table.rows.filter((r) => selectedRowIds.has(r.id)).map((r) => r.id);
+  if (ids.length === 0) return;
+  const criou = await enviarParaVideos(table, ids, naPipeline(table.id));
+  if (!criou) return;
+  linhasNaPipeline.delete(table.id);
+  if (!rowIds) {
+    selectionMode = false;
+    selectedRowIds = new Set();
+  }
+  refresh();
+}
 
 function refresh(): void {
   if (lastContainer && lastState) renderRoot(lastContainer, lastState);
@@ -224,7 +265,7 @@ function setColumnWidth(tableId: string, columnId: string, width: number): void 
 
 function gridTemplate(table: SheetTable, withCheckbox: boolean): string {
   const cols = table.columns.map((col) => `${getColumnWidth(table.id, col.id)}px`);
-  cols.push('56px');
+  cols.push('128px');
   if (withCheckbox) cols.unshift('28px');
   return cols.join(' ');
 }
@@ -241,7 +282,7 @@ async function handleDeleteTable(table: SheetTable): Promise<void> {
 }
 
 async function handleRenameTable(table: SheetTable): Promise<void> {
-  const newName = await promptText('Renomear tabela', 'Nome da tabela', table.name);
+  const newName = await promptText('Renomear tabela', 'Nome da tabela', table.name, { icone: ICONES_MODAL.texto });
   if (!newName || !newName.trim() || newName.trim() === table.name) return;
   await sheetsState.renameTable({ tableId: table.id, name: newName.trim() });
 }
@@ -437,6 +478,30 @@ function buildSelectionToolbar(table: SheetTable): HTMLElement {
     });
     bar.appendChild(selectAllBtn);
 
+    const enviadas = naPipeline(table.id);
+    const pendentes = allIds.filter((id) => !enviadas.has(id));
+    if (enviadas.size > 0 && pendentes.length > 0) {
+      const selectPendentesBtn = document.createElement('button');
+      selectPendentesBtn.type = 'button';
+      selectPendentesBtn.className = 'sheets-bulkbar-link';
+      selectPendentesBtn.textContent = `Só as não enviadas (${pendentes.length})`;
+      selectPendentesBtn.addEventListener('click', () => {
+        selectedRowIds = new Set(pendentes);
+        refresh();
+      });
+      bar.appendChild(selectPendentesBtn);
+    }
+
+    const sendBtn = document.createElement('button');
+    sendBtn.type = 'button';
+    sendBtn.className = 'btn sheets-bulkbar-enviar';
+    sendBtn.innerHTML =
+      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="15" height="14" rx="2"/><path d="m17 10 5-3v10l-5-3"/></svg>';
+    sendBtn.append('Enviar para Postagens');
+    sendBtn.disabled = selectedRowIds.size === 0;
+    sendBtn.addEventListener('click', () => void handleEnviarParaVideos(table));
+    bar.appendChild(sendBtn);
+
     const deleteSelectedBtn = document.createElement('button');
     deleteSelectedBtn.type = 'button';
     deleteSelectedBtn.className = 'btn btn-secondary sheets-bulkbar-danger';
@@ -563,6 +628,7 @@ function buildTableGrid(table: SheetTable): HTMLElement {
   } else {
     const list = document.createElement('div');
     list.className = 'sheets-body';
+    const enviadasParaVideos = naPipeline(table.id);
     table.rows.forEach((row) => {
       const rowEl = document.createElement('div');
       rowEl.className = 'sheets-row';
@@ -618,6 +684,29 @@ function buildTableGrid(table: SheetTable): HTMLElement {
       const actionsCell = document.createElement('div');
       actionsCell.className = 'sheets-cell sheets-cell--actions';
 
+      if (enviadasParaVideos.has(row.id)) {
+        rowEl.classList.add('sheets-row--pipeline');
+        const selo = document.createElement('span');
+        selo.className = 'sheets-selo-pipeline';
+        selo.title = 'Já está em Postagens › Vídeos (cópia independente desta linha)';
+        selo.innerHTML =
+          '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="15" height="14" rx="2"/><path d="m17 10 5-3v10l-5-3"/></svg>';
+        selo.append('enviada');
+        actionsCell.appendChild(selo);
+      }
+
+      const sendRowBtn = document.createElement('button');
+      sendRowBtn.type = 'button';
+      sendRowBtn.className = 'btn-icon sheets-enviar-linha';
+      sendRowBtn.title = enviadasParaVideos.has(row.id)
+        ? 'Já está na pipeline — enviar de novo cria uma cópia'
+        : 'Enviar esta linha para Postagens › Vídeos';
+      sendRowBtn.setAttribute('aria-label', 'Enviar esta linha para Postagens › Vídeos');
+      sendRowBtn.innerHTML =
+        '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="15" height="14" rx="2"/><path d="m17 10 5-3v10l-5-3"/></svg>';
+      sendRowBtn.addEventListener('click', () => void handleEnviarParaVideos(table, [row.id]));
+      actionsCell.appendChild(sendRowBtn);
+
       const deleteBtn = document.createElement('button');
       deleteBtn.type = 'button';
       deleteBtn.className = 'btn-icon';
@@ -651,7 +740,7 @@ function buildTableGrid(table: SheetTable): HTMLElement {
 }
 
 async function handleAddColumn(table: SheetTable): Promise<void> {
-  const label = await promptText('Nova coluna', 'Nome da coluna');
+  const label = await promptText('Nova coluna', 'Nome da coluna', '', { icone: ICONES_MODAL.colunas, subtitulo: 'O tipo pode ser trocado depois, no menu da coluna.' });
   if (!label || !label.trim()) return;
   await sheetsState.addColumn({ tableId: table.id, label: label.trim(), type: 'text' });
 }
@@ -925,7 +1014,7 @@ function buildImportSelectionScreen(container: HTMLElement, detected: DetectImpo
   confirmBtn.addEventListener('click', () => {
     const chosen = cardState.filter((entry) => entry.selected);
     if (chosen.length === 0) {
-      window.alert('Selecione pelo menos uma tabela para importar.');
+      void openAvisoModal('Nada selecionado', 'Selecione pelo menos uma tabela para importar.');
       return;
     }
     const selections: CommitImportSelection[] = chosen.map((entry) => ({
@@ -946,224 +1035,185 @@ function buildImportSelectionScreen(container: HTMLElement, detected: DetectImpo
 }
 
 function buildVisibilityModal(tables: SheetTable[]): void {
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
+  void openCustomModal(
+    'Gerenciar visibilidade',
+    ({ corpo, rodape, fechar }) => {
+      const secao = buildSecaoModal('Tabelas', 'Tabelas ocultas continuam salvas; só saem das abas.');
+      const list = document.createElement('div');
+      list.className = 'sheets-visibility-list';
 
-  const modal = document.createElement('div');
-  modal.className = 'modal sheets-visibility-modal';
+      tables.forEach((table) => {
+        const row = document.createElement('div');
+        row.className = 'sheets-visibility-row';
 
-  const heading = document.createElement('h2');
-  heading.textContent = 'Gerenciar visibilidade';
-  modal.appendChild(heading);
+        const info = document.createElement('div');
+        info.className = 'sheets-visibility-info';
+        const name = document.createElement('span');
+        name.className = 'sheets-visibility-name';
+        name.textContent = table.name;
+        info.appendChild(name);
+        const meta = document.createElement('span');
+        meta.className = 'sheets-visibility-meta';
+        meta.textContent = `${table.origin === 'imported' ? 'Importada' : 'Manual'} · ${table.columns.length} coluna(s) · ${table.rows.length} linha(s)`;
+        info.appendChild(meta);
+        row.appendChild(info);
 
-  const list = document.createElement('div');
-  list.className = 'sheets-visibility-list';
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'btn-icon sheets-visibility-toggle';
+        const marcar = (visivel: boolean): void => {
+          toggle.classList.toggle('is-active', visivel);
+          toggle.innerHTML = visivel ? icon('eye') : icon('eyeOff');
+          toggle.title = visivel ? 'Visível — clique para ocultar' : 'Oculta — clique para mostrar';
+          toggle.setAttribute('aria-label', toggle.title);
+        };
+        marcar(table.visible);
+        toggle.addEventListener('click', () => {
+          const nextVisible = !toggle.classList.contains('is-active');
+          marcar(nextVisible);
+          void sheetsState.setTableVisibility({ tableId: table.id, visible: nextVisible });
+        });
+        row.appendChild(toggle);
 
-  tables.forEach((table) => {
-    const row = document.createElement('div');
-    row.className = 'sheets-visibility-row';
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'btn-icon sheets-visibility-delete';
+        deleteBtn.title = 'Excluir tabela';
+        deleteBtn.innerHTML = icon('trash');
+        deleteBtn.addEventListener('click', async () => {
+          const confirmed = await openConfirmModal({
+            title: 'Excluir tabela',
+            message: `Excluir a tabela "${table.name}" e todas as suas linhas? Essa ação não pode ser desfeita.`,
+            confirmText: 'Excluir tabela',
+          });
+          if (!confirmed) return;
+          if (activeTableId === table.id) activeTableId = null;
+          void sheetsState.deleteTable({ tableId: table.id });
+          row.remove();
+        });
+        row.appendChild(deleteBtn);
 
-    const info = document.createElement('div');
-    info.className = 'sheets-visibility-info';
-    const name = document.createElement('span');
-    name.className = 'sheets-visibility-name';
-    name.textContent = table.name;
-    info.appendChild(name);
-    const meta = document.createElement('span');
-    meta.className = 'sheets-visibility-meta';
-    meta.textContent = `${table.origin === 'imported' ? 'Importada' : 'Manual'} · ${table.columns.length} coluna(s) · ${table.rows.length} linha(s)`;
-    info.appendChild(meta);
-    row.appendChild(info);
-
-    const toggle = document.createElement('button');
-    toggle.type = 'button';
-    toggle.className = 'btn-icon sheets-visibility-toggle';
-    toggle.classList.toggle('is-active', table.visible);
-    toggle.innerHTML = table.visible ? icon('eye') : icon('eyeOff');
-    toggle.addEventListener('click', () => {
-      const nextVisible = !toggle.classList.contains('is-active');
-      toggle.classList.toggle('is-active', nextVisible);
-      toggle.innerHTML = nextVisible ? icon('eye') : icon('eyeOff');
-      void sheetsState.setTableVisibility({ tableId: table.id, visible: nextVisible });
-    });
-    row.appendChild(toggle);
-
-    const deleteBtn = document.createElement('button');
-    deleteBtn.type = 'button';
-    deleteBtn.className = 'btn-icon sheets-visibility-delete';
-    deleteBtn.title = 'Excluir tabela';
-    deleteBtn.innerHTML = icon('trash');
-    deleteBtn.addEventListener('click', async () => {
-      const confirmed = await openConfirmModal({
-        title: 'Excluir tabela',
-        message: `Excluir a tabela "${table.name}" e todas as suas linhas? Essa ação não pode ser desfeita.`,
-        confirmText: 'Excluir tabela',
+        list.appendChild(row);
       });
-      if (!confirmed) return;
-      if (activeTableId === table.id) activeTableId = null;
-      void sheetsState.deleteTable({ tableId: table.id });
-      row.remove();
-    });
-    row.appendChild(deleteBtn);
 
-    list.appendChild(row);
-  });
+      secao.conteudo.appendChild(list);
+      corpo.appendChild(secao.secao);
 
-  modal.appendChild(list);
-
-  const actions = document.createElement('div');
-  actions.className = 'modal-actions';
-  const closeBtn = document.createElement('button');
-  closeBtn.type = 'button';
-  closeBtn.className = 'btn';
-  closeBtn.textContent = 'Fechar';
-  closeBtn.addEventListener('click', () => overlay.remove());
-  actions.appendChild(closeBtn);
-  modal.appendChild(actions);
-
-  overlay.appendChild(modal);
-  overlay.addEventListener('mousedown', (e) => {
-    if (e.target === overlay) overlay.remove();
-  });
-  document.body.appendChild(overlay);
+      const closeBtn = buildBotao('Pronto', { variante: 'primario' });
+      closeBtn.addEventListener('click', fechar);
+      rodape.appendChild(closeBtn);
+    },
+    {
+      largura: 520,
+      icone: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+      subtitulo: 'Escolha quais tabelas aparecem nas abas do Sheets.',
+    },
+  );
 }
 
 function openManualTableModal(): Promise<{ name: string; columns: CreateColumnDef[] } | null> {
   return new Promise((resolve) => {
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
+    let resultado: { name: string; columns: CreateColumnDef[] } | null = null;
+    void openCustomModal(
+      'Nova tabela manual',
+      ({ corpo, rodape, fechar }) => {
+        const nameInput = input('text', '', 'Ex.: Ideias de conteúdo');
+        nameInput.classList.add('is-grande');
+        corpo.appendChild(campo('Nome da tabela', nameInput));
 
-    const modal = document.createElement('div');
-    modal.className = 'modal sheets-manual-modal';
+        const colunas = buildSecaoModal('Colunas', 'Tipo "Lista" pede as opções separadas por vírgula.');
+        const columnsList = document.createElement('div');
+        columnsList.className = 'sheets-manual-columns';
+        colunas.conteudo.appendChild(columnsList);
+        corpo.appendChild(colunas.secao);
 
-    const heading = document.createElement('h2');
-    heading.textContent = 'Nova tabela manual';
-    modal.appendChild(heading);
+        interface ColumnRow {
+          labelInput: HTMLInputElement;
+          typeSelect: HTMLSelectElement;
+          optionsInput: HTMLInputElement;
+        }
+        const columnRows: ColumnRow[] = [];
 
-    function finish(result: { name: string; columns: CreateColumnDef[] } | null): void {
-      overlay.remove();
-      resolve(result);
-    }
+        function addColumnRow(): void {
+          const row = document.createElement('div');
+          row.className = 'sheets-manual-column-row';
 
-    const nameField = document.createElement('label');
-    nameField.className = 'modal-field';
-    const nameLabelSpan = document.createElement('span');
-    nameLabelSpan.textContent = 'Nome da tabela';
-    nameField.appendChild(nameLabelSpan);
-    const nameInput = document.createElement('input');
-    nameInput.type = 'text';
-    nameInput.placeholder = 'Ex.: Ideias de conteúdo';
-    nameField.appendChild(nameInput);
-    modal.appendChild(nameField);
+          const labelInput = input('text', '', 'Nome da coluna');
+          labelInput.setAttribute('aria-label', 'Nome da coluna');
+          row.appendChild(labelInput);
 
-    const columnsHeading = document.createElement('div');
-    columnsHeading.className = 'sheets-manual-columns-heading';
-    columnsHeading.textContent = 'Colunas';
-    modal.appendChild(columnsHeading);
+          const typeSelect = select(
+            'text',
+            (Object.keys(COLUMN_TYPE_LABELS) as SheetColumnType[]).map((type) => ({ value: type, label: COLUMN_TYPE_LABELS[type] })),
+          );
+          typeSelect.setAttribute('aria-label', 'Tipo da coluna');
+          row.appendChild(typeSelect);
 
-    const columnsList = document.createElement('div');
-    columnsList.className = 'sheets-manual-columns';
-    modal.appendChild(columnsList);
+          const removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.className = 'btn-icon';
+          removeBtn.title = 'Remover coluna';
+          removeBtn.innerHTML = icon('close');
+          row.appendChild(removeBtn);
 
-    interface ColumnRow {
-      labelInput: HTMLInputElement;
-      typeSelect: HTMLSelectElement;
-      optionsInput: HTMLInputElement;
-    }
-    const columnRows: ColumnRow[] = [];
+          const optionsInput = input('text', '', 'Opções separadas por vírgula');
+          optionsInput.classList.add('sheets-manual-column-options');
+          optionsInput.hidden = true;
+          row.appendChild(optionsInput);
 
-    function addColumnRow(): void {
-      const row = document.createElement('div');
-      row.className = 'sheets-manual-column-row';
+          typeSelect.addEventListener('change', () => {
+            optionsInput.hidden = typeSelect.value !== 'select';
+          });
+          removeBtn.addEventListener('click', () => {
+            row.remove();
+            const idx = columnRows.findIndex((c) => c.labelInput === labelInput);
+            if (idx >= 0) columnRows.splice(idx, 1);
+          });
 
-      const labelInput = document.createElement('input');
-      labelInput.type = 'text';
-      labelInput.placeholder = 'Nome da coluna';
-      row.appendChild(labelInput);
+          columnsList.appendChild(row);
+          columnRows.push({ labelInput, typeSelect, optionsInput });
+        }
 
-      const typeSelect = document.createElement('select');
-      (Object.keys(COLUMN_TYPE_LABELS) as SheetColumnType[]).forEach((type) => {
-        const opt = document.createElement('option');
-        opt.value = type;
-        opt.textContent = COLUMN_TYPE_LABELS[type];
-        typeSelect.appendChild(opt);
-      });
-      row.appendChild(typeSelect);
+        addColumnRow();
 
-      const optionsInput = document.createElement('input');
-      optionsInput.type = 'text';
-      optionsInput.className = 'sheets-manual-column-options';
-      optionsInput.placeholder = 'Opções separadas por vírgula';
-      optionsInput.style.display = 'none';
-      row.appendChild(optionsInput);
+        const addColumnBtn = buildBotao('Adicionar coluna', { variante: 'fantasma', icone: '<path d="M12 5v14"/><path d="M5 12h14"/>' });
+        addColumnBtn.classList.add('is-mini');
+        addColumnBtn.addEventListener('click', () => {
+          addColumnRow();
+          columnRows[columnRows.length - 1]?.labelInput.focus();
+        });
+        colunas.conteudo.appendChild(addColumnBtn);
 
-      typeSelect.addEventListener('change', () => {
-        optionsInput.style.display = typeSelect.value === 'select' ? 'block' : 'none';
-      });
+        const cancelBtn = buildBotao('Cancelar', { variante: 'fantasma' });
+        cancelBtn.addEventListener('click', fechar);
+        const submitBtn = buildBotao('Criar tabela', { variante: 'primario' });
+        submitBtn.addEventListener('click', () => {
+          const name = nameInput.value.trim();
+          const columns: CreateColumnDef[] = columnRows
+            .map((row) => ({
+              label: row.labelInput.value.trim(),
+              type: row.typeSelect.value as SheetColumnType,
+              options: row.typeSelect.value === 'select' ? parseOptionsInput(row.optionsInput.value) : undefined,
+            }))
+            .filter((c) => c.label !== '');
 
-      const removeBtn = document.createElement('button');
-      removeBtn.type = 'button';
-      removeBtn.className = 'btn-icon';
-      removeBtn.innerHTML = icon('close');
-      removeBtn.addEventListener('click', () => {
-        row.remove();
-        const idx = columnRows.findIndex((c) => c.labelInput === labelInput);
-        if (idx >= 0) columnRows.splice(idx, 1);
-      });
-      row.appendChild(removeBtn);
-
-      columnsList.appendChild(row);
-      columnRows.push({ labelInput, typeSelect, optionsInput });
-    }
-
-    addColumnRow();
-
-    const addColumnBtn = document.createElement('button');
-    addColumnBtn.type = 'button';
-    addColumnBtn.className = 'btn btn-secondary';
-    addColumnBtn.innerHTML = `${icon('plus')} Adicionar coluna`;
-    addColumnBtn.addEventListener('click', addColumnRow);
-    modal.appendChild(addColumnBtn);
-
-    const actions = document.createElement('div');
-    actions.className = 'modal-actions';
-
-    const cancelBtn = document.createElement('button');
-    cancelBtn.type = 'button';
-    cancelBtn.className = 'btn btn-secondary';
-    cancelBtn.textContent = 'Cancelar';
-    cancelBtn.addEventListener('click', () => finish(null));
-    actions.appendChild(cancelBtn);
-
-    const submitBtn = document.createElement('button');
-    submitBtn.type = 'button';
-    submitBtn.className = 'btn';
-    submitBtn.textContent = 'Criar';
-    submitBtn.addEventListener('click', () => {
-      const name = nameInput.value.trim();
-      const columns: CreateColumnDef[] = columnRows
-        .map((row) => ({
-          label: row.labelInput.value.trim(),
-          type: row.typeSelect.value as SheetColumnType,
-          options: row.typeSelect.value === 'select' ? parseOptionsInput(row.optionsInput.value) : undefined,
-        }))
-        .filter((c) => c.label !== '');
-
-      if (!name || columns.length === 0) {
-        window.alert('Informe um nome para a tabela e pelo menos uma coluna.');
-        return;
-      }
-      finish({ name, columns });
-    });
-    actions.appendChild(submitBtn);
-
-    modal.appendChild(actions);
-    overlay.appendChild(modal);
-    overlay.addEventListener('mousedown', (e) => {
-      if (e.target === overlay) finish(null);
-    });
-    document.body.appendChild(overlay);
-    nameInput.focus();
+          if (!name || columns.length === 0) {
+            erroInline(corpo, 'Informe um nome para a tabela e pelo menos uma coluna.');
+            return;
+          }
+          resultado = { name, columns };
+          fechar();
+        });
+        rodape.append(cancelBtn, submitBtn);
+        nameInput.focus();
+      },
+      {
+        largura: 560,
+        icone: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/>',
+        subtitulo: 'Uma tabela do zero, sem importar arquivo.',
+        aoFechar: () => resolve(resultado),
+      },
+    );
   });
 }
 
@@ -1184,6 +1234,11 @@ function renderRoot(container: HTMLElement, state: SheetsFile): void {
   }
 
   buildHomeScreen(container, state);
+}
+
+/** Ao sair do módulo: vídeos podem ser excluídos lá, então os selos são reconsultados na volta. */
+export function destroy(): void {
+  linhasNaPipeline.clear();
 }
 
 export function render(container: HTMLElement, state: SheetsFile): void {

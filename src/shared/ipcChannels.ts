@@ -74,6 +74,15 @@ export const EXPLORADOR_CHANNELS = {
   excluir: 'explorador:excluir',
   revelarNoSistema: 'explorador:revelarNoSistema',
   abrirNoSistema: 'explorador:abrirNoSistema',
+  getBiblioteca: 'explorador:getBiblioteca',
+  adicionarRecurso: 'explorador:adicionarRecurso',
+  adicionarRecursosPorDialogo: 'explorador:adicionarRecursosPorDialogo',
+  atualizarRecurso: 'explorador:atualizarRecurso',
+  removerRecurso: 'explorador:removerRecurso',
+  salvarColecao: 'explorador:salvarColecao',
+  excluirColecao: 'explorador:excluirColecao',
+  limparRecentes: 'explorador:limparRecentes',
+  buscar: 'explorador:buscar',
 } as const;
 
 export const SERVIDORES_CHANNELS = {
@@ -117,6 +126,7 @@ export const GITHUB_CHANNELS = {
 export const AJUSTES_CHANNELS = {
   getAjustes: 'ajustes:getAjustes',
   setModuloInicial: 'ajustes:setModuloInicial',
+  setAssinatura: 'ajustes:setAssinatura',
 } as const;
 
 export const PENSAMENTOS_CHANNELS = {
@@ -128,3 +138,41 @@ export const PENSAMENTOS_CHANNELS = {
   marcarPromovido: 'pensamentos:marcarPromovido',
 } as const;
 
+
+export const VIDEOS_CHANNELS = {
+  getFile: 'videos:getFile',
+  criarVideo: 'videos:criarVideo',
+  atualizarVideo: 'videos:atualizarVideo',
+  moverVideo: 'videos:moverVideo',
+  arquivarVideo: 'videos:arquivarVideo',
+  restaurarVideo: 'videos:restaurarVideo',
+  excluirVideo: 'videos:excluirVideo',
+  salvarTag: 'videos:salvarTag',
+  excluirTag: 'videos:excluirTag',
+  salvarRede: 'videos:salvarRede',
+  excluirRede: 'videos:excluirRede',
+  importarDeSheets: 'videos:importarDeSheets',
+  listarLinhasImportadas: 'videos:listarLinhasImportadas',
+  salvarPreferencias: 'videos:salvarPreferencias',
+} as const;
+
+export const IMAGENS_CHANNELS = {
+  getFile: 'imagens:getFile',
+  criarImagem: 'imagens:criarImagem',
+  atualizarImagem: 'imagens:atualizarImagem',
+  moverImagem: 'imagens:moverImagem',
+  arquivarImagem: 'imagens:arquivarImagem',
+  restaurarImagem: 'imagens:restaurarImagem',
+  excluirImagem: 'imagens:excluirImagem',
+} as const;
+
+export const RELATORIOS_CHANNELS = {
+  getFile: 'relatorios:getFile',
+  criarRelatorio: 'relatorios:criarRelatorio',
+  salvarRelatorio: 'relatorios:salvarRelatorio',
+  duplicarRelatorio: 'relatorios:duplicarRelatorio',
+  excluirRelatorio: 'relatorios:excluirRelatorio',
+  salvarCategorias: 'relatorios:salvarCategorias',
+  exportarPdf: 'relatorios:exportarPdf',
+  abrirPdf: 'relatorios:abrirPdf',
+} as const;

@@ -1,5 +1,5 @@
 import type { IpcResult } from '../../../shared/types/common.types';
-import type { AjustesInfo, ModuloInicial } from '../../../shared/types/ajustes.types';
+import type { AjustesInfo, AssinaturaRelatorio, ModuloInicial } from '../../../shared/types/ajustes.types';
 import type { N8nConfig, SalvarN8nConfigInput } from '../../../shared/types/n8n.types';
 import type { GithubConfig, SalvarGithubConfigInput } from '../../../shared/types/github.types';
 
@@ -66,5 +66,10 @@ export async function testarConexao(): Promise<string> {
 
 export async function setModuloInicial(modulo: ModuloInicial): Promise<void> {
   const ajustes = unwrap(await window.irisAPI.ajustes.setModuloInicial(modulo));
+  if (state) applyAndNotify({ ...state, ajustes });
+}
+
+export async function setAssinatura(assinatura: AssinaturaRelatorio): Promise<void> {
+  const ajustes = unwrap(await window.irisAPI.ajustes.setAssinatura(assinatura));
   if (state) applyAndNotify({ ...state, ajustes });
 }

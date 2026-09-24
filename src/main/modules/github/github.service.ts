@@ -18,6 +18,7 @@ import type {
   SalvarGithubConfigInput,
 } from '../../../shared/types/github.types';
 import type { CommitResumo } from '../../../shared/types/explorador.types';
+import { ignorarPasta } from '../../core/pastasIgnoradas';
 
 const FILE_NAME = 'github.json';
 const SCHEMA_VERSION = 1;
@@ -35,7 +36,6 @@ const COMMITS_POR_REPO = 5;
 
 /** Profundidade da varredura por pastas com .git dentro das pastas cadastradas. */
 const PROFUNDIDADE_VARREDURA = 2;
-const IGNORAR_PASTAS = new Set(['node_modules', '.git', 'dist', 'build', 'release', 'vendor', '.next']);
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -173,7 +173,7 @@ function varrerRepos(dir: string, profundidade: number, encontrados: string[]): 
 
   for (const entrada of entradas) {
     if (!entrada.isDirectory()) continue;
-    if (entrada.name.startsWith('.') || IGNORAR_PASTAS.has(entrada.name)) continue;
+    if (ignorarPasta(entrada.name)) continue;
     varrerRepos(path.join(dir, entrada.name), profundidade + 1, encontrados);
   }
 }

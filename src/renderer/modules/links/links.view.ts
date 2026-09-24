@@ -1,7 +1,9 @@
 /// <reference path="../../types/sortablejs-global.d.ts" />
 import type { LinksFile, QuickLink } from '../../../shared/types/links.types';
 import * as linksState from './links.state.js';
-import { promptText, openConfirmModal } from '../../ui/modal.js';
+import { promptText, openConfirmModal, openCustomModal, openAvisoModal, buildSecaoModal } from '../../ui/modal.js';
+import { campo, erroInline, input } from '../../ui/campos.js';
+import { buildBotao } from '../../ui/pagina.js';
 
 // Curated set of local, monochrome line icons — the app runs 100% offline, so
 // icons ship as inline SVG instead of being fetched from an icon CDN at runtime.
@@ -341,219 +343,183 @@ function openIconPicker(anchor: HTMLElement, currentIcon: string, onSelect: (ico
 // ---------- Compact create/edit dialog ----------
 
 function openLinkDialog(link: QuickLink | null, defaultGroup?: string): Promise<void> {
-  return new Promise((resolve) => {
-    const existingGroups = Array.from(
-      new Set((linksState.getCurrentState()?.links ?? []).map((l) => l.group || DEFAULT_GROUP)),
-    );
+  const existingGroups = Array.from(
+    new Set((linksState.getCurrentState()?.links ?? []).map((l) => l.group || DEFAULT_GROUP)),
+  );
 
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
+  return openCustomModal(
+    link ? 'Editar link' : 'Novo link',
+    ({ corpo, rodape, fechar }) => {
+      const urlInput = input('text', link?.url ?? '', 'https://...');
+      urlInput.classList.add('is-grande');
+      corpo.appendChild(campo('Endereço', urlInput, 'Título e ícone preenchidos a partir do site.'));
 
-    function finish(): void {
-      document.removeEventListener('keydown', onKeyDown);
-      closeIconPopover();
-      overlay.remove();
-      resolve();
-    }
+      let manualTitle: string | null = link?.title ?? null;
+      let manualIcon: string | null = link?.icon ?? null;
 
-    function onKeyDown(e: KeyboardEvent): void {
-      if (e.key === 'Escape') finish();
-    }
-    document.addEventListener('keydown', onKeyDown);
-    overlay.addEventListener('mousedown', (e) => {
-      if (e.target === overlay) finish();
-    });
+      const aparencia = buildSecaoModal('Como aparece', 'Clique no ícone para trocar; "Editar" muda o título.');
+      const preview = document.createElement('div');
+      preview.className = 'link-dialog-preview';
+      aparencia.conteudo.appendChild(preview);
+      corpo.appendChild(aparencia.secao);
 
-    const modal = document.createElement('div');
-    modal.className = 'modal link-dialog';
+      let editingTitle = false;
 
-    const heading = document.createElement('h2');
-    heading.textContent = link ? 'Editar link' : 'Novo link';
-    modal.appendChild(heading);
+      function renderPreview(): void {
+        preview.innerHTML = '';
+        const url = urlInput.value.trim();
+        if (!url) {
+          preview.classList.add('is-empty');
+          preview.textContent = 'Cole um endereço para ver a prévia.';
+          return;
+        }
+        preview.classList.remove('is-empty');
+        const hostname = hostnameOf(url);
+        const icon = manualIcon ?? suggestIcon(url);
+        const title = manualTitle ?? titleFromHostname(hostname);
 
-    const urlLabel = document.createElement('label');
-    urlLabel.className = 'modal-field';
-    const urlSpan = document.createElement('span');
-    urlSpan.textContent = 'Endereço';
-    urlLabel.appendChild(urlSpan);
-    const urlInput = document.createElement('input');
-    urlInput.type = 'text';
-    urlInput.placeholder = 'https://...';
-    urlInput.value = link?.url ?? '';
-    urlLabel.appendChild(urlInput);
-    modal.appendChild(urlLabel);
-
-    const hint = document.createElement('div');
-    hint.className = 'link-dialog-hint';
-    hint.textContent = 'Título e ícone preenchidos a partir do site.';
-    modal.appendChild(hint);
-
-    let manualTitle: string | null = link?.title ?? null;
-    let manualIcon: string | null = link?.icon ?? null;
-
-    const preview = document.createElement('div');
-    preview.className = 'link-dialog-preview';
-    modal.appendChild(preview);
-
-    let editingTitle = false;
-
-    function renderPreview(): void {
-      preview.innerHTML = '';
-      const url = urlInput.value.trim();
-      if (!url) {
-        preview.classList.add('is-empty');
-        preview.textContent = 'Cole um endereço para ver a prévia.';
-        return;
-      }
-      preview.classList.remove('is-empty');
-      const hostname = hostnameOf(url);
-      const icon = manualIcon ?? suggestIcon(url);
-      const title = manualTitle ?? titleFromHostname(hostname);
-
-      const iconEl = document.createElement('button');
-      iconEl.type = 'button';
-      iconEl.className = 'link-dialog-preview-icon';
-      iconEl.title = 'Clique para escolher o ícone';
-      renderIconContent(iconEl, icon);
-      iconEl.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openIconPicker(iconEl, icon, (newIcon) => {
-          manualIcon = newIcon;
-          renderPreview();
+        const iconEl = document.createElement('button');
+        iconEl.type = 'button';
+        iconEl.className = 'link-dialog-preview-icon';
+        iconEl.title = 'Clique para escolher o ícone';
+        renderIconContent(iconEl, icon);
+        iconEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openIconPicker(iconEl, icon, (newIcon) => {
+            manualIcon = newIcon;
+            renderPreview();
+          });
         });
-      });
-      preview.appendChild(iconEl);
+        preview.appendChild(iconEl);
 
-      const info = document.createElement('div');
-      info.className = 'link-dialog-preview-info';
+        const info = document.createElement('div');
+        info.className = 'link-dialog-preview-info';
 
-      if (editingTitle) {
-        const titleInput = document.createElement('input');
-        titleInput.type = 'text';
-        titleInput.value = title;
-        titleInput.className = 'link-dialog-title-input';
-        titleInput.addEventListener('blur', () => {
-          manualTitle = titleInput.value.trim() || null;
-          editingTitle = false;
-          renderPreview();
-        });
-        titleInput.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') titleInput.blur();
-        });
-        info.appendChild(titleInput);
-        setTimeout(() => titleInput.focus(), 0);
-      } else {
-        const titleEl = document.createElement('div');
-        titleEl.className = 'link-dialog-preview-title';
-        titleEl.textContent = title;
-        info.appendChild(titleEl);
+        if (editingTitle) {
+          const titleInput = input('text', title);
+          titleInput.addEventListener('blur', () => {
+            manualTitle = titleInput.value.trim() || null;
+            editingTitle = false;
+            renderPreview();
+          });
+          titleInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') titleInput.blur();
+          });
+          info.appendChild(titleInput);
+          setTimeout(() => titleInput.focus(), 0);
+        } else {
+          const titleEl = document.createElement('div');
+          titleEl.className = 'link-dialog-preview-title';
+          titleEl.textContent = title;
+          info.appendChild(titleEl);
+        }
+
+        const domainEl = document.createElement('div');
+        domainEl.className = 'link-dialog-preview-domain';
+        domainEl.textContent = hostname;
+        info.appendChild(domainEl);
+
+        preview.appendChild(info);
+
+        if (!editingTitle) {
+          const editLink = buildBotao('Editar', { variante: 'fantasma' });
+          editLink.classList.add('is-mini');
+          editLink.addEventListener('click', () => {
+            editingTitle = true;
+            renderPreview();
+          });
+          preview.appendChild(editLink);
+        }
       }
 
-      const domainEl = document.createElement('div');
-      domainEl.className = 'link-dialog-preview-domain';
-      domainEl.textContent = hostname;
-      info.appendChild(domainEl);
+      urlInput.addEventListener('input', renderPreview);
+      renderPreview();
 
-      preview.appendChild(info);
+      const grupo = buildSecaoModal('Grupo');
+      const groupRow = document.createElement('div');
+      groupRow.className = 'md-pilulas';
+      let selectedGroup = link?.group || defaultGroup || existingGroups[0] || DEFAULT_GROUP;
 
-      const editLink = document.createElement('button');
-      editLink.type = 'button';
-      editLink.className = 'link-dialog-edit-btn';
-      editLink.textContent = 'Editar';
-      editLink.addEventListener('click', () => {
-        editingTitle = true;
-        renderPreview();
-      });
-      preview.appendChild(editLink);
-    }
+      function renderGroups(): void {
+        groupRow.innerHTML = '';
+        existingGroups.forEach((group) => {
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'md-pilula';
+          chip.classList.toggle('is-ativa', group === selectedGroup);
+          chip.setAttribute('aria-pressed', String(group === selectedGroup));
+          chip.textContent = group;
+          chip.addEventListener('click', () => {
+            selectedGroup = group;
+            renderGroups();
+          });
+          groupRow.appendChild(chip);
+        });
 
-    urlInput.addEventListener('input', renderPreview);
-    renderPreview();
-
-    const groupLabel = document.createElement('div');
-    groupLabel.className = 'link-dialog-group-label';
-    groupLabel.textContent = 'Grupo';
-    modal.appendChild(groupLabel);
-
-    const groupRow = document.createElement('div');
-    groupRow.className = 'link-dialog-groups';
-    let selectedGroup = link?.group || defaultGroup || existingGroups[0] || DEFAULT_GROUP;
-
-    function renderGroups(): void {
-      groupRow.innerHTML = '';
-      existingGroups.forEach((group) => {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'link-dialog-group-chip';
-        chip.classList.toggle('active', group === selectedGroup);
-        chip.textContent = group;
-        chip.addEventListener('click', () => {
-          selectedGroup = group;
+        const addGroupBtn = document.createElement('button');
+        addGroupBtn.type = 'button';
+        addGroupBtn.className = 'md-pilula link-dialog-group-chip--add';
+        addGroupBtn.textContent = '+ novo';
+        addGroupBtn.addEventListener('click', async () => {
+          const name = await promptText('Novo grupo', 'Nome do grupo');
+          if (!name || !name.trim()) return;
+          if (!existingGroups.includes(name.trim())) existingGroups.push(name.trim());
+          selectedGroup = name.trim();
           renderGroups();
         });
-        groupRow.appendChild(chip);
+        groupRow.appendChild(addGroupBtn);
+      }
+      renderGroups();
+      grupo.conteudo.appendChild(groupRow);
+      corpo.appendChild(grupo.secao);
+
+      const salvar = async (): Promise<void> => {
+        const url = normalizeUrl(urlInput.value);
+        if (!url) {
+          urlInput.focus();
+          erroInline(corpo, 'Cole um endereço válido.');
+          return;
+        }
+        const hostname = hostnameOf(url);
+        const title = manualTitle ?? titleFromHostname(hostname);
+        const icon = manualIcon ?? suggestIcon(url);
+        try {
+          if (link) {
+            await linksState.updateLink({ linkId: link.id, title, url, icon, group: selectedGroup });
+          } else {
+            await linksState.createLink({ title, url, icon, group: selectedGroup });
+          }
+          fechar();
+        } catch (erro) {
+          erroInline(corpo, erro);
+        }
+      };
+      urlInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') void salvar();
       });
 
-      const addGroupBtn = document.createElement('button');
-      addGroupBtn.type = 'button';
-      addGroupBtn.className = 'link-dialog-group-chip link-dialog-group-chip--add';
-      addGroupBtn.textContent = '+ novo';
-      addGroupBtn.addEventListener('click', async () => {
-        const name = await promptText('Novo grupo', 'Nome do grupo');
-        if (!name || !name.trim()) return;
-        if (!existingGroups.includes(name.trim())) existingGroups.push(name.trim());
-        selectedGroup = name.trim();
-        renderGroups();
-      });
-      groupRow.appendChild(addGroupBtn);
-    }
-    renderGroups();
-    modal.appendChild(groupRow);
-
-    const actions = document.createElement('div');
-    actions.className = 'modal-actions';
-
-    const cancelBtn = document.createElement('button');
-    cancelBtn.type = 'button';
-    cancelBtn.className = 'btn btn-secondary';
-    cancelBtn.textContent = 'Cancelar';
-    cancelBtn.addEventListener('click', () => finish());
-    actions.appendChild(cancelBtn);
-
-    const saveBtn = document.createElement('button');
-    saveBtn.type = 'button';
-    saveBtn.className = 'btn';
-    saveBtn.textContent = 'Salvar';
-    saveBtn.addEventListener('click', async () => {
-      const url = normalizeUrl(urlInput.value);
-      if (!url) {
-        urlInput.focus();
-        return;
-      }
-      const hostname = hostnameOf(url);
-      const title = manualTitle ?? titleFromHostname(hostname);
-      const icon = manualIcon ?? suggestIcon(url);
-
-      if (link) {
-        await linksState.updateLink({ linkId: link.id, title, url, icon, group: selectedGroup });
-      } else {
-        await linksState.createLink({ title, url, icon, group: selectedGroup });
-      }
-      finish();
-    });
-    actions.appendChild(saveBtn);
-
-    modal.appendChild(actions);
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
-    urlInput.focus();
-  });
+      const cancelBtn = buildBotao('Cancelar', { variante: 'fantasma' });
+      cancelBtn.addEventListener('click', fechar);
+      const saveBtn = buildBotao('Salvar link', { variante: 'primario' });
+      saveBtn.addEventListener('click', () => void salvar());
+      rodape.append(cancelBtn, saveBtn);
+      urlInput.focus();
+    },
+    {
+      largura: 500,
+      icone: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+      subtitulo: 'Atalhos para os sites que você mais abre.',
+      aoFechar: closeIconPopover,
+    },
+  );
 }
 
 function handleImportFromBrowser(): void {
-  window.alert('Importar do navegador ainda não está disponível nesta versão. Por enquanto, adicione seus links manualmente com "+ Novo link".');
+  void openAvisoModal(
+    'Importar do navegador',
+    'Importar do navegador ainda não está disponível nesta versão. Por enquanto, adicione seus links manualmente com "+ Novo link".',
+  );
 }
-
 function applyViewMode(root: HTMLElement, gridBtn: HTMLElement, listBtn: HTMLElement): void {
   root.classList.toggle('links-view--list', currentViewMode === 'list');
   root.classList.toggle('links-view--grid', currentViewMode === 'grid');

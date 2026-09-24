@@ -158,7 +158,15 @@ export function buildSegmentado<T extends string>(
     btn.setAttribute('aria-selected', String(opcao.value === ativo));
     if (opcao.value === ativo) btn.classList.add('is-ativo');
     btn.textContent = opcao.label;
-    btn.addEventListener('click', () => aoMudar(opcao.value));
+    btn.addEventListener('click', () => {
+      // Marca já aqui: nem todo chamador redesenha o grupo depois de mudar.
+      grupo.querySelectorAll<HTMLElement>('.pg-segmento').forEach((b) => {
+        const ativa = b === btn;
+        b.classList.toggle('is-ativo', ativa);
+        b.setAttribute('aria-selected', String(ativa));
+      });
+      aoMudar(opcao.value);
+    });
     grupo.appendChild(btn);
   });
 

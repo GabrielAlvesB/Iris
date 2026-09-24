@@ -8,6 +8,10 @@ import * as servidoresService from '../servidores/servidores.service';
 import * as n8nService from '../n8n/n8n.service';
 import * as githubService from '../github/github.service';
 import * as ajustesService from '../ajustes/ajustes.service';
+import * as copyService from '../copy/copy.service';
+import * as videosService from '../videos/videos.service';
+import * as imagensService from '../imagens/imagens.service';
+import * as relatoriosService from '../relatorios/relatorios.service';
 import type { ExportBundle } from '../../../shared/types/export.types';
 
 const SCHEMA_VERSION = 1;
@@ -21,7 +25,7 @@ const SCHEMA_VERSION = 1;
  * a baseUrl: as credenciais ficam no cofre, referenciadas por chave.
  */
 export async function buildExportBundle(): Promise<ExportBundle> {
-  const [kanban, quadro, sheets, links, pensamentos, explorador, servidores, n8n, github, ajustes] =
+  const [kanban, quadro, sheets, links, pensamentos, explorador, servidores, n8n, github, ajustes, copy, videos, imagens, relatorios] =
     await Promise.all([
       kanbanService.getFullFile(),
       quadroService.getFullFile(),
@@ -33,6 +37,10 @@ export async function buildExportBundle(): Promise<ExportBundle> {
       n8nService.getFullFile(),
       githubService.getFullFile(),
       ajustesService.getFullFile(),
+      copyService.getFullFile(),
+      videosService.getFullFile(),
+      imagensService.getFullFile(),
+      relatoriosService.getFullFile(),
     ]);
 
   return {
@@ -48,6 +56,10 @@ export async function buildExportBundle(): Promise<ExportBundle> {
     n8n,
     github,
     ajustes,
+    copy,
+    videos,
+    imagens,
+    relatorios,
   };
 }
 
@@ -75,7 +87,13 @@ export async function restoreFromBundle(raw: unknown): Promise<void> {
     raw.n8n ? n8nService.replaceFile(raw.n8n) : Promise.resolve(),
     raw.github ? githubService.replaceFile(raw.github) : Promise.resolve(),
     raw.ajustes ? ajustesService.replaceFile(raw.ajustes) : Promise.resolve(),
+    raw.copy ? copyService.replaceFile(raw.copy) : Promise.resolve(),
+    raw.videos ? videosService.replaceFile(raw.videos) : Promise.resolve(),
+    raw.relatorios ? relatoriosService.replaceFile(raw.relatorios) : Promise.resolve(),
   ]);
+  // Depois dos vídeos, de propósito: as imagens validam tags e redes contra o
+  // catálogo que mora em videos.json, que precisa já ser o do backup.
+  if (raw.imagens) await imagensService.replaceFile(raw.imagens);
 }
 
 function escapeCsvCell(cell: string): string {

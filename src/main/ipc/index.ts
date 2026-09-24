@@ -10,6 +10,9 @@ import { registerServidoresIpc } from './servidores.ipc';
 import { registerN8nIpc } from './n8n.ipc';
 import { registerGithubIpc } from './github.ipc';
 import { registerAjustesIpc } from './ajustes.ipc';
+import { registerVideosIpc } from './videos.ipc';
+import { registerImagensIpc } from './imagens.ipc';
+import { registerRelatoriosIpc } from './relatorios.ipc';
 
 export function registerAllIpcHandlers(): void {
   registerKanbanIpc();
@@ -24,4 +27,7 @@ export function registerAllIpcHandlers(): void {
   registerN8nIpc();
   registerGithubIpc();
   registerAjustesIpc();
+  registerVideosIpc();
+  registerImagensIpc();
+  registerRelatoriosIpc();
 }

@@ -1,7 +1,9 @@
 import type { KanbanBoard, KanbanCard, KanbanColumn, KanbanSubtask } from '../../../shared/types/kanban.types';
 import * as kanbanState from './kanban.state.js';
 import { destroySortables, initSortables } from './kanban.dragdrop.js';
-import { openFormModal, openConfirmModal } from '../../ui/modal.js';
+import { ICONES_MODAL, openFormModal, openConfirmModal, openAvisoModal, buildSecaoModal, haModalAberto } from '../../ui/modal.js';
+import { abrirPainel, lembrarPosicao, lerPosicaoLembrada, type PainelHandle } from '../../ui/painel.js';
+import { buildBotao } from '../../ui/pagina.js';
 
 type ViewTab = 'quadro' | 'lista' | 'calendario';
 
@@ -14,7 +16,7 @@ let filterWeekOnly = false;
 let filterAssignee = 'all';
 let boardShortcutsHandler: ((e: KeyboardEvent) => void) | null = null;
 
-let panelEl: HTMLElement | null = null;
+let panelHandle: PainelHandle | null = null;
 let panelCardId: string | null = null;
 let panelSaveTimer: ReturnType<typeof setTimeout> | null = null;
 let panelTickTimer: ReturnType<typeof setInterval> | null = null;
@@ -263,7 +265,8 @@ function buildColumnElement(column: KanbanColumn, cards: KanbanCard[]): HTMLElem
       howItWorksBtn.className = 'kanban-how-it-works-btn';
       howItWorksBtn.textContent = 'Ver como funciona';
       howItWorksBtn.addEventListener('click', () => {
-        window.alert(
+        void openAvisoModal(
+          'Como concluir um card',
           'Arraste um card até aqui para concluí-lo, ou abra o card e clique em "Concluir card" no painel lateral. Colunas com limite de WIP avisam quando estão cheias, para você terminar algo antes de puxar o próximo.',
         );
       });
@@ -295,14 +298,20 @@ function buildColumnElement(column: KanbanColumn, cards: KanbanCard[]): HTMLElem
 }
 
 async function handleSetWipLimit(column: KanbanColumn): Promise<void> {
-  const result = await openFormModal('Limite de WIP', [
-    {
-      name: 'wipLimit',
-      label: 'Máximo de cards nesta coluna (vazio = sem limite)',
-      type: 'text',
-      defaultValue: column.wipLimit != null ? String(column.wipLimit) : '',
-    },
-  ], 'Salvar');
+  const result = await openFormModal(
+    'Limite de WIP',
+    [
+      {
+        name: 'wipLimit',
+        label: 'Máximo de cards nesta coluna',
+        type: 'number',
+        dica: 'Vazio = sem limite.',
+        defaultValue: column.wipLimit != null ? String(column.wipLimit) : '',
+      },
+    ],
+    'Salvar',
+    { icone: ICONES_MODAL.colunas, subtitulo: `Coluna "${column.title}". Limitar o trabalho em andamento ajuda a terminar antes de puxar mais.` },
+  );
   if (!result) return;
   const parsed = result.wipLimit.trim() === '' ? null : Number.parseInt(result.wipLimit, 10);
   if (parsed !== null && (Number.isNaN(parsed) || parsed < 1)) return;
@@ -321,7 +330,9 @@ async function handleDeleteColumn(column: KanbanColumn): Promise<void> {
 }
 
 async function handleAddColumn(): Promise<void> {
-  const result = await openFormModal('Nova coluna', [{ name: 'title', label: 'Título', type: 'text' }], 'Criar');
+  const result = await openFormModal('Nova coluna', [{ name: 'title', label: 'Título', type: 'text' }], 'Criar coluna', {
+    icone: ICONES_MODAL.colunas,
+  });
   if (!result || !result.title.trim()) return;
   await kanbanState.createColumn({ title: result.title.trim() });
 }
@@ -343,6 +354,9 @@ function buildAddColumnTile(): HTMLElement {
 // ---------- Side panel (create/edit card) ----------
 
 function closeCardPanel(): void {
+  // Fechar pelo X, Esc ou clique fora também passa por aqui, via aoFechar do painel.
+  const handle = panelHandle;
+  panelHandle = null;
   if (panelSaveTimer) {
     clearTimeout(panelSaveTimer);
     panelSaveTimer = null;
@@ -351,21 +365,14 @@ function closeCardPanel(): void {
     clearInterval(panelTickTimer);
     panelTickTimer = null;
   }
-  panelEl?.remove();
-  panelEl = null;
+  handle?.fechar();
   panelCardId = null;
   panelDraft = null;
-  document.removeEventListener('keydown', onPanelKeyDown);
-}
-
-function onPanelKeyDown(e: KeyboardEvent): void {
-  if (e.key === 'Escape') closeCardPanel();
 }
 
 function scheduleSave(): void {
   if (!panelCardId) return;
-  const savedIndicator = panelEl?.querySelector<HTMLElement>('.kanban-panel-saved');
-  if (savedIndicator) savedIndicator.textContent = 'Salvando…';
+  panelHandle?.marcarSalvando();
   if (panelSaveTimer) clearTimeout(panelSaveTimer);
   panelSaveTimer = setTimeout(() => void commitSave(), 500);
 }
@@ -390,8 +397,7 @@ async function commitSave(): Promise<void> {
 }
 
 function updateSavedIndicator(): void {
-  const el = panelEl?.querySelector<HTMLElement>('.kanban-panel-saved');
-  if (el) el.textContent = `Salvo automaticamente · ${relativeTime(panelSavedAt)}`;
+  if (panelHandle) panelHandle.salvo.textContent = `Salvo · ${relativeTime(panelSavedAt)}`;
 }
 
 function segmentedPriorityButtons(container: HTMLElement): void {
@@ -523,65 +529,65 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
   };
 
   const isNew = card === null;
+  // Card novo só é gravado no "Criar card"; editar um existente salva na pausa.
+  const salvarSeExistir = (): void => {
+    if (!isNew) scheduleSave();
+  };
 
-  const panel = document.createElement('div');
-  panel.className = 'kanban-panel';
-  panelEl = panel;
-
-  const header = document.createElement('div');
-  header.className = 'kanban-panel-header';
-
-  const idChip = document.createElement('span');
-  idChip.className = 'kanban-panel-id';
-  idChip.textContent = card && currentBoard ? cardCode(currentBoard, card) : 'Novo card';
-  header.appendChild(idChip);
+  const handle = abrirPainel({
+    icone: '<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
+    rotulo: card && currentBoard ? cardCode(currentBoard, card) : 'Novo card',
+    ariaLabel: isNew ? 'Novo card' : 'Detalhes do card',
+    posicao: lerPosicaoLembrada('kanban', 'direita'),
+    aoMudarPosicao: (pos) => lembrarPosicao('kanban', pos),
+    aoFechar: () => {
+      // Fechado por fora (X, Esc, fundo): não perde o que foi digitado há pouco.
+      if (panelHandle !== handle) return;
+      const pendente = panelSaveTimer !== null && panelCardId !== null;
+      if (pendente) void commitSave();
+      panelHandle = null;
+      closeCardPanel();
+    },
+    compacto: true,
+  });
+  panelHandle = handle;
 
   const columnChip = document.createElement('span');
   columnChip.className = 'kanban-panel-column-chip';
   columnChip.textContent = column.title;
-  header.appendChild(columnChip);
-
-  const spacer = document.createElement('span');
-  spacer.className = 'kanban-panel-spacer';
-  header.appendChild(spacer);
-
-  const closeHint = document.createElement('span');
-  closeHint.className = 'kanban-panel-hint';
-  closeHint.textContent = 'Esc para fechar';
-  header.appendChild(closeHint);
-
-  const closeBtn = document.createElement('button');
-  closeBtn.className = 'btn-icon';
-  closeBtn.textContent = '✕';
-  closeBtn.addEventListener('click', () => closeCardPanel());
-  header.appendChild(closeBtn);
-
-  panel.appendChild(header);
-
-  const body = document.createElement('div');
-  body.className = 'kanban-panel-body';
+  handle.estado.appendChild(columnChip);
+  if (isNew) handle.salvo.textContent = 'Esc para cancelar';
+  else updateSavedIndicator();
 
   const titleInput = document.createElement('textarea');
   titleInput.className = 'kanban-panel-title';
   titleInput.rows = 1;
   titleInput.placeholder = 'Título do card';
   titleInput.value = panelDraft.title;
+  const ajustarTitulo = (): void => {
+    titleInput.style.height = 'auto';
+    titleInput.style.height = `${titleInput.scrollHeight}px`;
+  };
   titleInput.addEventListener('input', () => {
     if (panelDraft) panelDraft.title = titleInput.value;
-    scheduleSave();
+    ajustarTitulo();
+    salvarSeExistir();
   });
-  body.appendChild(titleInput);
+  requestAnimationFrame(ajustarTitulo);
+  handle.corpo.insertBefore(titleInput, handle.grade);
 
-  function field(labelText: string, contentEl: HTMLElement): void {
+  function field(container: HTMLElement, labelText: string, contentEl: HTMLElement): void {
     const wrap = document.createElement('div');
-    wrap.className = 'kanban-panel-field';
+    wrap.className = 'md-campo';
     const label = document.createElement('span');
-    label.className = 'kanban-panel-label';
+    label.className = 'md-rotulo';
     label.textContent = labelText;
-    wrap.appendChild(label);
-    wrap.appendChild(contentEl);
-    body.appendChild(wrap);
+    wrap.append(label, contentEl);
+    container.appendChild(wrap);
   }
+
+  const detalhes = buildSecaoModal('Detalhes');
+  handle.grade.appendChild(detalhes.secao);
 
   const assigneeWrap = document.createElement('div');
   assigneeWrap.className = 'kanban-assignee-wrap';
@@ -592,6 +598,7 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
 
   const assigneeInput = document.createElement('input');
   assigneeInput.type = 'text';
+  assigneeInput.className = 'md-input';
   assigneeInput.placeholder = 'Nome da pessoa responsável';
   assigneeInput.value = panelDraft.assignee;
 
@@ -610,24 +617,25 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
   assigneeInput.addEventListener('input', () => {
     if (panelDraft) panelDraft.assignee = assigneeInput.value;
     updateAssigneeAvatar();
-    scheduleSave();
+    salvarSeExistir();
   });
   assigneeWrap.appendChild(assigneeInput);
-  field('Responsável', assigneeWrap);
+  field(detalhes.conteudo, 'Responsável', assigneeWrap);
 
   const priorityRow = document.createElement('div');
   priorityRow.className = 'kanban-priority-row';
   segmentedPriorityButtons(priorityRow);
-  field('Prioridade', priorityRow);
+  field(detalhes.conteudo, 'Prioridade', priorityRow);
 
   const dueWrap = document.createElement('div');
   dueWrap.className = 'kanban-due-wrap';
   const dueInput = document.createElement('input');
   dueInput.type = 'date';
+  dueInput.className = 'md-input';
   dueInput.value = panelDraft.dueDate;
   dueInput.addEventListener('change', () => {
     if (panelDraft) panelDraft.dueDate = dueInput.value;
-    scheduleSave();
+    salvarSeExistir();
   });
   dueWrap.appendChild(dueInput);
   [
@@ -637,56 +645,50 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
   ].forEach(([label, offset]) => {
     const quickBtn = document.createElement('button');
     quickBtn.type = 'button';
-    quickBtn.className = 'kanban-due-quick';
+    quickBtn.className = 'md-pilula';
     quickBtn.textContent = label as string;
     quickBtn.addEventListener('click', () => {
       const d = new Date();
       d.setDate(d.getDate() + (offset as number));
       dueInput.value = isoDate(d);
       if (panelDraft) panelDraft.dueDate = dueInput.value;
-      scheduleSave();
+      salvarSeExistir();
     });
     dueWrap.appendChild(quickBtn);
   });
-  field('Prazo', dueWrap);
+  field(detalhes.conteudo, 'Prazo', dueWrap);
 
   const tagsWrap = document.createElement('div');
   tagsWrap.className = 'kanban-tags-wrap';
   renderTagChips(tagsWrap);
-  field('Tags', tagsWrap);
+  field(detalhes.conteudo, 'Tags', tagsWrap);
 
+  const subtarefas = buildSecaoModal('Subtarefas');
   const subtasksWrap = document.createElement('div');
   subtasksWrap.className = 'kanban-subtasks-wrap';
   renderSubtasks(subtasksWrap);
-  body.appendChild(subtasksWrap);
+  subtarefas.conteudo.appendChild(subtasksWrap);
+  handle.grade.appendChild(subtarefas.secao);
 
+  const descricao = buildSecaoModal('Descrição');
   const descTextarea = document.createElement('textarea');
-  descTextarea.className = 'kanban-panel-description';
+  descTextarea.className = 'md-input md-textarea kanban-panel-description';
+  descTextarea.rows = 5;
   descTextarea.placeholder = 'Descreva o contexto... markdown suportado';
   descTextarea.value = panelDraft.description;
   descTextarea.addEventListener('input', () => {
     if (panelDraft) panelDraft.description = descTextarea.value;
-    scheduleSave();
+    salvarSeExistir();
   });
-  body.appendChild(descTextarea);
+  descricao.conteudo.appendChild(descTextarea);
+  handle.grade.appendChild(descricao.secao);
 
-  panel.appendChild(body);
-
-  const footer = document.createElement('div');
-  footer.className = 'kanban-panel-footer';
-
-  const savedIndicator = document.createElement('span');
-  savedIndicator.className = 'kanban-panel-saved';
-  savedIndicator.textContent = isNew ? '' : `Salvo automaticamente · ${relativeTime(panelSavedAt)}`;
-  footer.appendChild(savedIndicator);
-
-  const footerActions = document.createElement('div');
-  footerActions.className = 'kanban-panel-footer-actions';
+  const espaco = document.createElement('span');
+  espaco.className = 'pg-espaco';
 
   if (!isNew) {
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'btn btn-secondary';
-    deleteBtn.textContent = 'Excluir';
+    const deleteBtn = buildBotao('Excluir', { variante: 'fantasma' });
+    deleteBtn.classList.add('is-perigo');
     deleteBtn.addEventListener('click', async () => {
       if (!panelCardId) return;
       const ok = await openConfirmModal({
@@ -695,54 +697,54 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
         confirmText: 'Excluir card',
         danger: true,
       });
-      if (!ok) return;
-      await kanbanState.deleteCard(panelCardId);
+      if (!ok || !panelCardId) return;
+      const id = panelCardId;
       closeCardPanel();
+      await kanbanState.deleteCard(id);
     });
-    footerActions.appendChild(deleteBtn);
 
-    const completeBtn = document.createElement('button');
-    completeBtn.className = 'btn';
-    completeBtn.textContent = 'Concluir card';
+    const completeBtn = buildBotao('Concluir card', { variante: 'primario' });
     completeBtn.addEventListener('click', async () => {
       if (!panelCardId || !currentBoard) return;
-      const lastColumn = currentBoard.columns.slice().sort((a, b) => b.order - a.order)[0];
-      if (lastColumn) {
-        await kanbanState.moveCard({ cardId: panelCardId, toColumnId: lastColumn.id, toIndex: 0 });
+      if (panelSaveTimer) {
+        clearTimeout(panelSaveTimer);
+        panelSaveTimer = null;
+        await commitSave();
       }
+      const id = panelCardId;
+      const lastColumn = currentBoard.columns.slice().sort((a, b) => b.order - a.order)[0];
       closeCardPanel();
+      if (lastColumn) {
+        await kanbanState.moveCard({ cardId: id, toColumnId: lastColumn.id, toIndex: 0 });
+      }
     });
-    footerActions.appendChild(completeBtn);
+    handle.rodape.append(deleteBtn, espaco, completeBtn);
   } else {
-    const createBtn = document.createElement('button');
-    createBtn.className = 'btn';
-    createBtn.textContent = 'Criar card';
+    const cancelBtn = buildBotao('Cancelar', { variante: 'fantasma' });
+    cancelBtn.addEventListener('click', () => closeCardPanel());
+    const createBtn = buildBotao('Criar card', { variante: 'primario' });
     createBtn.addEventListener('click', async () => {
       if (!panelDraft || !panelDraft.title.trim()) {
         titleInput.focus();
         return;
       }
+      const draft = panelDraft;
       const created = await kanbanState.createCardAndReturn({
         columnId: column.id,
-        title: panelDraft.title.trim(),
-        description: panelDraft.description || undefined,
-        assignee: panelDraft.assignee || undefined,
-        priority: panelDraft.priority || undefined,
-        dueDate: panelDraft.dueDate || undefined,
+        title: draft.title.trim(),
+        description: draft.description || undefined,
+        assignee: draft.assignee || undefined,
+        priority: draft.priority || undefined,
+        dueDate: draft.dueDate || undefined,
       });
-      if (created && (panelDraft.tags.length > 0 || panelDraft.subtasks.length > 0)) {
-        await kanbanState.updateCard({ cardId: created.id, tags: panelDraft.tags, subtasks: panelDraft.subtasks });
+      if (created && (draft.tags.length > 0 || draft.subtasks.length > 0)) {
+        await kanbanState.updateCard({ cardId: created.id, tags: draft.tags, subtasks: draft.subtasks });
       }
       closeCardPanel();
     });
-    footerActions.appendChild(createBtn);
+    handle.rodape.append(espaco, cancelBtn, createBtn);
   }
 
-  footer.appendChild(footerActions);
-  panel.appendChild(footer);
-
-  document.body.appendChild(panel);
-  document.addEventListener('keydown', onPanelKeyDown);
   titleInput.focus();
 
   if (!isNew) {
@@ -1213,7 +1215,7 @@ function attachBoardShortcuts(): void {
   boardShortcutsHandler = (e: KeyboardEvent) => {
     if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'k') return;
     e.preventDefault();
-    if (panelEl || !currentBoard) return;
+    if (panelHandle || haModalAberto() || !currentBoard) return;
     const firstColumn = currentBoard.columns.slice().sort((a, b) => a.order - b.order)[0];
     if (firstColumn) openCardPanel(null, firstColumn);
   };

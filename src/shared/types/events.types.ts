@@ -1,4 +1,3 @@
-import type { ExploradorListagem } from './explorador.types';
 import type { GithubSnapshot } from './github.types';
 import type { N8nSnapshot } from './n8n.types';
 import type { ServidoresFile, SshSaidaChunk } from './servidores.types';
@@ -12,7 +11,6 @@ import type { ServidoresFile, SshSaidaChunk } from './servidores.types';
  */
 export type IrisEvent =
   | { topic: 'explorador:mudou'; payload: { raizId: string; pastasAfetadas: string[] } }
-  | { topic: 'explorador:listagem'; payload: ExploradorListagem }
   | { topic: 'servidores:estado'; payload: ServidoresFile }
   | { topic: 'servidores:saida'; payload: SshSaidaChunk }
   | { topic: 'n8n:snapshot'; payload: N8nSnapshot }

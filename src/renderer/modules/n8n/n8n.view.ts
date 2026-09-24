@@ -1,7 +1,7 @@
 import type { N8nExecucao, N8nExecucaoStatus, N8nWorkflow } from '../../../shared/types/n8n.types';
 import * as n8nState from './n8n.state.js';
 import type { N8nViewState } from './n8n.state.js';
-import { openConfirmModal, openFormModal } from '../../ui/modal.js';
+import { openAvisoModal, openFormModal } from '../../ui/modal.js';
 import { abrirTutorial } from '../../core/navegacao.js';
 import {
   ICONES,
@@ -40,7 +40,7 @@ function duracao(ms?: number): string {
 }
 
 async function avisar(titulo: string, mensagem: string): Promise<void> {
-  await openConfirmModal({ title: titulo, message: mensagem, confirmText: 'Entendi', cancelText: 'Fechar', danger: false });
+  await openAvisoModal(titulo, mensagem, { botao: 'Entendi' });
 }
 
 function mensagemDe(error: unknown): string {
@@ -120,8 +120,17 @@ function buildResumo(state: N8nViewState): HTMLElement {
 async function disparar(workflow: N8nWorkflow): Promise<void> {
   const resposta = await openFormModal(
     `Executar "${workflow.nome}"`,
-    [{ name: 'payload', label: 'Dados enviados ao fluxo (JSON, opcional)', type: 'textarea', placeholder: '{ "chave": "valor" }' }],
+    [
+      {
+        name: 'payload',
+        label: 'Dados enviados ao fluxo',
+        type: 'textarea',
+        placeholder: '{ "chave": "valor" }',
+        dica: 'JSON opcional; vazio dispara sem dados.',
+      },
+    ],
     'Executar',
+    { icone: ICONES.play, subtitulo: 'Dispara o workflow agora pelo webhook configurado.', largura: 540 },
   );
   if (!resposta) return;
 
