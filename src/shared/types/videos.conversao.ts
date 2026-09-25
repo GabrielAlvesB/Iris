@@ -6,6 +6,7 @@ import {
   type LogoRede,
   type MapeamentoColunas,
   type OrigemSheets,
+  type Prioridade,
   type RedeSocial,
   type VideoStatus,
 } from './videos.types.js';
@@ -163,6 +164,26 @@ export function resolverStatus(texto: string): VideoStatus | undefined {
   if (!chave) return undefined;
   const porRotulo = VIDEO_STATUS.find((s) => normalizar(s.rotulo) === chave || s.id === chave);
   return porRotulo?.id ?? SINONIMOS_STATUS[chave];
+}
+
+const SINONIMOS_PRIORIDADE: Record<string, Prioridade> = {
+  alta: 'alta',
+  high: 'alta',
+  urgente: 'alta',
+  maxima: 'alta',
+  '1': 'alta',
+  media: 'media',
+  medium: 'media',
+  normal: 'media',
+  '2': 'media',
+  baixa: 'baixa',
+  low: 'baixa',
+  '3': 'baixa',
+};
+
+/** "Alta", "média", "High", "urgente", "1"… → prioridade. Vazio ou desconhecido = sem prioridade. */
+export function parsePrioridade(texto: string): Prioridade | undefined {
+  return SINONIMOS_PRIORIDADE[normalizar(texto)];
 }
 
 /**

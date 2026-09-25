@@ -17,6 +17,8 @@ import { buildSecaoModal, openCustomModal } from '../../ui/modal.js';
 import { campo, erroInline, grade2, input, pilulas, select, textarea } from '../../ui/campos.js';
 import { buildBotao, buildBusca, buildSegmentado, buildVazio } from '../../ui/pagina.js';
 import { formatarData, ICONES_POSTAGEM } from '../postagens/postagens.ui.js';
+import { alternaveis } from './relatorios.blocos.js';
+import { catalogoAtual } from './relatorios.metricas.js';
 import { ADAPTADORES, type OpcaoPostagem } from './relatorios.tipos.js';
 import * as relatoriosState from './relatorios.state.js';
 
@@ -41,6 +43,22 @@ export function abrirNovoRelatorio(aoCriar: (relatorioId: string) => void): void
       titulo.classList.add('is-grande');
       corpo.appendChild(campo('Título', titulo));
 
+      let tagIds: string[] = [];
+      const tags = catalogoAtual()?.tags ?? [];
+      if (tags.length) {
+        const empresa = buildSecaoModal('Empresa', 'As tags da empresa. As postagens e as métricas do relatório já vêm filtradas por elas.');
+        const desenharTags = (): void => {
+          empresa.conteudo.replaceChildren(
+            alternaveis(tags.map((t) => ({ id: t.id, rotulo: t.nome })), tagIds, (v) => {
+              tagIds = v;
+              desenharTags();
+            }),
+          );
+        };
+        desenharTags();
+        corpo.appendChild(empresa.secao);
+      }
+
       const contexto = buildSecaoModal('Contexto', 'Para quem e por quê: cliente, campanha, objetivo. Opcional.');
       const textoContexto = textarea('', 'Ex.: Revisão mensal dos vídeos curtos para o cliente X', 3);
       contexto.conteudo.appendChild(textoContexto);
@@ -62,6 +80,7 @@ export function abrirNovoRelatorio(aoCriar: (relatorioId: string) => void): void
           const antes = new Set((relatoriosState.getCurrentState()?.relatorios ?? []).map((r) => r.id));
           const file = await relatoriosState.criarRelatorio({
             titulo: titulo.value,
+            tagIds,
             contexto: textoContexto.value,
             periodoInicio: inicio.value || undefined,
             periodoFim: fim.value || undefined,
@@ -100,12 +119,15 @@ export interface EscolhaPostagem {
  * do período do relatório. As que já estão na seção vêm marcadas e travadas.
  */
 export function abrirAdicionarPostagens(
-  opcoes: { jaNaSecao: EscolhaPostagem[]; periodoInicio?: string; periodoFim?: string; titulo: string },
+  opcoes: { jaNaSecao: EscolhaPostagem[]; tagIds: string[]; periodoInicio?: string; periodoFim?: string; titulo: string },
   aoConfirmar: (escolhas: EscolhaPostagem[]) => void,
 ): void {
   let tipo: TipoPostagem = 'video';
   let termo = '';
   let soPeriodo = Boolean(opcoes.periodoInicio || opcoes.periodoFim);
+  // Já abre na empresa do relatório; desmarcar todas = sem filtro de tag.
+  const catalogoTags = catalogoAtual()?.tags ?? [];
+  let tagsFiltro = opcoes.tagIds.filter((id) => catalogoTags.some((t) => t.id === id));
   let mostrarArquivadas = false;
   const escolhidas = new Map<string, EscolhaPostagem>();
   const chave = (t: TipoPostagem, id: string): string => `${t}:${id}`;
@@ -137,6 +159,20 @@ export function abrirAdicionarPostagens(
       const listaEl = document.createElement('div');
       listaEl.className = 'rel-seletor-lista';
 
+      const comTag = (p: OpcaoPostagem): boolean => !tagsFiltro.length || p.tagIds.some((id) => tagsFiltro.includes(id));
+
+      const selecionarFiltradas = buildBotao('Marcar todas as filtradas', { variante: 'secundario' });
+      selecionarFiltradas.classList.add('is-mini');
+      let filtradasAtuais: OpcaoPostagem[] = [];
+      selecionarFiltradas.addEventListener('click', () => {
+        filtradasAtuais.forEach((p) => {
+          const k = chave(tipo, p.id);
+          if (!jaEsta.has(k)) escolhidas.set(k, { tipo, id: p.id });
+        });
+        desenharLista();
+        atualizarRodape();
+      });
+
       const desenharLista = (): void => {
         const adaptador = ADAPTADORES[tipo];
         const t = termo.trim().toLocaleLowerCase('pt-BR');
@@ -144,15 +180,22 @@ export function abrirAdicionarPostagens(
           .listar()
           .filter((p) => mostrarArquivadas || !p.arquivada)
           .filter(noPeriodo)
-          .filter((p) => !t || `${p.titulo} #${p.seq}`.toLocaleLowerCase('pt-BR').includes(t))
+          .filter(comTag)
+          .filter((p) => !t || p.titulo.toLocaleLowerCase('pt-BR').includes(t))
           .sort((a, b) => (b.dataAgendada ?? '').localeCompare(a.dataAgendada ?? '') || b.seq - a.seq);
+        filtradasAtuais = itens;
+        selecionarFiltradas.disabled = !itens.some((p) => !jaEsta.has(chave(tipo, p.id)));
         listaEl.innerHTML = '';
         if (!itens.length) {
+          const motivos = [
+            soPeriodo ? 'desligue "Só do período"' : '',
+            tagsFiltro.length ? 'desmarque alguma tag' : '',
+          ].filter(Boolean);
           listaEl.appendChild(
             buildVazio(
               adaptador.icone,
               `Nenhuma postagem em ${adaptador.rotulo}`,
-              soPeriodo ? 'Nada com data dentro do período do relatório. Desligue "Só do período" para ver todas.' : 'Crie postagens na área Postagens.',
+              motivos.length ? `Nada com esses filtros. Para ver mais, ${motivos.join(' ou ')}.` : 'Crie postagens na área Postagens.',
             ),
           );
           return;
@@ -177,7 +220,7 @@ export function abrirAdicionarPostagens(
           const titulo = document.createElement('strong');
           titulo.textContent = p.titulo;
           const meta = document.createElement('small');
-          meta.textContent = [`#${p.seq}`, p.etapa, p.dataAgendada ? formatarData(p.dataAgendada) : 'sem data', bloqueada ? 'já nesta seção' : '']
+          meta.textContent = [p.etapa, p.dataAgendada ? formatarData(p.dataAgendada) : 'sem data', bloqueada ? 'já nesta seção' : '']
             .filter(Boolean)
             .join(' · ');
           textos.append(titulo, meta);
@@ -225,6 +268,28 @@ export function abrirAdicionarPostagens(
       if (opcoes.periodoInicio || opcoes.periodoFim) filtros.appendChild(alternar('Só do período do relatório', () => soPeriodo, () => (soPeriodo = !soPeriodo)));
       filtros.appendChild(alternar('Mostrar arquivadas', () => mostrarArquivadas, () => (mostrarArquivadas = !mostrarArquivadas)));
       corpo.appendChild(filtros);
+
+      if (catalogoTags.length) {
+        const tagsEl = document.createElement('div');
+        tagsEl.className = 'md-pilulas rel-seletor-tags';
+        tagsEl.setAttribute('role', 'group');
+        tagsEl.setAttribute('aria-label', 'Filtrar por tag');
+        catalogoTags.forEach((tag) => {
+          tagsEl.appendChild(
+            alternar(
+              `#${tag.nome}`,
+              () => tagsFiltro.includes(tag.id),
+              () => (tagsFiltro = tagsFiltro.includes(tag.id) ? tagsFiltro.filter((id) => id !== tag.id) : [...tagsFiltro, tag.id]),
+            ),
+          );
+        });
+        corpo.appendChild(campo('Tags', tagsEl, 'Mostra as postagens com qualquer uma das tags marcadas. Nenhuma marcada = todas.'));
+      }
+
+      const acoesLista = document.createElement('div');
+      acoesLista.className = 'rel-seletor-acoes';
+      acoesLista.appendChild(selecionarFiltradas);
+      corpo.appendChild(acoesLista);
       corpo.appendChild(listaEl);
       desenharLista();
 
@@ -380,7 +445,7 @@ export function abrirMarcacao(
   categorias: RelatoriosFile['categorias'],
   aoMudar: () => void,
 ): void {
-  const titulo = `${ADAPTADORES[item.tipo].singular} #${item.snapshot.seq} · ${item.snapshot.titulo}`;
+  const titulo = `${ADAPTADORES[item.tipo].singular} · ${item.snapshot.titulo}`;
   switch (item.tipo) {
     case 'video': {
       const existente = item.marcacoes.find((m) => m.id === marcacaoId) ?? null;

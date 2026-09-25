@@ -1,13 +1,22 @@
 import { randomUUID } from 'node:crypto';
 import { readStore, writeStore } from '../../storage/jsonStore';
+import * as videosService from '../videos/videos.service';
 import { DATA_REGEX, HORA_REGEX, garantirSeq, limparExtras, listaDeStrings, naoNulo, nowIso, scoreValido, texto } from '../postagens/postagens.comum';
 import { TIPOS_POSTAGEM, isTipoPostagem, type TipoPostagem } from '../../../shared/types/postagens.types';
 import {
   CATEGORIAS_PADRAO,
+  PARTES_METRICAS,
   isAreaImagem,
+  isParteMetricas,
+  isTomDestaque,
   isStatusMarcacao,
   isTipoMarcacao,
+  type BlocoRelatorio,
   type CriarRelatorioInput,
+  type FiltroMetricas,
+  type LinhaMetrica,
+  type PostagemMetrica,
+  type ResultadoMetricas,
   type ItemRelatorio,
   type MarcacaoImagem,
   type MarcacaoVideo,
@@ -19,7 +28,14 @@ import {
 } from '../../../shared/types/relatorios.types';
 
 const FILE_NAME = 'relatorios.json';
-const SCHEMA_VERSION = 1;
+// v2: blocos livres nas seções (texto, destaque, tabela, métricas, quebra).
+// v3: empresa por tags, objetivos/recomendações/observações finais, blocos
+// análise (texto + métrica), duas colunas e citação.
+const SCHEMA_VERSION = 3;
+const MAX_COLUNAS = 8;
+const MAX_LINHAS = 100;
+const MAX_INDICADORES = 12;
+const MAX_POSTAGENS_METRICAS = 500;
 const MAX_CATEGORIAS = 30;
 
 function categoriasPadrao(): Record<TipoPostagem, string[]> {
@@ -112,12 +128,145 @@ function migrateItem(raw: unknown): ItemRelatorio | null {
   }
 }
 
+function numero(valor: unknown): number {
+  return typeof valor === 'number' && Number.isFinite(valor) && valor >= 0 ? valor : 0;
+}
+
+function migrateLinhaMetrica(raw: unknown): LinhaMetrica | null {
+  const c = (raw ?? {}) as Partial<LinhaMetrica>;
+  if (typeof c.rotulo !== 'string') return null;
+  return { rotulo: c.rotulo, total: numero(c.total), comScore: numero(c.comScore), media: scoreValido(c.media) };
+}
+
+function linhasMetrica(raw: unknown): LinhaMetrica[] {
+  return Array.isArray(raw) ? raw.map(migrateLinhaMetrica).filter(naoNulo) : [];
+}
+
+function extremo(raw: unknown): { titulo: string; score: number } | undefined {
+  const c = (raw ?? {}) as { titulo?: unknown; score?: unknown };
+  const score = scoreValido(c.score);
+  return typeof c.titulo === 'string' && score !== undefined ? { titulo: c.titulo, score } : undefined;
+}
+
+function migratePostagemMetrica(raw: unknown): PostagemMetrica | null {
+  const c = (raw ?? {}) as Partial<PostagemMetrica>;
+  const dia = data(c.data);
+  if (!isTipoPostagem(c.tipo) || !dia) return null;
+  return {
+    tipo: c.tipo,
+    seq: numero(c.seq),
+    titulo: texto(c.titulo) || 'Postagem sem título',
+    data: dia,
+    score: scoreValido(c.score),
+    redes: listaDeStrings(c.redes),
+  };
+}
+
+function migrateResultado(raw: unknown): ResultadoMetricas | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const c = raw as Partial<ResultadoMetricas>;
+  return {
+    calculadoEm: texto(c.calculadoEm) || nowIso(),
+    filtrosDescritos: listaDeStrings(c.filtrosDescritos),
+    primeiraData: data(c.primeiraData),
+    ultimaData: data(c.ultimaData),
+    total: numero(c.total),
+    comScore: numero(c.comScore),
+    media: scoreValido(c.media),
+    mediana: scoreValido(c.mediana),
+    maior: extremo(c.maior),
+    menor: extremo(c.menor),
+    porTipo: linhasMetrica(c.porTipo),
+    porMes: linhasMetrica(c.porMes),
+    faixas: linhasMetrica(c.faixas),
+    redes: linhasMetrica(c.redes),
+    tags: linhasMetrica(c.tags),
+    postagens: Array.isArray(c.postagens) ? c.postagens.map(migratePostagemMetrica).filter(naoNulo).slice(0, MAX_POSTAGENS_METRICAS) : [],
+  };
+}
+
+function migrateFiltro(raw: unknown): FiltroMetricas {
+  const c = (raw ?? {}) as Partial<FiltroMetricas>;
+  const inicio = data(c.inicio);
+  const fim = data(c.fim);
+  return {
+    tipos: listaDeStrings(c.tipos).filter(isTipoPostagem),
+    inicio: inicio && fim && inicio > fim ? fim : inicio,
+    fim: inicio && fim && inicio > fim ? inicio : fim,
+    base: c.base === 'todos' ? 'todos' : 'publicados',
+    redeIds: listaDeStrings(c.redeIds),
+    tagIds: listaDeStrings(c.tagIds),
+    prioridades: listaDeStrings(c.prioridades),
+  };
+}
+
+function migrateBloco(raw: unknown): BlocoRelatorio | null {
+  const c = (raw ?? {}) as Record<string, unknown>;
+  const base = { id: id(c.id), titulo: texto(c.titulo) };
+  switch (c.tipo) {
+    case 'texto':
+      return { ...base, tipo: 'texto', texto: texto(c.texto) };
+    case 'destaque':
+      return { ...base, tipo: 'destaque', tom: isTomDestaque(c.tom) ? c.tom : 'info', texto: texto(c.texto) };
+    case 'tabela': {
+      const colunas = listaDeStrings(c.colunas).slice(0, MAX_COLUNAS);
+      const largura = Math.max(colunas.length, 1);
+      // Toda linha com o mesmo número de células das colunas: tabela torta não imprime direito.
+      const linhas = (Array.isArray(c.linhas) ? c.linhas : [])
+        .slice(0, MAX_LINHAS)
+        .map((l) => Array.from({ length: largura }, (_, i) => texto((Array.isArray(l) ? l : [])[i])));
+      return { ...base, tipo: 'tabela', colunas: colunas.length ? colunas : [''], linhas };
+    }
+    case 'metricas': {
+      const partes = listaDeStrings(c.partes).filter(isParteMetricas);
+      return {
+        ...base,
+        tipo: 'metricas',
+        filtro: migrateFiltro(c.filtro),
+        // Sem a lista gravada (bloco antigo ou malformado), mostra tudo.
+        partes: Array.isArray(c.partes) ? partes : PARTES_METRICAS.map((p) => p.id),
+        resultado: migrateResultado(c.resultado),
+        introducao: texto(c.introducao),
+        comentario: texto(c.comentario),
+      };
+    }
+    case 'analise': {
+      const brutos: unknown[] = Array.isArray(c.indicadores) ? c.indicadores : [];
+      return {
+        ...base,
+        tipo: 'analise',
+        indicadores: brutos.slice(0, MAX_INDICADORES).map((raw) => {
+          const i = (raw ?? {}) as Record<string, unknown>;
+          return { id: id(i.id), rotulo: texto(i.rotulo), valor: texto(i.valor), variacao: texto(i.variacao), nota: texto(i.nota) };
+        }),
+        texto: texto(c.texto),
+      };
+    }
+    case 'colunas':
+      return {
+        id: base.id,
+        tipo: 'colunas',
+        tituloEsquerda: texto(c.tituloEsquerda),
+        textoEsquerda: texto(c.textoEsquerda),
+        tituloDireita: texto(c.tituloDireita),
+        textoDireita: texto(c.textoDireita),
+      };
+    case 'citacao':
+      return { id: base.id, tipo: 'citacao', texto: texto(c.texto), fonte: texto(c.fonte) };
+    case 'quebra':
+      return { id: base.id, tipo: 'quebra' };
+    default:
+      return null;
+  }
+}
+
 function migrateSecao(raw: unknown): SecaoRelatorio {
   const c = (raw ?? {}) as Partial<SecaoRelatorio>;
   return {
     id: id(c.id),
     titulo: texto(c.titulo).trim() || 'Seção',
     texto: texto(c.texto),
+    blocos: Array.isArray(c.blocos) ? c.blocos.map(migrateBloco).filter(naoNulo) : [],
     itens: Array.isArray(c.itens) ? c.itens.map(migrateItem).filter(naoNulo) : [],
   };
 }
@@ -133,14 +282,21 @@ function migrateRelatorio(raw: unknown): Relatorio | null {
     id: id(c.id),
     seq: typeof c.seq === 'number' && c.seq > 0 ? c.seq : 0,
     titulo,
+    tagIds: [...new Set(listaDeStrings(c.tagIds))],
+    tagsNomes: listaDeStrings(c.tagsNomes),
     contexto: texto(c.contexto),
+    objetivos: texto(c.objetivos),
     // Período invertido vira o certo em vez de ser descartado.
     periodoInicio: inicio && fim && inicio > fim ? fim : inicio,
     periodoFim: inicio && fim && inicio > fim ? inicio : fim,
     resumo: texto(c.resumo),
     secoes: Array.isArray(c.secoes) ? c.secoes.map(migrateSecao) : [],
     conclusao: texto(c.conclusao),
+    recomendacoes: texto(c.recomendacoes),
+    observacoesFinais: texto(c.observacoesFinais),
     incluirAssinatura: typeof c.incluirAssinatura === 'boolean' ? c.incluirAssinatura : true,
+    mostrarIndicadores: typeof c.mostrarIndicadores === 'boolean' ? c.mostrarIndicadores : true,
+    mostrarPostagensUtilizadas: typeof c.mostrarPostagensUtilizadas === 'boolean' ? c.mostrarPostagensUtilizadas : true,
     situacao: c.situacao === 'finalizado' ? 'finalizado' : 'rascunho',
     createdAt: timestamp,
     updatedAt: texto(c.updatedAt) || timestamp,
@@ -181,6 +337,25 @@ async function saveFile(file: RelatoriosFile): Promise<void> {
   await writeStore(FILE_NAME, file);
 }
 
+/**
+ * Renova a cópia por extenso das tags da empresa a partir do catálogo. Tag que
+ * sumiu do catálogo mantém o nome que tinha — mesma regra do snapshot das postagens.
+ * Só roda ao criar/salvar: na leitura, a cópia gravada é a verdade do documento.
+ */
+function renovarNomesDasTags(relatorio: Relatorio, anterior?: Relatorio): Relatorio {
+  const catalogo = videosService.getCatalogo();
+  const nomesAntigos = new Map<string, string>();
+  anterior?.tagIds.forEach((tagId, i) => {
+    const nome = anterior.tagsNomes[i];
+    if (nome) nomesAntigos.set(tagId, nome);
+  });
+  const pares = relatorio.tagIds
+    .map((tagId) => ({ tagId, nome: catalogo.tags.find((t) => t.id === tagId)?.nome ?? nomesAntigos.get(tagId) }))
+    .filter((p): p is { tagId: string; nome: string } => Boolean(p.nome));
+  // As duas listas andam alinhadas por índice: tag sem nome conhecido sai das duas.
+  return { ...relatorio, tagIds: pares.map((p) => p.tagId), tagsNomes: pares.map((p) => p.nome) };
+}
+
 // ---------- API do service ----------
 
 export async function getFile(): Promise<RelatoriosFile> {
@@ -213,12 +388,13 @@ export async function criarRelatorio(input: CriarRelatorioInput): Promise<Relato
     id: randomUUID(),
     seq: file.seqAtual,
     titulo,
+    tagIds: input.tagIds ?? [],
     contexto: input.contexto ?? '',
     periodoInicio: input.periodoInicio,
     periodoFim: input.periodoFim,
     resumo: '',
     // Começa com uma seção: quase todo relatório precisa de ao menos uma.
-    secoes: [{ id: randomUUID(), titulo: 'Análise', texto: '', itens: [] }],
+    secoes: [{ id: randomUUID(), titulo: 'Análise', texto: '', blocos: [], itens: [] }],
     conclusao: '',
     incluirAssinatura: true,
     situacao: 'rascunho',
@@ -226,7 +402,7 @@ export async function criarRelatorio(input: CriarRelatorioInput): Promise<Relato
     updatedAt: timestamp,
   });
   if (!novo) throw new Error('Não foi possível criar o relatório.');
-  file.relatorios.unshift(novo);
+  file.relatorios.unshift(renovarNomesDasTags(novo));
   await saveFile(file);
   return file;
 }
@@ -239,7 +415,7 @@ export async function salvarRelatorio(raw: Relatorio): Promise<RelatoriosFile> {
   const atual = file.relatorios[indice]!;
   const validado = migrateRelatorio({ ...raw, id: atual.id, seq: atual.seq, createdAt: atual.createdAt, updatedAt: nowIso() });
   if (!validado) throw new Error('O relatório precisa de um título.');
-  file.relatorios[indice] = validado;
+  file.relatorios[indice] = renovarNomesDasTags(validado, atual);
   await saveFile(file);
   return file;
 }
@@ -260,6 +436,7 @@ export async function duplicarRelatorio(relatorioId: string): Promise<Relatorios
     secoes: original.secoes.map((s) => ({
       ...s,
       id: randomUUID(),
+      blocos: s.blocos.map((b) => ({ ...b, id: randomUUID() })),
       itens: s.itens.map((i) => ({ ...i, id: randomUUID(), marcacoes: i.marcacoes.map((m) => ({ ...m, id: randomUUID() })) })),
     })),
     createdAt: timestamp,

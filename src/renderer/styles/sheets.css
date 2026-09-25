@@ -672,6 +672,60 @@
   border-bottom: none;
 }
 
+.sheets-card-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+.sheets-card-meta.is-alerta {
+  color: var(--warning);
+}
+
+.sheets-card-meta-acoes {
+  display: inline-flex;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.sheets-link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.sheets-link-btn:hover {
+  text-decoration: underline;
+}
+
+.sheets-preview-coluna {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.sheets-preview-coluna input {
+  accent-color: var(--accent);
+  margin: 0;
+  cursor: pointer;
+}
+
+/* Coluna desmarcada continua visível (para dar para voltar atrás), só apagada. */
+.sheets-preview-table .is-coluna-fora {
+  opacity: 0.35;
+}
+
+.sheets-preview-table th.is-coluna-fora .sheets-preview-coluna {
+  color: var(--text-faint);
+  text-decoration: line-through;
+}
+
 /* Modal de visibilidade */
 
 .sheets-visibility-list {

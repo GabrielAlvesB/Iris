@@ -45,11 +45,12 @@ const MAX_MESES_TUDO = 24;
 // ---------- Cálculos puros ----------
 
 /**
- * Data que conta para o relatório. Publicado: a data agendada (o dia em que
+ * Data que conta para as métricas. Publicado: a data agendada (o dia em que
  * foi ao ar); `publicadoEm` só quando não há data, porque ele marca a mudança
  * de etapa — num lote importado já publicado, seria o dia da importação.
+ * Exportada porque o bloco de métricas dos Relatórios conta pela mesma regra.
  */
-function dataDoVideo(video: Postagem): string | undefined {
+export function dataParaMetricas(video: Pick<Postagem, 'status' | 'dataAgendada' | 'publicadoEm'>, base: Base): string | undefined {
   if (base === 'publicados') {
     if (video.status !== 'publicado') return undefined;
     return video.dataAgendada ?? video.publicadoEm?.slice(0, 10);
@@ -404,7 +405,7 @@ export function buildMetricas(fonte: Fonte, opcoes: MetricasOpcoes): HTMLElement
 
   const comData = fonte.itens
     .filter((v) => opcoes.visivel(v))
-    .map((v) => ({ v, data: dataDoVideo(v) }))
+    .map((v) => ({ v, data: dataParaMetricas(v, base) }))
     .filter((x): x is { v: Postagem; data: string } => Boolean(x.data));
   const baldes = baldesDoPeriodo(fonte, comData.map((x) => x.data));
   const meses = baldes.chaves;

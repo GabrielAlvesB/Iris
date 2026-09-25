@@ -55,6 +55,20 @@ export function scoreValido(valor: unknown): number | undefined {
 type StatusDef<S extends string> = { readonly id: S; readonly rotulo: string };
 
 /**
+ * Momento (ms, hora local) em que a postagem está marcada para sair. Sem
+ * horário, vale o fim do dia. Ano antes de 2000 é digitação pela metade no
+ * campo de data, não uma agenda.
+ */
+export function momentoDaAgenda(item: { dataAgendada?: string; horaAgendada?: string }): number | null {
+  if (!item.dataAgendada || !DATA_REGEX.test(item.dataAgendada)) return null;
+  if (Number(item.dataAgendada.slice(0, 4)) < 2000) return null;
+  const hora = item.horaAgendada && HORA_REGEX.test(item.horaAgendada) ? item.horaAgendada : '23:59';
+  // Sem "Z": o Date lê como hora local, que é como o usuário marcou.
+  const momento = new Date(`${item.dataAgendada}T${hora}:00`).getTime();
+  return Number.isNaN(momento) ? null : momento;
+}
+
+/**
  * Lê os campos comuns de uma postagem crua, descartando o que não vale: data
  * fora do formato, tag ou rede apagada (um id fantasma), publicação de rede
  * que a postagem não usa mais. Devolve null se não houver título.
@@ -169,14 +183,23 @@ export function criarEtapas<S extends string, P extends PostagemBase<S>>(etapas:
     registrar(item, { tipo: 'status', de: rotuloStatus(anterior), para: rotuloStatus(novo) });
   }
 
-  /** Muda de etapa pelo painel (vai para o fim da etapa nova). */
+  /**
+   * Onde uma postagem entra ao chegar numa etapa: no fim, menos em "publicado",
+   * que é lida como linha do tempo — a mais recente fica no topo. O -1 vira 0
+   * no renumerar, empurrando as outras para baixo.
+   */
+  function ordemAoEntrar(itens: P[], status: S): number {
+    return (status as Status) === 'publicado' ? -1 : itens.filter((v) => v.status === status).length;
+  }
+
+  /** Muda de etapa pelo painel (vai para o fim da etapa nova; em publicado, para o topo). */
   function trocarStatus(itens: P[], item: P, novo: S): void {
     if (novo === item.status) return;
     if ((novo as Status) === 'arquivado') {
       item.statusAntesDeArquivar = item.status;
       item.motivoArquivamento = item.motivoArquivamento ?? 'arquivado';
     }
-    item.order = itens.filter((v) => v.status === novo).length;
+    item.order = ordemAoEntrar(itens, novo);
     aplicarStatus(item, novo);
     renumerar(itens);
   }
@@ -188,7 +211,10 @@ export function criarEtapas<S extends string, P extends PostagemBase<S>>(etapas:
       item.motivoArquivamento = 'arquivado';
     }
     const destino = itens.filter((v) => v.status === status && v.id !== item.id).sort((a, b) => a.order - b.order);
-    const i = Math.max(0, Math.min(indice, destino.length));
+    // Chegando em publicado vai para o topo, onde quer que tenha sido solto;
+    // reordenar dentro de publicado continua livre.
+    const chegando = (status as Status) === 'publicado' && item.status !== status;
+    const i = chegando ? 0 : Math.max(0, Math.min(indice, destino.length));
     destino.splice(i, 0, item);
     aplicarStatus(item, status);
     destino.forEach((v, n) => {
@@ -214,12 +240,51 @@ export function criarEtapas<S extends string, P extends PostagemBase<S>>(etapas:
   function restaurar(itens: P[], item: P): boolean {
     if ((item.status as Status) !== 'arquivado') return false;
     const destino = item.statusAntesDeArquivar ?? ('ideia' as S);
-    item.order = itens.filter((v) => v.status === destino).length;
+    item.order = ordemAoEntrar(itens, destino);
     aplicarStatus(item, destino);
     registrar(item, { tipo: 'restaurado', para: rotuloStatus(destino) });
     renumerar(itens);
     item.updatedAt = nowIso();
     return true;
+  }
+
+  /**
+   * Agendar é marcar data e hora: a postagem vai para "agendado" sozinha, de
+   * qualquer etapa anterior. Só vale para um momento no futuro — o campo de
+   * data dispara "change" a cada dígito do ano (0002, 0020…), e um passado
+   * de passagem não pode mandar a postagem para a fila de publicação. Tirar a
+   * data de uma agendada devolve para "pronto".
+   */
+  function seguirAgenda(itens: P[], item: P): void {
+    const status = item.status as Status;
+    if (status === 'publicado' || status === 'arquivado') return;
+    if (status === 'agendado') {
+      if (!item.dataAgendada) trocarStatus(itens, item, 'pronto' as S);
+      return;
+    }
+    const momento = item.horaAgendada ? momentoDaAgenda(item) : null;
+    if (momento !== null && momento > Date.now()) trocarStatus(itens, item, 'agendado' as S);
+  }
+
+  /**
+   * Agendadas cujo momento já chegou vão para "publicado". A data de
+   * publicação é a da agenda, não a de agora: com o app fechado no horário,
+   * a postagem saiu quando estava marcada, não quando o app abriu.
+   * Devolve quantas mudaram.
+   */
+  function publicarVencidas(itens: P[], agora = Date.now()): number {
+    const vencidas = itens
+      .map((item) => ({ item, momento: (item.status as Status) === 'agendado' ? momentoDaAgenda(item) : null }))
+      .filter((v): v is { item: P; momento: number } => v.momento !== null && v.momento <= agora)
+      .sort((a, b) => a.momento - b.momento);
+    vencidas.forEach(({ item, momento }) => {
+      trocarStatus(itens, item, 'publicado' as S);
+      item.publicadoEm = new Date(momento).toISOString();
+      const evento = item.historico[item.historico.length - 1];
+      if (evento?.tipo === 'status') evento.detalhe = 'automático, no horário agendado';
+      item.updatedAt = nowIso();
+    });
+    return vencidas.length;
   }
 
   /** Esqueleto de uma postagem nova no fim da etapa. */
@@ -230,7 +295,7 @@ export function criarEtapas<S extends string, P extends PostagemBase<S>>(etapas:
       seq,
       titulo,
       status,
-      order: itens.filter((v) => v.status === status).length,
+      order: ordemAoEntrar(itens, status),
       tagIds: [],
       redeIds: [],
       publicacoes: [],
@@ -244,7 +309,7 @@ export function criarEtapas<S extends string, P extends PostagemBase<S>>(etapas:
     };
   }
 
-  return { rotuloStatus, registrar, renumerar, aplicarStatus, trocarStatus, mover, arquivar, restaurar, nova };
+  return { rotuloStatus, registrar, renumerar, aplicarStatus, trocarStatus, mover, arquivar, restaurar, seguirAgenda, publicarVencidas, nova };
 }
 
 /**

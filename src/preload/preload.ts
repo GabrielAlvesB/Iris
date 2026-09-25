@@ -1,6 +1,7 @@
 import { clipboard, contextBridge, ipcRenderer, shell, type IpcRendererEvent } from 'electron';
 import {
   AJUSTES_CHANNELS,
+  ATUALIZACAO_CHANNELS,
   COPY_CHANNELS,
   EXPLORADOR_CHANNELS,
   EXPORT_CHANNELS,
@@ -13,6 +14,8 @@ import {
   PUSH_CHANNEL,
   QUADRO_CHANNELS,
   RELATORIOS_CHANNELS,
+  ROTEIROS_CHANNELS,
+  TRAFEGO_CHANNELS,
   SERVIDORES_CHANNELS,
   SHEETS_CHANNELS,
   VIDEOS_CHANNELS,
@@ -124,6 +127,31 @@ const irisAPI: IrisApi = {
     deleteSnippet: (snippetId) => ipcRenderer.invoke(COPY_CHANNELS.deleteSnippet, snippetId),
     importTxt: () => ipcRenderer.invoke(COPY_CHANNELS.importTxt),
   },
+  roteiros: {
+    getFile: () => ipcRenderer.invoke(ROTEIROS_CHANNELS.getFile),
+    criarRoteiro: (input) => ipcRenderer.invoke(ROTEIROS_CHANNELS.criarRoteiro, input),
+    atualizarRoteiro: (input) => ipcRenderer.invoke(ROTEIROS_CHANNELS.atualizarRoteiro, input),
+    mudarStatus: (input) => ipcRenderer.invoke(ROTEIROS_CHANNELS.mudarStatus, input),
+    aprovarRoteiro: (input) => ipcRenderer.invoke(ROTEIROS_CHANNELS.aprovarRoteiro, input),
+    excluirRoteiro: (roteiroId) => ipcRenderer.invoke(ROTEIROS_CHANNELS.excluirRoteiro, roteiroId),
+    duplicarRoteiro: (roteiroId) => ipcRenderer.invoke(ROTEIROS_CHANNELS.duplicarRoteiro, roteiroId),
+    salvarChecklistPadrao: (itens) => ipcRenderer.invoke(ROTEIROS_CHANNELS.salvarChecklistPadrao, itens),
+  },
+  trafego: {
+    getFile: () => ipcRenderer.invoke(TRAFEGO_CHANNELS.getFile),
+    salvarConta: (input) => ipcRenderer.invoke(TRAFEGO_CHANNELS.salvarConta, input),
+    excluirConta: (contaId) => ipcRenderer.invoke(TRAFEGO_CHANNELS.excluirConta, contaId),
+    salvarSite: (input) => ipcRenderer.invoke(TRAFEGO_CHANNELS.salvarSite, input),
+    excluirSite: (siteId) => ipcRenderer.invoke(TRAFEGO_CHANNELS.excluirSite, siteId),
+    criarCampanha: (input) => ipcRenderer.invoke(TRAFEGO_CHANNELS.criarCampanha, input),
+    atualizarCampanha: (input) => ipcRenderer.invoke(TRAFEGO_CHANNELS.atualizarCampanha, input),
+    moverCampanha: (input) => ipcRenderer.invoke(TRAFEGO_CHANNELS.moverCampanha, input),
+    excluirCampanha: (campanhaId) => ipcRenderer.invoke(TRAFEGO_CHANNELS.excluirCampanha, campanhaId),
+    duplicarCampanha: (campanhaId) => ipcRenderer.invoke(TRAFEGO_CHANNELS.duplicarCampanha, campanhaId),
+    salvarRegistro: (input) => ipcRenderer.invoke(TRAFEGO_CHANNELS.salvarRegistro, input),
+    removerRegistro: (input) => ipcRenderer.invoke(TRAFEGO_CHANNELS.removerRegistro, input),
+    importarRegistros: (campanhaId) => ipcRenderer.invoke(TRAFEGO_CHANNELS.importarRegistros, campanhaId),
+  },
   pensamentos: {
     getPensamentos: () => ipcRenderer.invoke(PENSAMENTOS_CHANNELS.getPensamentos),
     createPensamento: (input) => ipcRenderer.invoke(PENSAMENTOS_CHANNELS.createPensamento, input),
@@ -131,7 +159,8 @@ const irisAPI: IrisApi = {
     deletePensamento: (pensamentoId) =>
       ipcRenderer.invoke(PENSAMENTOS_CHANNELS.deletePensamento, pensamentoId),
     togglePin: (pensamentoId) => ipcRenderer.invoke(PENSAMENTOS_CHANNELS.togglePin, pensamentoId),
-    marcarPromovido: (input) => ipcRenderer.invoke(PENSAMENTOS_CHANNELS.marcarPromovido, input),
+    moverPensamento: (input) => ipcRenderer.invoke(PENSAMENTOS_CHANNELS.moverPensamento, input),
+    setViewport: (viewport) => ipcRenderer.invoke(PENSAMENTOS_CHANNELS.setViewport, viewport),
   },
   explorador: {
     getRaizes: () => ipcRenderer.invoke(EXPLORADOR_CHANNELS.getRaizes),
@@ -229,6 +258,12 @@ const irisAPI: IrisApi = {
     salvarCategorias: (input) => ipcRenderer.invoke(RELATORIOS_CHANNELS.salvarCategorias, input),
     exportarPdf: (input) => ipcRenderer.invoke(RELATORIOS_CHANNELS.exportarPdf, input),
     abrirPdf: (filePath) => ipcRenderer.invoke(RELATORIOS_CHANNELS.abrirPdf, filePath),
+  },
+  atualizacao: {
+    getEstado: () => ipcRenderer.invoke(ATUALIZACAO_CHANNELS.getEstado),
+    verificar: () => ipcRenderer.invoke(ATUALIZACAO_CHANNELS.verificar),
+    atualizar: () => ipcRenderer.invoke(ATUALIZACAO_CHANNELS.atualizar),
+    abrirPagina: () => ipcRenderer.invoke(ATUALIZACAO_CHANNELS.abrirPagina),
   },
   events: {
     on: subscribe,

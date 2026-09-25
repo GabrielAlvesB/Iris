@@ -12,6 +12,8 @@ import * as copyService from '../copy/copy.service';
 import * as videosService from '../videos/videos.service';
 import * as imagensService from '../imagens/imagens.service';
 import * as relatoriosService from '../relatorios/relatorios.service';
+import * as roteirosService from '../roteiros/roteiros.service';
+import * as trafegoService from '../trafego/trafego.service';
 import type { ExportBundle } from '../../../shared/types/export.types';
 
 const SCHEMA_VERSION = 1;
@@ -25,7 +27,7 @@ const SCHEMA_VERSION = 1;
  * a baseUrl: as credenciais ficam no cofre, referenciadas por chave.
  */
 export async function buildExportBundle(): Promise<ExportBundle> {
-  const [kanban, quadro, sheets, links, pensamentos, explorador, servidores, n8n, github, ajustes, copy, videos, imagens, relatorios] =
+  const [kanban, quadro, sheets, links, pensamentos, explorador, servidores, n8n, github, ajustes, copy, videos, imagens, relatorios, roteiros, trafego] =
     await Promise.all([
       kanbanService.getFullFile(),
       quadroService.getFullFile(),
@@ -41,6 +43,8 @@ export async function buildExportBundle(): Promise<ExportBundle> {
       videosService.getFullFile(),
       imagensService.getFullFile(),
       relatoriosService.getFullFile(),
+      roteirosService.getFullFile(),
+      trafegoService.getFullFile(),
     ]);
 
   return {
@@ -60,6 +64,8 @@ export async function buildExportBundle(): Promise<ExportBundle> {
     videos,
     imagens,
     relatorios,
+    roteiros,
+    trafego,
   };
 }
 
@@ -90,6 +96,8 @@ export async function restoreFromBundle(raw: unknown): Promise<void> {
     raw.copy ? copyService.replaceFile(raw.copy) : Promise.resolve(),
     raw.videos ? videosService.replaceFile(raw.videos) : Promise.resolve(),
     raw.relatorios ? relatoriosService.replaceFile(raw.relatorios) : Promise.resolve(),
+    raw.roteiros ? roteirosService.replaceFile(raw.roteiros) : Promise.resolve(),
+    raw.trafego ? trafegoService.replaceFile(raw.trafego) : Promise.resolve(),
   ]);
   // Depois dos vídeos, de propósito: as imagens validam tags e redes contra o
   // catálogo que mora em videos.json, que precisa já ser o do backup.

@@ -212,7 +212,7 @@ export function abrirPainel(file: VideosFile, id: string): void {
 
   const casca = abrirCasca({
     icone: ICONES_POSTAGEM.video,
-    rotulo: `Vídeo #${video.seq}`,
+    rotulo: 'Vídeo',
     ariaLabel: 'Detalhes do vídeo',
     posicao: file.preferencias.posicaoPainel,
     aoMudarPosicao: (posicao) => {

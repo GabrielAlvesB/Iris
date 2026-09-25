@@ -10,6 +10,7 @@ export const CATEGORIAS = [
   { id: 'conteudo', rotulo: 'Conteúdo' },
   { id: 'arquivos', rotulo: 'Arquivos' },
   { id: 'sistema', rotulo: 'Sistema' },
+  { id: 'trafego', rotulo: 'Tráfego' },
 ] as const;
 
 export type CategoriaId = (typeof CATEGORIAS)[number]['id'];
@@ -30,15 +31,17 @@ export const MODULOS = [
   { id: 'kanban', rotulo: 'Kanban', posicao: 'topo' },
   { id: 'postagens', rotulo: 'Postagens', posicao: 'conteudo' },
   { id: 'relatorios', rotulo: 'Relatórios', posicao: 'conteudo' },
-  { id: 'quadro', rotulo: 'Quadro', posicao: 'conteudo' },
+  { id: 'roteiros', rotulo: 'Roteiros', posicao: 'conteudo' },
+  { id: 'sheets', rotulo: 'Sheets', posicao: 'conteudo' },
   { id: 'explorador', rotulo: 'Biblioteca', posicao: 'arquivos' },
-  { id: 'sheets', rotulo: 'Sheets', posicao: 'arquivos' },
+  { id: 'quadro', rotulo: 'Quadro', posicao: 'arquivos' },
   { id: 'copy', rotulo: 'Copy', posicao: 'arquivos' },
   { id: 'pensamentos', rotulo: 'Pensamentos', posicao: 'arquivos' },
   { id: 'links', rotulo: 'Links rápidos', posicao: 'arquivos' },
   { id: 'servidores', rotulo: 'Servidores', posicao: 'sistema' },
   { id: 'n8n', rotulo: 'n8n', posicao: 'sistema' },
   { id: 'github', rotulo: 'GitHub', posicao: 'sistema' },
+  { id: 'trafego', rotulo: 'Tráfego pago', posicao: 'trafego' },
   { id: 'tutorial', rotulo: 'Tutorial', posicao: 'rodape' },
   { id: 'ajustes', rotulo: 'Ajustes', posicao: 'rodape' },
 ] as const satisfies readonly ModuloDescritor[];

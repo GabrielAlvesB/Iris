@@ -400,37 +400,74 @@ function updateSavedIndicator(): void {
   if (panelHandle) panelHandle.salvo.textContent = `Salvo · ${relativeTime(panelSavedAt)}`;
 }
 
-function segmentedPriorityButtons(container: HTMLElement): void {
+const ICONES_PAINEL = {
+  coluna: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/>',
+  pessoa: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  bandeira: '<path d="M4 22V4"/><path d="M4 4h13l-2 4 2 4H4"/>',
+  calendario: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/>',
+  tag: '<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
+  xis: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  mais: '<path d="M12 5v14"/><path d="M5 12h14"/>',
+} as const;
+
+function iconeSvg(corpo: string, tamanho = 14): string {
+  return `<svg viewBox="0 0 24 24" width="${tamanho}" height="${tamanho}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${corpo}</svg>`;
+}
+
+/** Uma linha da lista de propriedades: ícone + rótulo à esquerda, controle à direita. */
+function linhaPropriedade(icone: string, rotulo: string, controle: HTMLElement): HTMLElement {
+  const linha = document.createElement('div');
+  linha.className = 'kanban-cp-prop';
+  const cabeca = document.createElement('span');
+  cabeca.className = 'kanban-cp-prop-rotulo';
+  cabeca.innerHTML = iconeSvg(icone);
+  cabeca.append(rotulo);
+  const valor = document.createElement('div');
+  valor.className = 'kanban-cp-prop-valor';
+  valor.appendChild(controle);
+  linha.append(cabeca, valor);
+  return linha;
+}
+
+function segmentedPriorityButtons(container: HTMLElement, aoMudar: () => void): void {
   container.innerHTML = '';
   (['high', 'medium', 'low'] as const).forEach((value) => {
+    const ativo = panelDraft?.priority === value;
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = `kanban-priority-btn priority-${value}`;
-    btn.textContent = PRIORITY_LABELS[value];
-    btn.classList.toggle('active', panelDraft?.priority === value);
+    btn.className = `kanban-cp-prioridade is-${value}`;
+    btn.classList.toggle('is-ativa', ativo);
+    btn.setAttribute('aria-pressed', String(ativo));
+    // Prioridade nunca só pela cor: bandeira + texto em todas.
+    btn.innerHTML = iconeSvg(ICONES_PAINEL.bandeira, 12);
+    btn.append(PRIORITY_LABELS[value]);
+    btn.title = ativo ? 'Clique de novo para tirar a prioridade' : `Prioridade ${PRIORITY_LABELS[value].toLowerCase()}`;
     btn.addEventListener('click', () => {
       if (!panelDraft) return;
       panelDraft.priority = panelDraft.priority === value ? '' : value;
-      segmentedPriorityButtons(container);
-      scheduleSave();
+      segmentedPriorityButtons(container, aoMudar);
+      aoMudar();
     });
     container.appendChild(btn);
   });
 }
 
-function renderTagChips(container: HTMLElement): void {
+function renderTagChips(container: HTMLElement, aoMudar: () => void, focar = false): void {
   container.innerHTML = '';
   (panelDraft?.tags ?? []).forEach((tag, index) => {
     const chip = document.createElement('span');
-    chip.className = 'kanban-tag-chip';
+    chip.className = 'kanban-cp-tag';
     chip.textContent = tag;
     const remove = document.createElement('button');
     remove.type = 'button';
-    remove.textContent = '×';
+    remove.className = 'kanban-cp-tag-remover';
+    remove.title = `Remover a tag "${tag}"`;
+    remove.setAttribute('aria-label', `Remover a tag ${tag}`);
+    remove.innerHTML = iconeSvg(ICONES_PAINEL.xis, 11);
     remove.addEventListener('click', () => {
       panelDraft?.tags.splice(index, 1);
-      renderTagChips(container);
-      scheduleSave();
+      renderTagChips(container, aoMudar);
+      aoMudar();
     });
     chip.appendChild(remove);
     container.appendChild(chip);
@@ -438,79 +475,123 @@ function renderTagChips(container: HTMLElement): void {
 
   const input = document.createElement('input');
   input.type = 'text';
-  input.className = 'kanban-tag-input';
-  input.placeholder = '+ tag';
+  input.className = 'kanban-cp-tag-input';
+  input.placeholder = panelDraft?.tags.length ? 'Adicionar…' : 'Digite e tecle Enter';
+  input.setAttribute('aria-label', 'Nova tag');
+  const adicionar = (): void => {
+    const nome = input.value.trim().replace(/^#/, '');
+    if (!nome || !panelDraft) return;
+    if (!panelDraft.tags.some((t) => t.toLocaleLowerCase('pt-BR') === nome.toLocaleLowerCase('pt-BR'))) panelDraft.tags.push(nome);
+    renderTagChips(container, aoMudar, true);
+    aoMudar();
+  };
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && input.value.trim()) {
+    if ((e.key === 'Enter' || e.key === ',') && input.value.trim()) {
       e.preventDefault();
-      panelDraft?.tags.push(input.value.trim());
-      input.value = '';
-      renderTagChips(container);
-      scheduleSave();
+      adicionar();
+    } else if (e.key === 'Backspace' && !input.value && panelDraft?.tags.length) {
+      panelDraft.tags.pop();
+      renderTagChips(container, aoMudar, true);
+      aoMudar();
     }
   });
+  input.addEventListener('blur', () => {
+    if (input.value.trim()) adicionar();
+  });
   container.appendChild(input);
+  if (focar) input.focus();
 }
 
-function renderSubtasks(container: HTMLElement): void {
+function renderSubtasks(container: HTMLElement, aoMudar: () => void, focarNova = false): void {
   container.innerHTML = '';
   const subtasks = panelDraft?.subtasks ?? [];
   const done = subtasks.filter((s) => s.done).length;
 
-  const heading = document.createElement('div');
-  heading.className = 'kanban-subtasks-heading';
-  heading.textContent = `Subtarefas · ${done}/${subtasks.length}`;
-  container.appendChild(heading);
+  const cabeca = document.createElement('div');
+  cabeca.className = 'kanban-cp-sub-cabeca';
+  const contador = document.createElement('span');
+  contador.className = 'kanban-cp-sub-contador';
+  contador.textContent = subtasks.length ? `${done} de ${subtasks.length} concluída${subtasks.length === 1 ? '' : 's'}` : 'Nenhuma subtarefa ainda';
+  cabeca.appendChild(contador);
+  if (subtasks.length) {
+    const barra = document.createElement('span');
+    barra.className = 'kanban-cp-sub-barra';
+    barra.setAttribute('role', 'progressbar');
+    barra.setAttribute('aria-valuemin', '0');
+    barra.setAttribute('aria-valuemax', String(subtasks.length));
+    barra.setAttribute('aria-valuenow', String(done));
+    const preenchido = document.createElement('span');
+    preenchido.style.width = `${Math.round((done / subtasks.length) * 100)}%`;
+    preenchido.classList.toggle('is-completa', done === subtasks.length);
+    barra.appendChild(preenchido);
+    cabeca.appendChild(barra);
+  }
+  container.appendChild(cabeca);
 
+  const lista = document.createElement('div');
+  lista.className = 'kanban-cp-sub-lista';
   subtasks.forEach((subtask) => {
     const row = document.createElement('div');
-    row.className = 'kanban-subtask-row';
+    row.className = 'kanban-cp-sub';
+    row.classList.toggle('is-feita', subtask.done);
 
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
+    checkbox.className = 'kanban-cp-check';
     checkbox.checked = subtask.done;
+    checkbox.setAttribute('aria-label', `Concluir "${subtask.title || 'subtarefa'}"`);
     checkbox.addEventListener('change', () => {
       subtask.done = checkbox.checked;
-      scheduleSave();
+      renderSubtasks(container, aoMudar);
+      aoMudar();
     });
-    row.appendChild(checkbox);
 
     const titleInput = document.createElement('input');
     titleInput.type = 'text';
-    titleInput.className = 'kanban-subtask-title';
+    titleInput.className = 'kanban-cp-sub-titulo';
     titleInput.value = subtask.title;
-    titleInput.classList.toggle('is-done', subtask.done);
-    checkbox.addEventListener('change', () => titleInput.classList.toggle('is-done', subtask.done));
-    titleInput.addEventListener('change', () => {
+    titleInput.placeholder = 'Subtarefa sem título';
+    titleInput.addEventListener('input', () => {
       subtask.title = titleInput.value;
-      scheduleSave();
+      aoMudar();
     });
-    row.appendChild(titleInput);
 
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
-    removeBtn.className = 'btn-icon';
-    removeBtn.textContent = '✕';
+    removeBtn.className = 'kanban-cp-sub-remover';
+    removeBtn.title = 'Remover subtarefa';
+    removeBtn.setAttribute('aria-label', 'Remover subtarefa');
+    removeBtn.innerHTML = iconeSvg(ICONES_PAINEL.xis, 13);
     removeBtn.addEventListener('click', () => {
       const idx = subtasks.indexOf(subtask);
       if (idx >= 0) subtasks.splice(idx, 1);
-      renderSubtasks(container);
-      scheduleSave();
+      renderSubtasks(container, aoMudar);
+      aoMudar();
     });
-    row.appendChild(removeBtn);
 
-    container.appendChild(row);
+    row.append(checkbox, titleInput, removeBtn);
+    lista.appendChild(row);
   });
+  container.appendChild(lista);
 
-  const addBtn = document.createElement('button');
-  addBtn.type = 'button';
-  addBtn.className = 'kanban-subtask-add';
-  addBtn.textContent = '+ subtarefa';
-  addBtn.addEventListener('click', () => {
-    panelDraft?.subtasks.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, title: '', done: false });
-    renderSubtasks(container);
+  // Campo sempre visível no fim: Enter adiciona e o foco fica nele para a próxima.
+  const nova = document.createElement('div');
+  nova.className = 'kanban-cp-sub-nova';
+  nova.innerHTML = iconeSvg(ICONES_PAINEL.mais, 14);
+  const novaInput = document.createElement('input');
+  novaInput.type = 'text';
+  novaInput.placeholder = 'Adicionar subtarefa e tecle Enter';
+  novaInput.setAttribute('aria-label', 'Nova subtarefa');
+  novaInput.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || !novaInput.value.trim()) return;
+    e.preventDefault();
+    panelDraft?.subtasks.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, title: novaInput.value.trim(), done: false });
+    renderSubtasks(container, aoMudar, true);
+    aoMudar();
   });
-  container.appendChild(addBtn);
+  nova.appendChild(novaInput);
+  container.appendChild(nova);
+  if (focarNova) novaInput.focus();
 }
 
 function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
@@ -529,6 +610,8 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
   };
 
   const isNew = card === null;
+  // Coluna escolhida no seletor: num card novo, é onde ele nasce.
+  let colunaAlvo = column;
   // Card novo só é gravado no "Criar card"; editar um existente salva na pausa.
   const salvarSeExistir = (): void => {
     if (!isNew) scheduleSave();
@@ -551,18 +634,17 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
     compacto: true,
   });
   panelHandle = handle;
+  handle.painel.classList.add('kanban-cp');
 
-  const columnChip = document.createElement('span');
-  columnChip.className = 'kanban-panel-column-chip';
-  columnChip.textContent = column.title;
-  handle.estado.appendChild(columnChip);
   if (isNew) handle.salvo.textContent = 'Esc para cancelar';
   else updateSavedIndicator();
 
+  // ---- Título ----
   const titleInput = document.createElement('textarea');
-  titleInput.className = 'kanban-panel-title';
+  titleInput.className = 'kanban-cp-titulo';
   titleInput.rows = 1;
-  titleInput.placeholder = 'Título do card';
+  titleInput.placeholder = isNew ? 'O que precisa ser feito?' : 'Título do card';
+  titleInput.setAttribute('aria-label', 'Título do card');
   titleInput.value = panelDraft.title;
   const ajustarTitulo = (): void => {
     titleInput.style.height = 'auto';
@@ -573,118 +655,159 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
     ajustarTitulo();
     salvarSeExistir();
   });
+  titleInput.addEventListener('keydown', (e) => {
+    // Enter no título cria (card novo) ou só confirma; quebra de linha com Shift.
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (isNew) createBtn?.click();
+      else titleInput.blur();
+    }
+  });
   requestAnimationFrame(ajustarTitulo);
   handle.corpo.insertBefore(titleInput, handle.grade);
 
-  function field(container: HTMLElement, labelText: string, contentEl: HTMLElement): void {
-    const wrap = document.createElement('div');
-    wrap.className = 'md-campo';
-    const label = document.createElement('span');
-    label.className = 'md-rotulo';
-    label.textContent = labelText;
-    wrap.append(label, contentEl);
-    container.appendChild(wrap);
-  }
+  // ---- Propriedades ----
+  const props = document.createElement('div');
+  props.className = 'kanban-cp-props';
 
-  const detalhes = buildSecaoModal('Detalhes');
-  handle.grade.appendChild(detalhes.secao);
+  const colunas = (currentBoard?.columns ?? [column]).slice().sort((a, b) => a.order - b.order);
+  const colunaSelect = document.createElement('select');
+  colunaSelect.className = 'md-input kanban-cp-select';
+  colunaSelect.setAttribute('aria-label', 'Coluna do card');
+  colunas.forEach((c) => {
+    const opt = document.createElement('option');
+    opt.value = c.id;
+    opt.textContent = c.title;
+    colunaSelect.appendChild(opt);
+  });
+  colunaSelect.value = column.id;
+  colunaSelect.addEventListener('change', () => {
+    const destino = colunas.find((c) => c.id === colunaSelect.value);
+    if (!destino) return;
+    colunaAlvo = destino;
+    if (isNew || !panelCardId || !currentBoard) return;
+    const noFim = currentBoard.cards.filter((c) => c.columnId === destino.id && c.id !== panelCardId).length;
+    void kanbanState.moveCard({ cardId: panelCardId, toColumnId: destino.id, toIndex: noFim });
+  });
+  props.appendChild(linhaPropriedade(ICONES_PAINEL.coluna, 'Coluna', colunaSelect));
 
   const assigneeWrap = document.createElement('div');
-  assigneeWrap.className = 'kanban-assignee-wrap';
-
+  assigneeWrap.className = 'kanban-cp-responsavel';
   const assigneeAvatar = document.createElement('span');
-  assigneeAvatar.className = 'kanban-assignee-avatar';
-  assigneeWrap.appendChild(assigneeAvatar);
-
+  assigneeAvatar.className = 'kanban-cp-avatar';
   const assigneeInput = document.createElement('input');
   assigneeInput.type = 'text';
-  assigneeInput.className = 'md-input';
-  assigneeInput.placeholder = 'Nome da pessoa responsável';
+  assigneeInput.className = 'kanban-cp-campo';
+  assigneeInput.placeholder = 'Ninguém';
+  assigneeInput.setAttribute('aria-label', 'Responsável');
   assigneeInput.value = panelDraft.assignee;
-
   function updateAssigneeAvatar(): void {
     const name = assigneeInput.value.trim();
-    if (name) {
-      assigneeAvatar.replaceChildren(avatarEl(name, 22));
-      assigneeAvatar.classList.remove('is-empty');
-    } else {
-      assigneeAvatar.replaceChildren();
-      assigneeAvatar.classList.add('is-empty');
-    }
+    assigneeAvatar.replaceChildren(...(name ? [avatarEl(name, 22)] : []));
+    assigneeAvatar.classList.toggle('is-vazio', !name);
+    if (!name) assigneeAvatar.innerHTML = iconeSvg(ICONES_PAINEL.pessoa, 12);
   }
   updateAssigneeAvatar();
-
   assigneeInput.addEventListener('input', () => {
     if (panelDraft) panelDraft.assignee = assigneeInput.value;
     updateAssigneeAvatar();
     salvarSeExistir();
   });
-  assigneeWrap.appendChild(assigneeInput);
-  field(detalhes.conteudo, 'Responsável', assigneeWrap);
+  assigneeWrap.append(assigneeAvatar, assigneeInput);
+  props.appendChild(linhaPropriedade(ICONES_PAINEL.pessoa, 'Responsável', assigneeWrap));
 
   const priorityRow = document.createElement('div');
-  priorityRow.className = 'kanban-priority-row';
-  segmentedPriorityButtons(priorityRow);
-  field(detalhes.conteudo, 'Prioridade', priorityRow);
+  priorityRow.className = 'kanban-cp-prioridades';
+  segmentedPriorityButtons(priorityRow, salvarSeExistir);
+  props.appendChild(linhaPropriedade(ICONES_PAINEL.bandeira, 'Prioridade', priorityRow));
 
   const dueWrap = document.createElement('div');
-  dueWrap.className = 'kanban-due-wrap';
+  dueWrap.className = 'kanban-cp-prazo';
   const dueInput = document.createElement('input');
   dueInput.type = 'date';
-  dueInput.className = 'md-input';
+  dueInput.className = 'md-input kanban-cp-data';
+  dueInput.setAttribute('aria-label', 'Prazo');
   dueInput.value = panelDraft.dueDate;
+  const atalhos: HTMLButtonElement[] = [];
+  const marcarAtalho = (): void => atalhos.forEach((b) => b.classList.toggle('is-ativa', b.dataset.data === dueInput.value));
   dueInput.addEventListener('change', () => {
     if (panelDraft) panelDraft.dueDate = dueInput.value;
+    marcarAtalho();
     salvarSeExistir();
   });
   dueWrap.appendChild(dueInput);
-  [
-    ['Hoje', 0],
-    ['Amanhã', 1],
-    ['Sexta', ((5 - new Date().getDay() + 7) % 7) || 7],
-  ].forEach(([label, offset]) => {
+  const atalhosWrap = document.createElement('div');
+  atalhosWrap.className = 'kanban-cp-atalhos';
+  (
+    [
+      ['Hoje', 0],
+      ['Amanhã', 1],
+      ['Sexta', ((5 - new Date().getDay() + 7) % 7) || 7],
+    ] as const
+  ).forEach(([label, offset]) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
     const quickBtn = document.createElement('button');
     quickBtn.type = 'button';
-    quickBtn.className = 'md-pilula';
-    quickBtn.textContent = label as string;
+    quickBtn.className = 'kanban-cp-atalho';
+    quickBtn.textContent = label;
+    quickBtn.dataset.data = isoDate(d);
     quickBtn.addEventListener('click', () => {
-      const d = new Date();
-      d.setDate(d.getDate() + (offset as number));
-      dueInput.value = isoDate(d);
+      // Clicar no atalho já marcado limpa o prazo.
+      dueInput.value = dueInput.value === quickBtn.dataset.data ? '' : (quickBtn.dataset.data ?? '');
       if (panelDraft) panelDraft.dueDate = dueInput.value;
+      marcarAtalho();
       salvarSeExistir();
     });
-    dueWrap.appendChild(quickBtn);
+    atalhos.push(quickBtn);
+    atalhosWrap.appendChild(quickBtn);
   });
-  field(detalhes.conteudo, 'Prazo', dueWrap);
+  marcarAtalho();
+  dueWrap.appendChild(atalhosWrap);
+  props.appendChild(linhaPropriedade(ICONES_PAINEL.calendario, 'Prazo', dueWrap));
 
   const tagsWrap = document.createElement('div');
-  tagsWrap.className = 'kanban-tags-wrap';
-  renderTagChips(tagsWrap);
-  field(detalhes.conteudo, 'Tags', tagsWrap);
+  tagsWrap.className = 'kanban-cp-tags';
+  renderTagChips(tagsWrap, salvarSeExistir);
+  props.appendChild(linhaPropriedade(ICONES_PAINEL.tag, 'Tags', tagsWrap));
 
+  handle.grade.appendChild(props);
+
+  // ---- Subtarefas ----
   const subtarefas = buildSecaoModal('Subtarefas');
+  subtarefas.secao.classList.add('kanban-cp-secao');
   const subtasksWrap = document.createElement('div');
-  subtasksWrap.className = 'kanban-subtasks-wrap';
-  renderSubtasks(subtasksWrap);
+  subtasksWrap.className = 'kanban-cp-subtarefas';
+  renderSubtasks(subtasksWrap, salvarSeExistir);
   subtarefas.conteudo.appendChild(subtasksWrap);
   handle.grade.appendChild(subtarefas.secao);
 
+  // ---- Descrição ----
   const descricao = buildSecaoModal('Descrição');
+  descricao.secao.classList.add('kanban-cp-secao');
   const descTextarea = document.createElement('textarea');
-  descTextarea.className = 'md-input md-textarea kanban-panel-description';
-  descTextarea.rows = 5;
-  descTextarea.placeholder = 'Descreva o contexto... markdown suportado';
+  descTextarea.className = 'md-input md-textarea kanban-cp-descricao';
+  descTextarea.rows = 4;
+  descTextarea.placeholder = 'Contexto, links, critérios de pronto…';
+  descTextarea.setAttribute('aria-label', 'Descrição');
   descTextarea.value = panelDraft.description;
+  const ajustarDescricao = (): void => {
+    descTextarea.style.height = 'auto';
+    descTextarea.style.height = `${Math.max(descTextarea.scrollHeight, 96)}px`;
+  };
   descTextarea.addEventListener('input', () => {
     if (panelDraft) panelDraft.description = descTextarea.value;
+    ajustarDescricao();
     salvarSeExistir();
   });
+  requestAnimationFrame(ajustarDescricao);
   descricao.conteudo.appendChild(descTextarea);
   handle.grade.appendChild(descricao.secao);
 
+  // ---- Rodapé ----
   const espaco = document.createElement('span');
   espaco.className = 'pg-espaco';
+  let createBtn: HTMLButtonElement | null = null;
 
   if (!isNew) {
     const deleteBtn = buildBotao('Excluir', { variante: 'fantasma' });
@@ -722,24 +845,24 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
   } else {
     const cancelBtn = buildBotao('Cancelar', { variante: 'fantasma' });
     cancelBtn.addEventListener('click', () => closeCardPanel());
-    const createBtn = buildBotao('Criar card', { variante: 'primario' });
+    createBtn = buildBotao('Criar card', { variante: 'primario' });
     createBtn.addEventListener('click', async () => {
       if (!panelDraft || !panelDraft.title.trim()) {
         titleInput.focus();
+        titleInput.classList.add('is-invalido');
         return;
       }
       const draft = panelDraft;
-      const created = await kanbanState.createCardAndReturn({
-        columnId: column.id,
+      await kanbanState.createCard({
+        columnId: colunaAlvo.id,
         title: draft.title.trim(),
         description: draft.description || undefined,
         assignee: draft.assignee || undefined,
         priority: draft.priority || undefined,
         dueDate: draft.dueDate || undefined,
+        tags: draft.tags.length ? draft.tags : undefined,
+        subtasks: draft.subtasks.filter((s) => s.title.trim()),
       });
-      if (created && (draft.tags.length > 0 || draft.subtasks.length > 0)) {
-        await kanbanState.updateCard({ cardId: created.id, tags: draft.tags, subtasks: draft.subtasks });
-      }
       closeCardPanel();
     });
     handle.rodape.append(espaco, cancelBtn, createBtn);

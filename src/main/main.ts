@@ -27,6 +27,13 @@ app.disableHardwareAcceleration();
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 
 let mainWindow: BrowserWindow | null = null;
+let servicosIniciados = false;
+
+function iniciarServicosUmaVez(): void {
+  if (servicosIniciados) return;
+  servicosIniciados = true;
+  void startBackgroundServices();
+}
 
 function registerAppProtocol(): void {
   protocol.handle(APP_SCHEME, (request) => {
@@ -46,6 +53,9 @@ function createMainWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
+    // A cor do tema (--bg do base.css) desde o primeiro quadro: sem o clarão
+    // branco enquanto o renderer ainda carrega.
+    backgroundColor: '#0c0d12',
     icon: path.join(__dirname, 'assets', 'icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
@@ -57,6 +67,13 @@ function createMainWindow(): void {
   });
 
   mainWindow.loadURL(`${APP_SCHEME}://app/index.html`);
+
+  // Watchers da Biblioteca e primeiros polls só depois da primeira tela: na
+  // abertura eles disputavam disco e CPU com o carregamento do renderer.
+  // O teto de 5 s cobre uma carga que falhe e nunca dispare o evento.
+  const iniciar = (): void => iniciarServicosUmaVez();
+  mainWindow.webContents.once('did-finish-load', () => setTimeout(iniciar, 800));
+  setTimeout(iniciar, 5000);
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -70,7 +87,6 @@ app.whenReady().then(() => {
   registerAppProtocol();
   registerAllIpcHandlers();
   createMainWindow();
-  void startBackgroundServices();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

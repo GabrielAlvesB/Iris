@@ -64,6 +64,7 @@ export interface CreateCardInput {
   priority?: KanbanPriority;
   dueDate?: string;
   assignee?: string;
+  subtasks?: KanbanSubtask[];
 }
 
 export interface UpdateCardInput {

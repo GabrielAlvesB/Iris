@@ -1,6 +1,7 @@
 import { FASES_POSTAGEM, PRIORIDADES, TIPOS_POSTAGEM, isTipoPostagem, type Prioridade, type TipoPostagem } from '../../../shared/types/postagens.types.js';
 import { normalizar } from '../../../shared/types/videos.conversao.js';
 import { consumirPedidoPostagem, onPostagemSolicitada, type PedidoPostagem } from '../../core/navegacao.js';
+import { createPushBinding } from '../../core/pushBinding.js';
 import { openAvisoModal, mensagemDeErro } from '../../ui/modal.js';
 import {
   buildBotao,
@@ -55,6 +56,8 @@ interface Filtros {
 
 const FILTROS_VAZIOS: Filtros = { busca: '', tagId: '', redeId: '', prioridade: '' };
 const CHAVE_TIPO = 'iris.postagens.tipo';
+const CHAVE_RECOLHIDAS = 'iris.postagens.fasesRecolhidas';
+const CHEVRON = '<polyline points="9 6 15 12 9 18"/>';
 
 let tipo: TipoPostagem = lerTipoLembrado();
 let modo: Modo = 'pipeline';
@@ -65,6 +68,19 @@ let sortables: InstanceType<typeof Sortable>[] = [];
 /** Scroll horizontal da pipeline, preservado entre redesenhos. */
 let scrollPipeline = 0;
 let pararDePedir: (() => void) | null = null;
+/** Fases da pipeline recolhidas a uma faixa estreita; vale para todos os tipos. */
+let fasesRecolhidas = lerRecolhidas();
+
+/**
+ * O main publica sozinho as agendadas que chegaram no horário; aqui só relemos
+ * o arquivo do tipo, e o onStateChange redesenha.
+ */
+const push = createPushBinding([
+  () =>
+    window.irisAPI.events.on('postagens:mudou', ({ tipo: mudou }) => {
+      void TIPOS[mudou].carregar().catch(falhou);
+    }),
+]);
 
 function lerTipoLembrado(): TipoPostagem {
   try {
@@ -81,6 +97,26 @@ function lembrarTipo(t: TipoPostagem): void {
   } catch {
     // Sem armazenamento local, a tela só volta a abrir em Vídeos.
   }
+}
+
+function lerRecolhidas(): Set<string> {
+  try {
+    const salvo: unknown = JSON.parse(localStorage.getItem(CHAVE_RECOLHIDAS) ?? '[]');
+    return new Set(Array.isArray(salvo) ? salvo.filter((f): f is string => typeof f === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function alternarFase(fase: string): void {
+  if (fasesRecolhidas.has(fase)) fasesRecolhidas.delete(fase);
+  else fasesRecolhidas.add(fase);
+  try {
+    localStorage.setItem(CHAVE_RECOLHIDAS, JSON.stringify([...fasesRecolhidas]));
+  } catch {
+    // Sem armazenamento local, a escolha só dura até fechar a tela.
+  }
+  redesenhar();
 }
 
 function destruirSortables(): void {
@@ -129,6 +165,7 @@ export function montar(viewRoot: HTMLElement): void {
   };
   TIPOS_POSTAGEM.forEach((t) => TIPOS[t.id].ouvir(aoMudar));
   pararDePedir = onPostagemSolicitada(atenderPedido);
+  push.attach();
   // O catálogo (tags, redes, exibição) está no arquivo de vídeos: carrega antes dos outros tipos.
   void TIPOS.video
     .carregar()
@@ -148,6 +185,7 @@ export function destroy(): void {
   });
   pararDePedir?.();
   pararDePedir = null;
+  push.detach();
   containerAtual = null;
 }
 
@@ -167,7 +205,6 @@ function passaFiltros(fonte: Fonte, item: Postagem): boolean {
       item.notas,
       fonte.textoBusca(item),
       ...item.camposExtras.map((c) => `${c.nome} ${c.valor}`),
-      `#${item.seq}`,
       ...tagsDe(fonte.catalogo, item).map((t) => t.nome),
     ].join(' '),
   );
@@ -333,10 +370,6 @@ function buildCard(fonte: Fonte, item: Postagem): HTMLElement {
 
   const topo = document.createElement('div');
   topo.className = 'vd-card-topo';
-  const seq = document.createElement('span');
-  seq.className = 'vd-seq';
-  seq.textContent = `#${item.seq}`;
-  topo.appendChild(seq);
   if (item.prioridade) topo.appendChild(buildPrioridade(item.prioridade));
   if (prefs.mostrarScore && item.score !== undefined) topo.appendChild(buildScore(item.score, true));
   const topoExtra = document.createElement('span');
@@ -541,6 +574,58 @@ function iniciarSortables(fonte: Fonte, pipeline: HTMLElement): void {
   });
 }
 
+function buildTituloFase(fase: string, rotulo: string): HTMLElement {
+  const recolhida = fasesRecolhidas.has(fase);
+  const titulo = document.createElement('button');
+  titulo.type = 'button';
+  titulo.className = 'vd-fase-titulo is-botao';
+  titulo.setAttribute('aria-expanded', String(!recolhida));
+  titulo.title = recolhida ? `Mostrar ${rotulo}` : `Recolher ${rotulo}`;
+  titulo.innerHTML = svg(CHEVRON, 12, 2.4);
+  const texto = document.createElement('span');
+  texto.textContent = rotulo;
+  titulo.appendChild(texto);
+  titulo.addEventListener('click', () => alternarFase(fase));
+  return titulo;
+}
+
+/**
+ * Fase recolhida: uma faixa com o nome e as contagens por etapa, para ver
+ * quanto está parado ali sem ocupar a largura das colunas. Clicar reabre.
+ */
+function buildFaseRecolhida(
+  fase: string,
+  rotulo: string,
+  etapas: Fonte['etapas'],
+  porStatus: (status: string) => Postagem[],
+): HTMLElement {
+  const faixa = document.createElement('button');
+  faixa.type = 'button';
+  faixa.className = 'vd-fase-faixa';
+  const contagens = etapas.map((e) => ({ rotulo: e.rotulo, total: porStatus(e.id).length }));
+  const total = contagens.reduce((soma, c) => soma + c.total, 0);
+  faixa.title = [`Mostrar ${rotulo}`, ...contagens.map((c) => `${c.rotulo}: ${c.total}`)].join('\n');
+  faixa.setAttribute('aria-label', `${rotulo}: ${total} — mostrar`);
+
+  const numero = document.createElement('span');
+  numero.className = 'vd-fase-faixa-total';
+  numero.textContent = String(total);
+  const nome = document.createElement('span');
+  nome.className = 'vd-fase-faixa-nome';
+  nome.textContent = rotulo;
+  const lista = document.createElement('span');
+  lista.className = 'vd-fase-faixa-etapas';
+  contagens.forEach((c) => {
+    const item = document.createElement('span');
+    item.className = 'vd-fase-faixa-etapa';
+    item.textContent = `${c.rotulo} ${c.total}`;
+    lista.appendChild(item);
+  });
+  faixa.append(numero, nome, lista);
+  faixa.addEventListener('click', () => alternarFase(fase));
+  return faixa;
+}
+
 function buildPipeline(fonte: Fonte): HTMLElement {
   const pipeline = document.createElement('div');
   pipeline.className = 'vd-pipeline';
@@ -550,10 +635,19 @@ function buildPipeline(fonte: Fonte): HTMLElement {
   const grupoDe = (classe: string, rotulo: string, etapas: Fonte['etapas']): HTMLElement => {
     const grupo = document.createElement('div');
     grupo.className = `vd-fase is-fase-${classe}`;
-    const titulo = document.createElement('div');
-    titulo.className = 'vd-fase-titulo';
-    titulo.textContent = rotulo;
-    grupo.appendChild(titulo);
+    if (classe === 'fora') {
+      const titulo = document.createElement('div');
+      titulo.className = 'vd-fase-titulo';
+      titulo.textContent = rotulo;
+      grupo.appendChild(titulo);
+    } else {
+      grupo.appendChild(buildTituloFase(classe, rotulo));
+      if (fasesRecolhidas.has(classe)) {
+        grupo.classList.add('is-recolhida');
+        grupo.appendChild(buildFaseRecolhida(classe, rotulo, etapas, porStatus));
+        return grupo;
+      }
+    }
     const colunas = document.createElement('div');
     colunas.className = 'vd-fase-colunas';
     etapas.forEach((status) => {
@@ -690,6 +784,7 @@ export function render(container: HTMLElement): void {
 
   const tela = document.createElement('div');
   tela.className = 'pg-view vd-view';
+  tela.classList.toggle('is-pipeline', modo === 'pipeline');
 
   const controle: ControleTela = {
     redesenhar,

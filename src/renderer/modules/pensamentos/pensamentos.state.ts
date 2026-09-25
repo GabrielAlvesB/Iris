@@ -1,8 +1,9 @@
 import type { IpcResult } from '../../../shared/types/common.types';
 import type {
   CreatePensamentoInput,
-  MarcarPromovidoInput,
+  MoverPensamentoInput,
   PensamentosFile,
+  PensamentosViewport,
   UpdatePensamentoInput,
 } from '../../../shared/types/pensamentos.types';
 
@@ -39,12 +40,21 @@ export async function loadPensamentos(): Promise<void> {
   applyAndNotify(unwrap(await window.irisAPI.pensamentos.getPensamentos()));
 }
 
-export async function createPensamento(input: CreatePensamentoInput): Promise<void> {
-  applyAndNotify(unwrap(await window.irisAPI.pensamentos.createPensamento(input)));
+/** Devolve o id do post-it criado, para a tela já abri-lo em edição. */
+export async function createPensamento(input: CreatePensamentoInput): Promise<string | null> {
+  const antes = new Set((state?.pensamentos ?? []).map((p) => p.id));
+  const next = unwrap(await window.irisAPI.pensamentos.createPensamento(input));
+  const novo = next.pensamentos.find((p) => !antes.has(p.id));
+  applyAndNotify(next);
+  return novo?.id ?? null;
 }
 
 export async function updatePensamento(input: UpdatePensamentoInput): Promise<void> {
   applyAndNotify(unwrap(await window.irisAPI.pensamentos.updatePensamento(input)));
+}
+
+export async function moverPensamento(input: MoverPensamentoInput): Promise<void> {
+  applyAndNotify(unwrap(await window.irisAPI.pensamentos.moverPensamento(input)));
 }
 
 export async function deletePensamento(pensamentoId: string): Promise<void> {
@@ -55,6 +65,10 @@ export async function togglePin(pensamentoId: string): Promise<void> {
   applyAndNotify(unwrap(await window.irisAPI.pensamentos.togglePin(pensamentoId)));
 }
 
-export async function marcarPromovido(input: MarcarPromovidoInput): Promise<void> {
-  applyAndNotify(unwrap(await window.irisAPI.pensamentos.marcarPromovido(input)));
+/**
+ * Só atualiza o cache, sem notificar: a tela já está no enquadramento novo, e
+ * redesenhar a cada pan/zoom derrubaria uma edição em andamento.
+ */
+export async function setViewport(viewport: PensamentosViewport): Promise<void> {
+  state = unwrap(await window.irisAPI.pensamentos.setViewport(viewport));
 }

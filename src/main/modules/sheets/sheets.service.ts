@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
-import * as XLSX from 'xlsx';
+import type * as XlsxTipos from 'xlsx';
 import { readStore, writeStore } from '../../storage/jsonStore';
 import type {
   AddColumnInput,
@@ -23,6 +23,16 @@ import type {
   UpdateRowInput,
   UpdateTableVisibilityInput,
 } from '../../../shared/types/sheets.types';
+
+/**
+ * xlsx carrega sob demanda (só ao importar planilha): são ~200 ms de require
+ * que não precisam acontecer na abertura do app.
+ */
+let xlsx: typeof XlsxTipos | null = null;
+function XLSX(): typeof XlsxTipos {
+  xlsx ??= require('xlsx') as typeof XlsxTipos;
+  return xlsx;
+}
 
 const FILE_NAME = 'sheets.json';
 const SCHEMA_VERSION = 1;
@@ -152,12 +162,12 @@ function readSheets(filePath: string): DetectedSheet[] {
     return [toDetectedSheet(baseName, table)];
   }
 
-  const workbook = XLSX.readFile(filePath);
+  const workbook = XLSX().readFile(filePath);
   return workbook.SheetNames.map((sheetName) => {
     const sheet = workbook.Sheets[sheetName];
     // raw: false returns the displayed/formatted text for each cell rather than
     // the underlying computed value, avoiding numeric-coercion of text cells.
-    const table = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, raw: false, defval: '' });
+    const table = XLSX().utils.sheet_to_json<string[]>(sheet, { header: 1, raw: false, defval: '' });
     return toDetectedSheet(sheetName, table);
   });
 }

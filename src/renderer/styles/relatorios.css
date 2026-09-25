@@ -931,3 +931,423 @@
 #impressao {
   display: none;
 }
+
+/* =====================================================================
+   Blocos livres das seções (editor)
+   ===================================================================== */
+
+.rel-blocos {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rel-blocos:empty {
+  display: none;
+}
+
+.rel-bl {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 12px;
+}
+
+.rel-bl.is-destaque { border-left-color: var(--warning); }
+.rel-bl.is-tabela { border-left-color: oklch(0.72 0.12 250); }
+.rel-bl.is-metricas { border-left-color: var(--success); }
+
+.rel-bl.is-quebra {
+  padding: 6px 10px;
+  border-left-color: var(--border);
+  border-style: dashed;
+  background: transparent;
+}
+
+.rel-bl-cab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rel-bl-tipo {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.md-input.rel-bl-titulo {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  font-weight: 600;
+}
+
+.rel-bl-quebra {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.rel-bl-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rel-bl-acoes,
+.rel-bl-menu {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.rel-bl-menu {
+  padding: 8px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+}
+
+.rel-bl-menu .md-rotulo {
+  margin-right: 4px;
+}
+
+/* Tom do destaque: a pílula ganha a cor do tom, além do texto. */
+.md-pilula.rel-tom.is-ativa.is-info { border-color: oklch(0.72 0.12 250); background: oklch(0.72 0.12 250 / 0.16); }
+.md-pilula.rel-tom.is-ativa.is-ok { border-color: var(--success); background: var(--success-soft); }
+.md-pilula.rel-tom.is-ativa.is-atencao { border-color: var(--warning); background: var(--warning-soft); }
+.md-pilula.rel-tom.is-ativa.is-alerta { border-color: var(--danger); background: var(--danger-soft); }
+
+/* Tabela livre: colunas de nome + um botão de remover no fim de cada linha. */
+.rel-tabela-editor {
+  display: grid;
+  grid-template-columns: repeat(var(--colunas, 2), minmax(90px, 1fr)) 28px;
+  gap: 6px;
+  align-items: center;
+  overflow-x: auto;
+}
+
+.rel-tabela-cab {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.rel-tabela-cab .md-input {
+  font-weight: 600;
+  background: var(--bg-elevated-3);
+}
+
+.rel-tabela-editor > .md-input,
+.rel-tabela-cab .md-input {
+  min-width: 0;
+  height: 32px;
+}
+
+/* Métricas */
+.rel-metricas-datas {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.rel-metricas-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border-soft);
+}
+
+/* A prévia usa o próprio documento (claro), num papel menor. */
+.rd-documento.rel-bl-previa {
+  padding: 5mm 6mm;
+  border-radius: 8px;
+  font-size: 9.5pt;
+}
+
+.rel-automaticas {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+@media (max-width: 720px) {
+  .rel-metricas-datas {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =====================================================================
+   Blocos livres no documento
+   ===================================================================== */
+
+.rd-bloco-livre,
+.rd-metricas,
+.rd-caixa {
+  margin: 0 0 5mm;
+}
+
+.rd-texto ul,
+.rd-texto ol {
+  margin: 0 0 2.5mm;
+  padding-left: 6mm;
+}
+
+.rd-texto li {
+  margin: 0 0 1mm;
+}
+
+.rd-texto strong {
+  font-weight: 700;
+}
+
+.rd-caixa {
+  --rd-caixa-cor: var(--rd-info);
+  --rd-caixa-fundo: #e8f0fc;
+  padding: 3.5mm 4.5mm;
+  background: var(--rd-caixa-fundo);
+  border-left: 3px solid var(--rd-caixa-cor);
+  border-radius: 0 6px 6px 0;
+  break-inside: avoid;
+}
+
+.rd-caixa.is-ok { --rd-caixa-cor: var(--rd-ok); --rd-caixa-fundo: #e7f6ee; }
+.rd-caixa.is-atencao { --rd-caixa-cor: var(--rd-atencao); --rd-caixa-fundo: #fdf1de; }
+.rd-caixa.is-alerta { --rd-caixa-cor: var(--rd-erro); --rd-caixa-fundo: #fcebeb; }
+
+.rd-caixa-titulo {
+  display: block;
+  margin-bottom: 1.5mm;
+  font-size: 10pt;
+  color: var(--rd-caixa-cor);
+}
+
+.rd-caixa .rd-texto p:last-child,
+.rd-caixa .rd-texto ul:last-child,
+.rd-caixa .rd-texto ol:last-child {
+  margin-bottom: 0;
+}
+
+.rd-metricas-periodo {
+  margin: 0 0 3mm;
+}
+
+.rd-metricas-periodo div {
+  background: var(--rd-fundo);
+}
+
+/* Três por linha: com seis indicadores, nenhum fica sobrando sozinho. */
+.rd-metricas .rd-indicadores {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 0;
+}
+
+.rd-indicador {
+  min-width: 0;
+}
+
+.rd-indicador-detalhe {
+  margin-top: 0.5mm;
+  font-size: 7.5pt;
+  color: var(--rd-fraca);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rd-indicador.is-score strong { color: var(--rd-acento-escuro); }
+
+.rd-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5mm 4mm;
+  margin: 3mm 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 8pt;
+  color: var(--rd-suave);
+}
+
+.rd-filtros li::before {
+  content: '▸ ';
+  color: var(--rd-acento);
+}
+
+.rd-tabela tfoot td {
+  padding: 2mm 2.5mm;
+  font-weight: 700;
+  background: var(--rd-fundo);
+  border-top: 2px solid var(--rd-linha);
+}
+
+.rd-quebra {
+  height: 0;
+}
+
+/* Na prévia da tela a quebra de página fica visível; no PDF ela é a própria página nova. */
+.rel-papel .rd-quebra {
+  margin: 6mm 0;
+  border-top: 1px dashed var(--rd-linha);
+}
+
+/* =====================================================================
+   Empresa (tags) do relatório
+   ===================================================================== */
+
+.rel-cartao-empresas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.rel-empresa-chip {
+  --cor-tag: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text);
+  background: color-mix(in oklch, var(--cor-tag) 16%, transparent);
+  border: 1px solid color-mix(in oklch, var(--cor-tag) 45%, transparent);
+  border-radius: 999px;
+}
+
+.rel-empresa-chip::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cor-tag);
+}
+
+.rel-filtro-empresa {
+  flex-basis: 100%;
+}
+
+.rel-seletor-acoes {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* =====================================================================
+   Editores: texto + métrica, duas colunas
+   ===================================================================== */
+
+.rel-indicadores-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rel-indicador-editor {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.4fr) minmax(90px, 1fr) minmax(90px, 1fr) 28px;
+  gap: 6px;
+  align-items: center;
+  padding: 8px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+}
+
+.rel-indicador-editor .md-input {
+  min-width: 0;
+  height: 32px;
+}
+
+.rel-indicador-editor .rel-indicador-nota {
+  grid-column: 1 / -2;
+  font-size: 12px;
+}
+
+.rel-colunas-lado {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* =====================================================================
+   Documento: texto + métrica, duas colunas, citação
+   ===================================================================== */
+
+.rd-indicador.is-manual strong {
+  color: var(--rd-acento-escuro);
+}
+
+.rd-variacao {
+  margin-top: 0.8mm;
+  font-size: 8pt;
+  font-weight: 700;
+  color: var(--rd-suave);
+}
+
+.rd-variacao.is-sobe { color: var(--rd-ok); }
+.rd-variacao.is-desce { color: var(--rd-erro); }
+
+.rd-analise .rd-indicadores {
+  margin: 0 0 4mm;
+}
+
+.rd-colunas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6mm;
+}
+
+.rd-coluna {
+  padding: 3.5mm 4mm;
+  background: var(--rd-fundo);
+  border: 1px solid var(--rd-linha);
+  border-radius: 6px;
+}
+
+.rd-coluna-titulo {
+  margin: 0 0 2mm;
+  font-size: 10.5pt;
+  color: var(--rd-acento-escuro);
+}
+
+.rd-coluna .rd-texto p:last-child,
+.rd-coluna .rd-texto ul:last-child,
+.rd-coluna .rd-texto ol:last-child {
+  margin-bottom: 0;
+}
+
+.rd-citacao {
+  margin: 0 0 5mm;
+  padding: 2mm 0 2mm 6mm;
+  border-left: 3px solid var(--rd-acento);
+}
+
+.rd-citacao blockquote {
+  margin: 0;
+  font-size: 12pt;
+  font-style: italic;
+  color: var(--rd-tinta);
+}
+
+.rd-citacao blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+.rd-citacao figcaption {
+  margin-top: 2mm;
+  font-size: 9pt;
+  color: var(--rd-suave);
+}

@@ -65,3 +65,11 @@ export function writeStore<T>(fileName: string, data: T): Promise<void> {
   writeQueues.set(fileName, next);
   return next;
 }
+
+/**
+ * Espera as escritas em fila terminarem. Usado antes de fechar o app para o
+ * instalador da atualização: uma edição salva no último segundo não pode se perder.
+ */
+export async function aguardarEscritas(): Promise<void> {
+  await Promise.allSettled([...writeQueues.values()]);
+}

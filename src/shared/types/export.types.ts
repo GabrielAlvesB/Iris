@@ -12,6 +12,8 @@ import type { CopyFile } from './copy.types';
 import type { VideosFile } from './videos.types';
 import type { ImagensFile } from './imagens.types';
 import type { RelatoriosFile } from './relatorios.types';
+import type { RoteirosFile } from './roteiros.types';
+import type { TrafegoFile } from './trafego.types';
 
 export interface ExportBundle {
   schemaVersion: number;
@@ -32,6 +34,8 @@ export interface ExportBundle {
   videos?: VideosFile;
   imagens?: ImagensFile;
   relatorios?: RelatoriosFile;
+  roteiros?: RoteirosFile;
+  trafego?: TrafegoFile;
   /** @deprecated O módulo Arquivos virou Explorador. Só existe em backups antigos. */
   arquivos?: unknown;
 }

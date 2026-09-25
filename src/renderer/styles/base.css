@@ -259,6 +259,10 @@ html, body {
   flex-direction: column;
   gap: 6px;
   overflow-y: auto;
+  /* Só rolagem vertical: overflow-y: auto sozinho torna o x "auto" também, e
+     qualquer pixel a mais (divisória com margem, ícone em zoom) virava barra
+     horizontal no modo compacto. */
+  overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
@@ -513,6 +517,8 @@ html, body {
 }
 
 #sidebar.is-compact .nav-categoria-cabecalho {
+  /* width: auto — com os 100% da regra base, a margem lateral estourava a largura. */
+  width: auto;
   padding: 0;
   margin: 6px 4px;
   height: 1px;
@@ -1351,3 +1357,58 @@ select.md-input {
     column-count: 1;
   }
 }
+
+/* ---- Barra lateral: aviso de atualização ---- */
+
+/* Só existe quando há versão nova; a faixa de fundo cresce com o download. */
+.sidebar-atualizacao {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px 10px;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: left;
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in oklch, var(--accent) 45%, transparent);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.sidebar-atualizacao::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: calc(var(--progresso, 0) * 100%);
+  background: color-mix(in oklch, var(--accent) 30%, transparent);
+  transition: width 0.3s ease;
+}
+
+.sidebar-atualizacao > * { position: relative; }
+.sidebar-atualizacao svg { flex-shrink: 0; color: var(--accent); }
+.sidebar-atualizacao:hover { border-color: var(--accent); }
+
+.sidebar-atualizacao.is-erro {
+  background: var(--danger-soft);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+}
+
+.sidebar-atualizacao.is-erro svg { color: var(--danger); }
+
+.sidebar-atualizacao-texto {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#sidebar.is-compact .sidebar-atualizacao {
+  justify-content: center;
+  padding: 8px 0;
+}
+
+#sidebar.is-compact .sidebar-atualizacao-texto { display: none; }

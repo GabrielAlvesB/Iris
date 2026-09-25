@@ -46,6 +46,7 @@ import {
   extrairHashtags,
   inferirLogo,
   normalizar,
+  parsePrioridade,
   parseScore,
   parseData,
   parseHora,
@@ -219,6 +220,7 @@ function migrateVideo(raw: unknown, catalogo: { tagIds: Set<string>; redeIds: Se
     origem: migrateOrigem(c.origem),
   };
   promoverScoreExtra(video);
+  promoverPrioridadeExtra(video);
   return video;
 }
 
@@ -255,6 +257,18 @@ function promoverScoreExtra(video: Video): void {
   });
   if (indice < 0) return;
   video.score = parseScore(video.camposExtras[indice]!.valor);
+  video.camposExtras.splice(indice, 1);
+}
+
+/**
+ * Mesma ideia do score: antes de Prioridade ser campo do mapeamento do Sheets,
+ * a coluna chegava como informação extra. Com valor reconhecido, vira o campo.
+ */
+function promoverPrioridadeExtra(video: Video): void {
+  if (video.prioridade !== undefined) return;
+  const indice = video.camposExtras.findIndex((c) => normalizar(c.nome) === 'prioridade' && parsePrioridade(c.valor) !== undefined);
+  if (indice < 0) return;
+  video.prioridade = parsePrioridade(video.camposExtras[indice]!.valor);
   video.camposExtras.splice(indice, 1);
 }
 
@@ -385,6 +399,8 @@ export async function criarVideo(input: CriarVideoInput): Promise<VideosFile> {
   aplicarCriacaoComum(video, input, file);
   registrar(video, { tipo: 'criado', para: rotuloStatus(status) });
   file.videos.push(video);
+  renumerar(file.videos);
+  etapas.seguirAgenda(file.videos, video);
 
   await saveFile(file);
   return file;
@@ -404,7 +420,12 @@ export async function atualizarVideo(input: AtualizarVideoInput): Promise<Videos
     if (hashtags.join(' ') !== video.hashtags.join(' ')) alterados.push('hashtags');
     video.hashtags = hashtags;
   }
-  if (input.status !== undefined && isVideoStatus(input.status)) etapas.trocarStatus(file.videos, video, input.status);
+  if (input.status !== undefined && isVideoStatus(input.status)) {
+    etapas.trocarStatus(file.videos, video, input.status);
+  } else if (alterados.includes('data') || alterados.includes('horário')) {
+    // Etapa escolhida à mão na mesma edição vence; senão a agenda decide.
+    etapas.seguirAgenda(file.videos, video);
+  }
 
   registrarEdicao(video.historico, alterados, (e) => registrar(video, e));
   video.updatedAt = nowIso();
@@ -591,6 +612,8 @@ export async function importarDeSheets(input: ImportarDeSheetsInput): Promise<Im
     video.dataAgendada = parseData(valor(linha.cells, 'data'));
     video.horaAgendada = parseHora(valor(linha.cells, 'hora'));
     video.notas = valor(linha.cells, 'notas');
+    const prioridadeEscrita = valor(linha.cells, 'prioridade');
+    video.prioridade = parsePrioridade(prioridadeEscrita);
     const scoreEscrito = valor(linha.cells, 'score');
     video.score = parseScore(scoreEscrito);
     video.camposExtras = colunasExtras
@@ -640,6 +663,9 @@ export async function importarDeSheets(input: ImportarDeSheetsInput): Promise<Im
     if (scoreEscrito && video.score === undefined) {
       registrar(video, { tipo: 'editado', detalhe: `score não reconhecido: "${scoreEscrito}"` });
     }
+    if (prioridadeEscrita && video.prioridade === undefined) {
+      registrar(video, { tipo: 'editado', detalhe: `prioridade não reconhecida: "${prioridadeEscrita}"` });
+    }
     if (redes.faltando.length > 0) {
       registrar(video, { tipo: 'editado', detalhe: `redes não reconhecidas: ${redes.faltando.join(', ')}` });
     }
@@ -675,4 +701,12 @@ export async function importarDeSheets(input: ImportarDeSheetsInput): Promise<Im
   renumerar(file.videos);
   await saveFile(file);
   return { file, criados: criados.length, pulados };
+}
+
+/** Chamado pela tarefa de fundo: publica as agendadas cujo horário chegou. */
+export async function publicarAgendadasVencidas(): Promise<number> {
+  const file = loadFile();
+  const publicadas = etapas.publicarVencidas(file.videos);
+  if (publicadas > 0) await saveFile(file);
+  return publicadas;
 }

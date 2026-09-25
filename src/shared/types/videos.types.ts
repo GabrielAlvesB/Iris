@@ -77,6 +77,7 @@ export const CAMPOS_VIDEO = [
   { id: 'tags', rotulo: 'Tags', dicas: ['tags', 'tag', 'categoria', 'categorias', 'tipo', 'quadro'] },
   { id: 'redes', rotulo: 'Redes sociais', dicas: ['redes', 'rede', 'plataforma', 'plataformas', 'canal', 'canais'] },
   { id: 'status', rotulo: 'Status', dicas: ['status', 'etapa', 'situação', 'situacao'] },
+  { id: 'prioridade', rotulo: 'Prioridade', dicas: ['prioridade', 'priority', 'urgência', 'urgencia'] },
   // "nota" sozinha fica com Notas (texto); score só pelos nomes inequívocos.
   // "Score Editorial" é o nome usado nas planilhas de conteúdo: vem primeiro.
   { id: 'score', rotulo: 'Score', dicas: ['score editorial', 'score', 'pontuação', 'pontuacao', 'pontos', 'nota final', 'nota score'] },

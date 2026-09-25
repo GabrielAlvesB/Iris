@@ -182,7 +182,7 @@ export function abrirPainel(file: ImagensFile, catalogo: Catalogo, id: string): 
 
   const casca = abrirCasca({
     icone: ICONES_POSTAGEM.imagem,
-    rotulo: `Imagem #${imagem.seq}`,
+    rotulo: 'Imagem',
     ariaLabel: 'Detalhes da publicação de imagem',
     posicao: catalogo.preferencias.posicaoPainel,
     aoMudarPosicao: (posicao) => {

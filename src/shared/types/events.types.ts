@@ -1,5 +1,7 @@
+import type { EstadoAtualizacao } from './atualizacao.types';
 import type { GithubSnapshot } from './github.types';
 import type { N8nSnapshot } from './n8n.types';
+import type { TipoPostagem } from './postagens.types';
 import type { ServidoresFile, SshSaidaChunk } from './servidores.types';
 
 /**
@@ -15,6 +17,9 @@ export type IrisEvent =
   | { topic: 'servidores:saida'; payload: SshSaidaChunk }
   | { topic: 'n8n:snapshot'; payload: N8nSnapshot }
   | { topic: 'github:snapshot'; payload: GithubSnapshot }
+  /** Agendadas publicadas sozinhas no horário: o renderer relê o arquivo do tipo. */
+  | { topic: 'postagens:mudou'; payload: { tipo: TipoPostagem } }
+  | { topic: 'atualizacao:estado'; payload: EstadoAtualizacao }
   | { topic: 'app:erro'; payload: { escopo: string; mensagem: string } };
 
 export type IrisEventTopic = IrisEvent['topic'];
