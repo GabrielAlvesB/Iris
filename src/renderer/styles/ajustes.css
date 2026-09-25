@@ -371,3 +371,50 @@ select.aj-input {
   border: 1px dashed var(--border);
   border-radius: 12px;
 }
+
+/* ---- Atualizações ---- */
+
+.aj-atualizacao-versao {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.aj-status .aj-campo-dica { margin-left: 8px; }
+
+.aj-progresso {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg-elevated-3);
+  overflow: hidden;
+}
+
+.aj-progresso span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.aj-atualizacao-nova {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+}
+
+.aj-atualizacao-nova strong { font-size: 13px; color: var(--text); }
+
+.aj-atualizacao-notas {
+  margin: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+}

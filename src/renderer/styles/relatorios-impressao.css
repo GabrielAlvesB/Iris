@@ -41,4 +41,18 @@
   .rd-secao + .rd-secao {
     break-before: auto;
   }
+
+  /* Bloco "Quebra de página" do editor. */
+  .rd-quebra {
+    break-after: page;
+  }
+
+  .rd-caixa,
+  .rd-metricas-periodo,
+  .rd-metricas .rd-indicadores,
+  .rd-analise .rd-indicadores,
+  .rd-coluna,
+  .rd-citacao {
+    break-inside: avoid;
+  }
 }

@@ -1,391 +1,412 @@
-/* Pensamentos — stream cronológico de capturas rápidas. */
+/* Pensamentos — quadro livre de post-its coloridos. */
 
 .pensamentos-view {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  gap: 12px;
+  gap: 10px;
 }
 
-/* ---- Cabeçalho ---- */
-
-.pensamentos-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.pensamentos-view .pg-cabecalho-acoes {
   flex-wrap: wrap;
-}
-
-.pensamentos-titulo {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-.pensamentos-contagem {
-  font-size: 11px;
-  color: var(--text-faint);
-  padding: 3px 8px;
-  border: 1px solid var(--border-soft);
-  border-radius: 999px;
-}
-
-.pensamentos-header-espaco {
-  flex: 1;
-}
-
-.pensamentos-busca-wrap {
-  position: relative;
-  display: flex;
   align-items: center;
 }
 
-.pensamentos-busca {
-  width: 240px;
-  padding: 7px 56px 7px 11px;
-  font-family: var(--font-sans);
-  font-size: 12.5px;
-  color: var(--text);
-  background: var(--bg-elevated);
+.pensamentos-zoom {
+  min-width: 42px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+
+/* ---- Novo post-it: amostra de cor + botão ---- */
+
+.pensamentos-novo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pensamentos-cor-nova {
+  width: 30px;
+  height: 30px;
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  outline: none;
-  transition: border-color 0.14s ease, background 0.14s ease;
-}
-
-.pensamentos-busca::placeholder {
-  color: var(--text-faint);
-}
-
-.pensamentos-busca:focus {
-  border-color: var(--accent);
-  background: var(--bg-elevated-2);
-}
-
-.pensamentos-busca-kbd {
-  position: absolute;
-  right: 8px;
-  pointer-events: none;
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  color: var(--text-faint);
-  background: var(--bg-elevated-3);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-sm);
-  padding: 2px 5px;
-}
-
-.pensamentos-periodos {
-  display: flex;
-  gap: 2px;
-  padding: 2px;
   background: var(--bg-elevated);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius);
-}
-
-.pensamentos-periodo {
-  padding: 5px 11px;
-  font-family: var(--font-sans);
-  font-size: 11.5px;
-  color: var(--text-muted);
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: color 0.12s ease, background 0.12s ease;
+  display: grid;
+  place-items: center;
+  transition: border-color 0.14s ease;
 }
 
-.pensamentos-periodo:hover {
-  color: var(--text);
+.pensamentos-cor-nova::after {
+  content: '';
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--amostra);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
 }
 
-.pensamentos-periodo.is-ativo {
-  color: var(--text);
-  background: var(--bg-elevated-3);
+.pensamentos-cor-nova:hover,
+.pensamentos-cor-nova:focus-visible {
+  border-color: var(--accent);
+  outline: none;
 }
 
 /* ---- Barra de tags ---- */
 
-.pensamentos-tags-barra {
+.pensamentos-tags {
   display: flex;
   flex-wrap: wrap;
+  gap: 6px;
   align-items: center;
-  gap: 5px;
-  padding-bottom: 2px;
 }
 
-.pensamentos-limpar-filtro {
+.pensamentos-tags[hidden] {
+  display: none;
+}
+
+.pensamentos-chip {
+  padding: 3px 9px;
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+}
+
+.pensamentos-chip:hover {
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.pensamentos-chip.is-ativo {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.pensamentos-limpar {
+  padding: 3px 6px;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
   color: var(--text-faint);
   background: none;
   border: none;
   cursor: pointer;
   text-decoration: underline;
-  padding: 2px 4px;
 }
 
-.pensamentos-limpar-filtro:hover {
-  color: var(--text-muted);
+.pensamentos-limpar:hover {
+  color: var(--text);
 }
 
-/* ---- Stream ---- */
+/* ---- Quadro (viewport + canvas transformado) ---- */
 
-.pensamentos-stream {
+.pensamentos-quadro {
+  position: relative;
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  padding-right: 4px;
+  overflow: hidden;
+  background-color: var(--bg);
+  background-image: radial-gradient(var(--border) 1.2px, transparent 1.2px);
+  background-size: 28px 28px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  cursor: grab;
+  user-select: none;
 }
 
-.pensamentos-dia {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.pensamentos-quadro.is-panning {
+  cursor: grabbing;
 }
 
-.pensamentos-dia-label {
-  position: sticky;
+.pensamentos-canvas {
+  position: absolute;
   top: 0;
-  z-index: 1;
-  align-self: flex-start;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--text-faint);
-  background: var(--bg);
-  padding: 3px 0 5px;
-}
-
-.pensamentos-dia--fixados .pensamentos-dia-label {
-  color: var(--accent);
+  left: 0;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
 }
 
 .pensamentos-vazio {
-  padding: 40px 0;
-  text-align: center;
-  font-size: 13px;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   color: var(--text-faint);
+  pointer-events: none;
+  text-align: center;
+  padding: 16px;
 }
 
-/* ---- Card ---- */
-
-.pensamento-card {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-lg);
-  padding: 11px 13px 12px;
-  transition: border-color 0.14s ease, background 0.14s ease;
+.pensamentos-vazio p {
+  margin: 0;
+  font-size: 13px;
+  max-width: 340px;
 }
 
-.pensamento-card:hover {
-  border-color: var(--border);
-  background: var(--bg-elevated-2);
+/* ---- Post-it ---- */
+
+.postit {
+  --postit-cor: #fde68a;
+  --postit-tinta: #1f1d1a;
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  background: var(--postit-cor);
+  color: var(--postit-tinta);
+  border-radius: 4px 4px 4px 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 18px rgba(0, 0, 0, 0.28);
+  cursor: grab;
+  transition: box-shadow 0.15s ease, opacity 0.15s ease;
 }
 
-.pensamento-card--fixado {
-  border-color: var(--accent-soft);
-  background: var(--bg-elevated-2);
+.postit:hover {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 26px rgba(0, 0, 0, 0.38);
 }
 
-.pensamento-topo {
+.postit.is-arrastando {
+  cursor: grabbing;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35), 0 20px 40px rgba(0, 0, 0, 0.45);
+}
+
+.postit.is-fixado {
+  cursor: default;
+}
+
+.postit.is-editando {
+  cursor: default;
+  box-shadow: 0 0 0 2px var(--accent), 0 12px 26px rgba(0, 0, 0, 0.38);
+}
+
+/* Fora do filtro: continua no lugar, só recua. */
+.postit.is-apagado {
+  opacity: 0.18;
+}
+
+.postit-barra {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-  min-height: 22px;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 6px 0 12px;
+  flex-shrink: 0;
 }
 
-.pensamento-hora {
-  font-family: var(--font-mono);
+.postit-quando {
+  flex: 1;
+  min-width: 0;
   font-size: 10.5px;
-  color: var(--text-faint);
-}
-
-.pensamento-selo {
-  font-size: 9.5px;
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--success);
-  background: var(--success-soft);
-  border-radius: var(--radius-sm);
-  padding: 2px 6px;
+  opacity: 0.6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.pensamento-acoes {
-  margin-left: auto;
+.postit-acoes {
   display: flex;
   gap: 1px;
   opacity: 0;
   transition: opacity 0.14s ease;
 }
 
-.pensamento-card:hover .pensamento-acoes,
-.pensamento-acoes:focus-within {
+.postit:hover .postit-acoes,
+.postit.is-editando .postit-acoes,
+.postit:focus-within .postit-acoes {
   opacity: 1;
 }
 
-.pensamento-acao.is-ativo {
-  color: var(--accent);
-  opacity: 1;
-}
-
-.pensamento-card--fixado .pensamento-acoes {
-  opacity: 1;
-}
-
-.pensamento-acao--danger:hover {
-  color: var(--danger);
-  background: var(--danger-soft);
-}
-
-.pensamento-texto {
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--text);
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.pensamento-tag-inline {
-  color: var(--accent);
-}
-
-.pensamento-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-top: 8px;
-}
-
-.pensamento-chip {
-  font-family: var(--font-sans);
-  font-size: 10.5px;
-  color: var(--text-muted);
-  background: var(--bg-elevated-3);
-  border: 1px solid transparent;
-  border-radius: 999px;
-  padding: 3px 9px;
+.postit-acao {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
   cursor: pointer;
-  transition: color 0.12s ease, border-color 0.12s ease;
+  opacity: 0.7;
+  transition: background 0.12s ease, opacity 0.12s ease;
 }
 
-.pensamento-chip:hover {
-  color: var(--text);
-  border-color: var(--border);
-}
-
-.pensamento-chip.is-ativo {
-  color: var(--accent);
-  border-color: var(--accent-soft);
-  background: var(--accent-soft);
-}
-
-/* ---- Edição inline ---- */
-
-.pensamento-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.pensamento-editor-input {
-  width: 100%;
-  min-height: 80px;
-  resize: vertical;
-  padding: 9px 11px;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--text);
-  background: var(--bg);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius);
+.postit-acao:hover,
+.postit-acao:focus-visible {
+  opacity: 1;
+  background: color-mix(in srgb, var(--postit-tinta) 12%, transparent);
   outline: none;
 }
 
-.pensamento-editor-acoes {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
+.postit-acao.is-perigo:hover {
+  color: #b91c1c;
+  background: rgba(185, 28, 28, 0.14);
 }
 
-/* ---- Composer ---- */
-
-.pensamentos-composer {
-  flex-shrink: 0;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 10px 12px;
-  box-shadow: var(--shadow);
+/* O alfinete de quem está fixado fica sempre à vista: é estado, não só ação. */
+.postit.is-fixado .postit-acoes {
+  opacity: 1;
 }
 
-.pensamentos-composer-input {
-  width: 100%;
-  min-height: 38px;
-  max-height: 200px;
-  resize: none;
-  overflow-y: auto;
-  padding: 4px 0;
+.postit.is-fixado:not(:hover):not(.is-editando) .postit-acao:not(.is-ativo) {
+  display: none;
+}
+
+.postit-acao.is-ativo {
+  opacity: 1;
+}
+
+.postit-texto,
+.postit-editor {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 4px 14px 16px;
   font-family: var(--font-sans);
-  font-size: 13.5px;
-  line-height: 1.55;
-  color: var(--text);
+  font-size: 14px;
+  line-height: 1.45;
+  color: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: auto;
+}
+
+.postit-texto.is-vazio {
+  opacity: 0.45;
+  font-style: italic;
+}
+
+.postit-tag {
+  font-weight: 600;
+  padding: 0 3px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--postit-tinta) 10%, transparent);
+  cursor: pointer;
+}
+
+.postit-tag:hover {
+  background: color-mix(in srgb, var(--postit-tinta) 20%, transparent);
+}
+
+.postit-editor {
+  width: 100%;
   background: transparent;
   border: none;
   outline: none;
+  resize: none;
+  user-select: text;
+  cursor: text;
 }
 
-.pensamentos-composer-input::placeholder {
-  color: var(--text-faint);
+.postit-editor::placeholder {
+  color: inherit;
+  opacity: 0.45;
 }
 
-.pensamentos-sugestoes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+.postit-alca {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  opacity: 0;
+  background:
+    linear-gradient(135deg, transparent 55%, color-mix(in srgb, var(--postit-tinta) 35%, transparent) 55%, color-mix(in srgb, var(--postit-tinta) 35%, transparent) 62%, transparent 62%),
+    linear-gradient(135deg, transparent 75%, color-mix(in srgb, var(--postit-tinta) 35%, transparent) 75%, color-mix(in srgb, var(--postit-tinta) 35%, transparent) 82%, transparent 82%);
+  transition: opacity 0.14s ease;
 }
 
-.pensamentos-sugestoes:not(:empty) {
-  padding: 6px 0 2px;
+.postit:hover .postit-alca {
+  opacity: 1;
 }
 
-.pensamentos-sugestao {
-  font-family: var(--font-sans);
-  font-size: 10.5px;
-  color: var(--accent);
-  background: var(--accent-soft);
+/* ---- Paleta de cores (flutua no body, fora do zoom do quadro) ---- */
+
+.postit-paleta {
+  position: fixed;
+  z-index: 1000;
+  width: 196px;
+  padding: 10px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+.postit-paleta-grade {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.postit-amostra {
+  aspect-ratio: 1;
+  width: 100%;
+  padding: 0;
+  background: var(--amostra);
   border: none;
-  border-radius: 999px;
-  padding: 3px 9px;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.postit-amostra:hover,
+.postit-amostra:focus-visible {
+  transform: scale(1.12);
+  outline: none;
+}
+
+.postit-amostra.is-ativa {
+  box-shadow: 0 0 0 2px var(--bg-elevated-2), 0 0 0 4px var(--accent);
+}
+
+.postit-paleta-outra {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 12px;
+  color: var(--text-muted);
   cursor: pointer;
 }
 
-.pensamentos-sugestao:hover {
-  background: var(--accent-hover);
-  color: var(--accent-text);
+.postit-paleta-outra:hover {
+  color: var(--text);
 }
 
-.pensamentos-composer-rodape {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border-soft);
+.postit-paleta-outra input[type='color'] {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: none;
+  cursor: pointer;
 }
 
-.pensamentos-dica {
-  font-size: 10.5px;
-  color: var(--text-faint);
+.postit-paleta-outra input[type='color']::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.postit-paleta-outra input[type='color']::-webkit-color-swatch {
+  border: none;
+  border-radius: 3px;
 }

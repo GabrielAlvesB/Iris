@@ -11,12 +11,14 @@ TypeScript puro, **sem framework de UI e sem bundler**. O DOM é construído à 
 `document.createElement`. As únicas dependências de runtime são `sortablejs` (drag-and-drop),
 `ssh2` (comandos remotos) e `xlsx` (import/export de planilhas).
 
-Catorze módulos, organizados na sidebar por categoria:
+Dezesseis módulos, organizados na sidebar por categoria:
 
 - **soltos no topo**: Kanban
-- **Conteúdo**: Postagens (pipeline de conteúdo: vídeos, imagens), Relatórios (análises com PDF), Quadro
-- **Arquivos**: Biblioteca (id interno `explorador`), Sheets, Copy, Pensamentos, Links rápidos
+- **Conteúdo**: Postagens (pipeline de conteúdo: vídeos, imagens), Relatórios (análises com PDF),
+  Roteiros (escrever → revisar → aprovar; aprovado vira card no Kanban), Sheets
+- **Arquivos**: Biblioteca (id interno `explorador`), Quadro, Copy, Pensamentos, Links rápidos
 - **Sistema**: Servidores, n8n, GitHub
+- **Tráfego**: Tráfego pago (id `trafego`)
 - **soltos no rodapé**: Tutorial, Ajustes
 
 A fonte única dessa lista é [modulos.types.ts](src/shared/types/modulos.types.ts).
@@ -29,8 +31,9 @@ A fonte única dessa lista é [modulos.types.ts](src/shared/types/modulos.types.
 | `npm run dev` | `build` + `electron .` |
 | `npm start` | só `electron .` (exige `dist/` já compilado) |
 | `npx tsc -p tsconfig.json --noEmit` | checagem de tipos dos dois lados de uma vez, sem emitir |
-| `npm run dist` | instalador NSIS + portable em `release/` |
-| `npm run dist:portable` | só o executável portable |
+| `npm run dist` | instalador NSIS + pasta portátil em .zip em `release/` (apaga `release/` antes: só a versão atual fica) |
+| `npm run dist:portable` | só o .zip portátil |
+| `npm run release` | build + instalador/zip + **publica a release no GitHub** (precisa de `GH_TOKEN`) |
 
 Não há testes automatizados nem linter no projeto. A verificação é **compilar e rodar**.
 
@@ -174,6 +177,16 @@ não seria decifrável em outra máquina.
   da Biblioteca). O card desenha a proporção do formato no lugar da imagem. Hashtags da
   legenda saem de `hashtagsDoTexto` (só o que tem `#`), não de `extrairHashtags` (que lê
   um campo só de hashtags e trataria cada palavra como uma).
+- **Agenda automática** (`seguirAgenda`/`publicarVencidas` em `criarEtapas`): marcar data **e**
+  hora no futuro leva a postagem para `agendado`; tirar a data de uma agendada volta a `pronto`;
+  a tarefa `postagens:agenda` (30s, [postagens.agenda.ts](src/main/modules/postagens/postagens.agenda.ts))
+  publica as vencidas com `publicadoEm` = horário marcado e empurra `postagens:mudou`. Ano < 2000
+  é ignorado (o campo de data dispara `change` a cada dígito do ano).
+- Quem **chega** em `publicado` vai para o topo da etapa (`ordemAoEntrar`), por qualquer caminho
+  (painel, arrasto, agenda, restaurar): a mais recente primeiro.
+- `seq` de postagens, roteiros e relatórios é interno: não mostrar em card, painel, tabela nem
+  no PDF (o usuário pediu para tirar).
+- Fases da pipeline recolhem numa faixa estreita (localStorage `iris.postagens.fasesRecolhidas`).
 - Para abrir Postagens já num tipo/postagem a partir de outro módulo: `abrirPostagem()` de
   [navegacao.ts](src/renderer/core/navegacao.ts).
 
@@ -191,8 +204,55 @@ não seria decifrável em outra máquina.
   na prévia e no PDF. Para exportar, o renderer monta-o em `#impressao` e o main chama
   `printToPDF` na própria janela; [relatorios-impressao.css](src/renderer/styles/relatorios-impressao.css)
   esconde o resto no `@media print`. Não há janela oculta nem segundo gerador de HTML.
+- **Empresa por tags** (`relatorios.json` v3): `Relatorio.tagIds` são tags do catálogo único;
+  `tagsNomes` é a cópia por extenso, renovada **no main** ao criar/salvar
+  (`renovarNomesDasTags`) — apagar a tag não apaga a empresa do documento. O seletor
+  "Adicionar postagens" já abre filtrado por essas tags e um bloco de métricas novo as herda
+  (`filtroPadrao`). A lista de relatórios filtra por empresa. Textos extras do relatório:
+  `objetivos`, `recomendacoes` (Próximos passos), `observacoesFinais`.
+- **Blocos livres** (`relatorios.json` v2+): cada seção tem, na ordem, texto de abertura →
+  `blocos` (texto, destaque, tabela, métricas, texto + métrica (`analise`, indicadores
+  digitados), duas colunas, citação, quebra de página; editores em
+  [relatorios.blocos.ts](src/renderer/modules/relatorios/relatorios.blocos.ts)) → postagens
+  analisadas. Os textos aceitam `- ` (lista), `1. ` (lista numerada) e `**negrito**`
+  (`paragrafos()` do documento). Bloco novo = entrada em `BlocoRelatorio`, `migrateBloco` no
+  service, `buildBloco` no documento e `TIPOS_BLOCO`/editor.
+- **Bloco de métricas**: filtro (tipos, período, publicados/todos, redes, tags, prioridade) +
+  `resultado` gravado com `calculadoEm` — uma fotografia, como o snapshot dos itens; só muda
+  quando o filtro muda ou o usuário recalcula. Conta pela mesma regra da aba Métricas
+  (`dataParaMetricas` de postagens.metricas.ts). Nomes de rede/tag vão por extenso no resultado.
 - A **assinatura** fica em Ajustes (`ajustes.json` › `assinatura`); `buildAssinatura()` é o
   único lugar que a desenha. Categorias de marcação são editáveis por tipo.
+
+## Roteiros
+
+- `roteiros.json`: status `rascunho` → `revisao` → `aprovado`/`reprovado` (reprovar exige
+  motivo; editar um reprovado volta a rascunho), checklist de verificação (a padrão do arquivo
+  entra em todo roteiro novo) e histórico. Tags = catálogo único de Postagens.
+- `aprovarRoteiro` (main) cria o card na **primeira coluna** do Kanban via `kanbanService`,
+  com o roteiro na descrição; guarda `kanbanCardId` e não duplica se o card ainda existe.
+- O roteiro é **texto livre em markdown** (`Roteiro.texto`): `# título`, seções com tempo
+  (`## [0:00 - 0:50] Abertura`), notas de cena numa linha entre colchetes, `**NARRAÇÃO:**`,
+  listas, `---`. Renderização e índice de seções em
+  [roteiros.markdown.ts](src/renderer/modules/roteiros/roteiros.markdown.ts) (DOM, sem
+  innerHTML). Gancho/CTA/observações são opcionais. A estimativa de fala usa `textoFalado`
+  (tira títulos, cenas, rótulos, linhas de ficha e a parte de Fontes). Colar um roteiro na
+  criação tira título (`# …`) e duração ("Duração estimada:") do próprio texto.
+- O editor é um painel com a prévia ao lado; texto salva por `atualizarSilencioso` (sem
+  notificar, para não redesenhar sob o cursor) e a lista redesenha ao fechar.
+
+## Tráfego pago
+
+- `trafego.json`: contas (clientes, com tags e verba mensal), sites/páginas de destino e
+  campanhas (plataforma, objetivo, status, orçamento, público, criativos, links) com
+  `registros` diários — **um por dia**; salvar/importar um dia existente substitui.
+- CTR, CPC, CPM, CPA, taxa de conversão e ROAS **nunca são gravados**: `calcularMetricas(somar(…))`
+  de [trafego.types.ts](src/shared/types/trafego.types.ts). Razão com denominador zero é
+  `undefined` ("—"), não 0.
+- `importarRegistros` lê a primeira aba (CSV sem inferência de tipo; planilha com `cellDates`),
+  acha as colunas pelo nome (`COLUNAS` no service) e soma linhas do mesmo dia.
+- O quadro de campanhas usa sortablejs (`moverCampanha` renumera `ordem` da coluna). Classe de
+  status nas pílulas usa prefixo `st-`: `is-ativa` já é a classe de pílula marcada.
 
 ## Vídeos, Sheets e Biblioteca
 
@@ -209,7 +269,9 @@ não seria decifrável em outra máquina.
   nome + valor, editável no painel). Só vão as colunas que existem e estão marcadas no
   envio; as desmarcadas ficam em `mapeamentos[].extrasIgnorados` (guardamos as recusadas
   para coluna nova já vir marcada). Cada linha do Sheets tem botão próprio de envio.
-- Vídeos têm `prioridade` opcional (alta/média/baixa) e o arquivo guarda `preferencias` de
+- Vídeos têm `prioridade` opcional (alta/média/baixa), mapeável do Sheets (`parsePrioridade`
+  em videos.conversao.ts aceita "Alta", "média", "high", "urgente", "1"…; coluna "Prioridade"
+  que chegou antes como informação extra é promovida na leitura, como o score) e o arquivo guarda `preferencias` de
   exibição — inclusive `tituloDoCard`, que pode ser uma informação extra (ex.: "Tema") no
   lugar do título; use `tituloExibido()` de `postagens.ui.ts` em vez de `video.titulo` em
   qualquer card ou chip.
@@ -238,6 +300,24 @@ não seria decifrável em outra máquina.
   Vídeos referenciam recursos por id em `recursoIds`; órfãos são ignorados na tela.
 - Arquivo de `shared/types` importado **em runtime** pelo renderer precisa de imports com
   `.js` entre si (ex.: `videos.conversao.ts` → `./videos.types.js`); `import type` não precisa.
+
+## Atualização do app
+
+- Pelas **Releases do GitHub** (`GabrielAlvesB/Iris`, repositório público), sem electron-updater:
+  [atualizacao.service.ts](src/main/modules/atualizacao/atualizacao.service.ts) lê
+  `releases/latest` pelo httpClient, compara com `app.getVersion()` (`versaoMaior`), baixa o
+  `Iris-Setup-<versão>.exe`, confere o SHA-512 do `latest.yml` e roda o instalador com
+  `--updated /S --force-run` (as flags do NSIS do electron-builder: instala por cima e reabre).
+  Antes de fechar, `aguardarEscritas()` do jsonStore.
+- Só a instalação NSIS se atualiza (detectada pelo `Uninstall Iris.exe` ao lado do exe); o .zip
+  portátil e o `npm run dev` só avisam e abrem a página da release.
+- Verifica 12 s após abrir e a cada 6 h (tarefa `atualizacao:verificar`); estado por push
+  `atualizacao:estado`. UI: aviso na barra lateral ([core/atualizacao.ts](src/renderer/core/atualizacao.ts))
+  e Ajustes › Atualizações.
+- **Publicar versão nova**: subir `version` no package.json e `npm run release` com `GH_TOKEN`
+  (token com permissão de escrita no repositório). Sai como release publicada, não rascunho
+  (`releaseType: release`) — rascunho não aparece em `releases/latest`. O `nsis.artifactName`
+  sem espaços é o que o service procura (`/setup.*\.exe$/i`).
 
 ## Eventos push (main → renderer)
 
@@ -315,8 +395,25 @@ Quando a configuração muda na UI, chamar `reaplicarAgendamentos()` em vez de e
 - `strict` com `noUnusedLocals` e `noUnusedParameters` ligados: parâmetro não usado leva `_`
   na frente (`(_event, input) => …`).
 
+## Tempo de abertura
+
+- **Nada de portátil de arquivo único** (target `portable`): ele extrai ~230 MB em `%TEMP%` a
+  cada abertura, e o antivírus analisa o `Iris.exe` novo toda vez — ~17 s medidos. O portátil
+  é o `.zip` (pasta pronta, abre direto). `electronLanguages` mantém só pt-BR/en-US.
+- `app.ts` **importa cada módulo sob demanda** (`carregadores`); os outros são pré-carregados em
+  segundo plano depois da primeira tela. Módulo não pode ter efeito colateral no import.
+- No main, dependência pesada é carregada no primeiro uso: `ssh2` (~1 s de require) em
+  servidores.ssh.ts e `xlsx` nos services de Sheets e Tráfego. Não voltar para import no topo.
+- `startBackgroundServices()` roda depois do `did-finish-load` (watchers da Biblioteca e polls
+  não disputam com a primeira tela). A janela nasce com `backgroundColor` do tema.
+
 ## Armadilhas
 
+- **Testar sem mexer nos dados do usuário**: rode o Electron com `--user-data-dir=<pasta>`.
+  Trocar a variável `APPDATA` **não** isola no Windows (o Electron consulta a pasta pelo SO) e
+  grava direto em `%APPDATA%/iris/data`.
+- Sheets: a prévia da importação tem checkbox por coluna; o renderer filtra colunas e células
+  pelos mesmos índices e `commitImport` (que casa por posição) não muda.
 - `buildSegmentado` marca a aba ativa sozinho no clique; quem não redesenha não precisa
   fazer nada.
 - Para rodar o app pelo terminal integrado do VS Code, tire `ELECTRON_RUN_AS_NODE` do

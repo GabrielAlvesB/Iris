@@ -136,6 +136,8 @@ export async function criarImagem(input: CriarImagemInput): Promise<ImagensFile>
   aplicarCriacaoComum(imagem, input, videosService.getCatalogo());
   registrar(imagem, { tipo: 'criado', para: rotuloStatus(status) });
   file.imagens.push(imagem);
+  renumerar(file.imagens);
+  etapas.seguirAgenda(file.imagens, imagem);
 
   await saveFile(file);
   return file;
@@ -175,7 +177,12 @@ export async function atualizarImagem(input: AtualizarImagemInput): Promise<Imag
     imagem.hashtags = hashtagsDoTexto(input.legenda);
     alterados.push('legenda');
   }
-  if (input.status !== undefined && isImagemStatus(input.status)) etapas.trocarStatus(file.imagens, imagem, input.status);
+  if (input.status !== undefined && isImagemStatus(input.status)) {
+    etapas.trocarStatus(file.imagens, imagem, input.status);
+  } else if (alterados.includes('data') || alterados.includes('horário')) {
+    // Etapa escolhida à mão na mesma edição vence; senão a agenda decide.
+    etapas.seguirAgenda(file.imagens, imagem);
+  }
 
   registrarEdicao(imagem.historico, alterados, (e) => registrar(imagem, e));
   imagem.updatedAt = nowIso();
@@ -210,4 +217,12 @@ export async function excluirImagem(imagemId: string): Promise<ImagensFile> {
   renumerar(file.imagens);
   await saveFile(file);
   return file;
+}
+
+/** Chamado pela tarefa de fundo: publica as agendadas cujo horário chegou. */
+export async function publicarAgendadasVencidas(): Promise<number> {
+  const file = loadFile();
+  const publicadas = etapas.publicarVencidas(file.imagens);
+  if (publicadas > 0) await saveFile(file);
+  return publicadas;
 }

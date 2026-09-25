@@ -198,7 +198,9 @@ export async function createCard(input: CreateCardInput): Promise<KanbanBoard> {
     priority: input.priority,
     dueDate: input.dueDate,
     assignee: input.assignee,
-    subtasks: [],
+    subtasks: (input.subtasks ?? [])
+      .filter((s) => typeof s?.title === 'string' && s.title.trim())
+      .map((s) => ({ id: typeof s.id === 'string' && s.id ? s.id : randomUUID(), title: s.title.trim(), done: Boolean(s.done) })),
     columnId: input.columnId,
     order,
     seq,

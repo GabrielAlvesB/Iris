@@ -129,13 +129,41 @@ export const AJUSTES_CHANNELS = {
   setAssinatura: 'ajustes:setAssinatura',
 } as const;
 
+export const ROTEIROS_CHANNELS = {
+  getFile: 'roteiros:getFile',
+  criarRoteiro: 'roteiros:criarRoteiro',
+  atualizarRoteiro: 'roteiros:atualizarRoteiro',
+  mudarStatus: 'roteiros:mudarStatus',
+  aprovarRoteiro: 'roteiros:aprovarRoteiro',
+  excluirRoteiro: 'roteiros:excluirRoteiro',
+  duplicarRoteiro: 'roteiros:duplicarRoteiro',
+  salvarChecklistPadrao: 'roteiros:salvarChecklistPadrao',
+} as const;
+
+export const TRAFEGO_CHANNELS = {
+  getFile: 'trafego:getFile',
+  salvarConta: 'trafego:salvarConta',
+  excluirConta: 'trafego:excluirConta',
+  salvarSite: 'trafego:salvarSite',
+  excluirSite: 'trafego:excluirSite',
+  criarCampanha: 'trafego:criarCampanha',
+  atualizarCampanha: 'trafego:atualizarCampanha',
+  moverCampanha: 'trafego:moverCampanha',
+  excluirCampanha: 'trafego:excluirCampanha',
+  duplicarCampanha: 'trafego:duplicarCampanha',
+  salvarRegistro: 'trafego:salvarRegistro',
+  removerRegistro: 'trafego:removerRegistro',
+  importarRegistros: 'trafego:importarRegistros',
+} as const;
+
 export const PENSAMENTOS_CHANNELS = {
   getPensamentos: 'pensamentos:getPensamentos',
   createPensamento: 'pensamentos:createPensamento',
   updatePensamento: 'pensamentos:updatePensamento',
   deletePensamento: 'pensamentos:deletePensamento',
   togglePin: 'pensamentos:togglePin',
-  marcarPromovido: 'pensamentos:marcarPromovido',
+  moverPensamento: 'pensamentos:moverPensamento',
+  setViewport: 'pensamentos:setViewport',
 } as const;
 
 
@@ -175,4 +203,11 @@ export const RELATORIOS_CHANNELS = {
   salvarCategorias: 'relatorios:salvarCategorias',
   exportarPdf: 'relatorios:exportarPdf',
   abrirPdf: 'relatorios:abrirPdf',
+} as const;
+
+export const ATUALIZACAO_CHANNELS = {
+  getEstado: 'atualizacao:getEstado',
+  verificar: 'atualizacao:verificar',
+  atualizar: 'atualizacao:atualizar',
+  abrirPagina: 'atualizacao:abrirPagina',
 } as const;

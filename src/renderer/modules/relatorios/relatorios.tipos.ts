@@ -29,6 +29,8 @@ export interface OpcaoPostagem {
   status: string;
   etapa: string;
   dataAgendada?: string;
+  /** Ids do catálogo único — o filtro por empresa do relatório compara com eles. */
+  tagIds: string[];
   arquivada: boolean;
 }
 
@@ -96,6 +98,7 @@ export const ADAPTADORES: Record<TipoPostagem, AdaptadorRelatorio> = {
         status: v.status,
         etapa: rotuloStatus(v.status, VIDEO_STATUS),
         dataAgendada: v.dataAgendada,
+        tagIds: v.tagIds,
         arquivada: v.status === 'arquivado',
       })),
     snapshot: (id) => {
@@ -123,6 +126,7 @@ export const ADAPTADORES: Record<TipoPostagem, AdaptadorRelatorio> = {
         status: i.status,
         etapa: rotuloStatus(i.status, IMAGEM_STATUS),
         dataAgendada: i.dataAgendada,
+        tagIds: i.tagIds,
         arquivada: i.status === 'arquivado',
       })),
     snapshot: (id) => {

@@ -1,4 +1,5 @@
 import type { IpcResult } from './common.types';
+import type { EstadoAtualizacao } from './atualizacao.types';
 import type {
   CreateCardInput,
   CreateColumnInput,
@@ -102,12 +103,31 @@ import type {
   UpdateTableVisibilityInput,
 } from './sheets.types';
 import type { FileOpResult } from './export.types';
+import type {
+  AprovarRoteiroInput,
+  AtualizarRoteiroInput,
+  CriarRoteiroInput,
+  MudarStatusRoteiroInput,
+  RoteirosFile,
+} from './roteiros.types';
+import type {
+  AtualizarCampanhaInput,
+  CriarCampanhaInput,
+  ImportarRegistrosResult,
+  MoverCampanhaInput,
+  RemoverRegistroInput,
+  SalvarContaInput,
+  SalvarRegistroInput,
+  SalvarSiteInput,
+  TrafegoFile,
+} from './trafego.types';
 import type { CreateLinkInput, LinksFile, UpdateLinkInput } from './links.types';
 import type { CopyFile, CreateSnippetInput, ImportTxtResult, UpdateSnippetInput } from './copy.types';
 import type {
   CreatePensamentoInput,
-  MarcarPromovidoInput,
+  MoverPensamentoInput,
   PensamentosFile,
+  PensamentosViewport,
   UpdatePensamentoInput,
 } from './pensamentos.types';
 
@@ -205,6 +225,14 @@ export interface AjustesApi {
   setAssinatura(assinatura: AssinaturaRelatorio): Promise<IpcResult<AjustesInfo>>;
 }
 
+export interface AtualizacaoApi {
+  getEstado(): Promise<IpcResult<EstadoAtualizacao>>;
+  verificar(): Promise<IpcResult<EstadoAtualizacao>>;
+  /** Baixa, confere e instala; o app fecha e reabre na versão nova. */
+  atualizar(): Promise<IpcResult<EstadoAtualizacao>>;
+  abrirPagina(): Promise<IpcResult<void>>;
+}
+
 export interface EventsApi {
   /**
    * Assina um tópico de push. Guarde o retorno e chame-o no destroy() do
@@ -259,13 +287,43 @@ export interface CopyApi {
   importTxt(): Promise<IpcResult<ImportTxtResult>>;
 }
 
+export interface RoteirosApi {
+  getFile(): Promise<IpcResult<RoteirosFile>>;
+  criarRoteiro(input: CriarRoteiroInput): Promise<IpcResult<RoteirosFile>>;
+  atualizarRoteiro(input: AtualizarRoteiroInput): Promise<IpcResult<RoteirosFile>>;
+  mudarStatus(input: MudarStatusRoteiroInput): Promise<IpcResult<RoteirosFile>>;
+  /** Aprova e cria o card na 1ª coluna do Kanban (sem duplicar se ele já existe). */
+  aprovarRoteiro(input: AprovarRoteiroInput): Promise<IpcResult<RoteirosFile>>;
+  excluirRoteiro(roteiroId: string): Promise<IpcResult<RoteirosFile>>;
+  duplicarRoteiro(roteiroId: string): Promise<IpcResult<RoteirosFile>>;
+  salvarChecklistPadrao(itens: string[]): Promise<IpcResult<RoteirosFile>>;
+}
+
+export interface TrafegoApi {
+  getFile(): Promise<IpcResult<TrafegoFile>>;
+  salvarConta(input: SalvarContaInput): Promise<IpcResult<TrafegoFile>>;
+  excluirConta(contaId: string): Promise<IpcResult<TrafegoFile>>;
+  salvarSite(input: SalvarSiteInput): Promise<IpcResult<TrafegoFile>>;
+  excluirSite(siteId: string): Promise<IpcResult<TrafegoFile>>;
+  criarCampanha(input: CriarCampanhaInput): Promise<IpcResult<TrafegoFile>>;
+  atualizarCampanha(input: AtualizarCampanhaInput): Promise<IpcResult<TrafegoFile>>;
+  moverCampanha(input: MoverCampanhaInput): Promise<IpcResult<TrafegoFile>>;
+  excluirCampanha(campanhaId: string): Promise<IpcResult<TrafegoFile>>;
+  duplicarCampanha(campanhaId: string): Promise<IpcResult<TrafegoFile>>;
+  salvarRegistro(input: SalvarRegistroInput): Promise<IpcResult<TrafegoFile>>;
+  removerRegistro(input: RemoverRegistroInput): Promise<IpcResult<TrafegoFile>>;
+  /** Abre o diálogo de arquivo no main e importa a primeira aba para a campanha. */
+  importarRegistros(campanhaId: string): Promise<IpcResult<ImportarRegistrosResult>>;
+}
+
 export interface PensamentosApi {
   getPensamentos(): Promise<IpcResult<PensamentosFile>>;
   createPensamento(input: CreatePensamentoInput): Promise<IpcResult<PensamentosFile>>;
   updatePensamento(input: UpdatePensamentoInput): Promise<IpcResult<PensamentosFile>>;
   deletePensamento(pensamentoId: string): Promise<IpcResult<PensamentosFile>>;
   togglePin(pensamentoId: string): Promise<IpcResult<PensamentosFile>>;
-  marcarPromovido(input: MarcarPromovidoInput): Promise<IpcResult<PensamentosFile>>;
+  moverPensamento(input: MoverPensamentoInput): Promise<IpcResult<PensamentosFile>>;
+  setViewport(viewport: PensamentosViewport): Promise<IpcResult<PensamentosFile>>;
 }
 
 export interface VideosApi {
@@ -316,6 +374,8 @@ export interface IrisApi {
   links: LinksApi;
   copy: CopyApi;
   pensamentos: PensamentosApi;
+  roteiros: RoteirosApi;
+  trafego: TrafegoApi;
   explorador: ExploradorApi;
   servidores: ServidoresApi;
   n8n: N8nApi;
@@ -324,6 +384,7 @@ export interface IrisApi {
   videos: VideosApi;
   imagens: ImagensApi;
   relatorios: RelatoriosApi;
+  atualizacao: AtualizacaoApi;
   events: EventsApi;
 }
 

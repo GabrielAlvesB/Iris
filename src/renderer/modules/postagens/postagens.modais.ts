@@ -503,10 +503,6 @@ export function abrirExibicao(): void {
         titulo.textContent = tituloExibido({ ...file, preferencias: prefs }, exemplo);
         const topo = document.createElement('div');
         topo.className = 'vd-card-topo';
-        const seq = document.createElement('span');
-        seq.className = 'vd-seq';
-        seq.textContent = `#${exemplo.seq}`;
-        topo.appendChild(seq);
         if (exemplo.prioridade) topo.appendChild(buildPrioridade(exemplo.prioridade));
         if (prefs.mostrarScore && exemplo.score !== undefined) topo.appendChild(buildScore(exemplo.score, true));
         const redesEl = document.createElement('span');

@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { Client } from 'ssh2';
+import type * as Ssh2 from 'ssh2';
 import { broadcast } from '../../core/broadcast';
 import type { ComandoSalvo, ServidorSsh } from '../../../shared/types/servidores.types';
 
@@ -15,6 +15,17 @@ const TIMEOUT_CONEXAO_MS = 15_000;
 const TIMEOUT_COMANDO_MS = 60_000;
 /** Teto de saída por execução: um `tail` distraído não pode estourar o IPC. */
 const MAX_SAIDA_BYTES = 200_000;
+
+/**
+ * ssh2 só é carregado no primeiro comando: sozinho ele custa ~1 s de require
+ * (cripto, cpu-features), e estava pesando na abertura do app para todo mundo,
+ * mesmo quem nunca abre Servidores.
+ */
+let ssh2: typeof Ssh2 | null = null;
+function carregarSsh2(): typeof Ssh2 {
+  ssh2 ??= require('ssh2') as typeof Ssh2;
+  return ssh2;
+}
 
 function emitir(
   servidorId: string,
@@ -49,7 +60,7 @@ export function rodarComandoSsh(
       return;
     }
 
-    const conn = new Client();
+    const conn = new (carregarSsh2().Client)();
     let enviados = 0;
     let encerrado = false;
     let timerComando: NodeJS.Timeout | null = null;

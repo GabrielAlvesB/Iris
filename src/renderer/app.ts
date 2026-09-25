@@ -1,34 +1,9 @@
-import * as kanbanState from './modules/kanban/kanban.state.js';
-import * as kanbanView from './modules/kanban/kanban.view.js';
-import * as quadroState from './modules/quadro/quadro.state.js';
-import * as quadroView from './modules/quadro/quadro.view.js';
-import * as sheetsState from './modules/sheets/sheets.state.js';
-import * as sheetsView from './modules/sheets/sheets.view.js';
-import * as linksState from './modules/links/links.state.js';
-import * as linksView from './modules/links/links.view.js';
-import * as copyState from './modules/copy/copy.state.js';
-import * as copyView from './modules/copy/copy.view.js';
-import * as pensamentosState from './modules/pensamentos/pensamentos.state.js';
-import * as pensamentosView from './modules/pensamentos/pensamentos.view.js';
-import * as exploradorState from './modules/explorador/explorador.state.js';
-import * as exploradorView from './modules/explorador/explorador.view.js';
-import * as servidoresState from './modules/servidores/servidores.state.js';
-import * as servidoresView from './modules/servidores/servidores.view.js';
-import * as n8nState from './modules/n8n/n8n.state.js';
-import * as n8nView from './modules/n8n/n8n.view.js';
-import * as ajustesState from './modules/ajustes/ajustes.state.js';
-import * as ajustesView from './modules/ajustes/ajustes.view.js';
-import * as githubState from './modules/github/github.state.js';
-import * as githubView from './modules/github/github.view.js';
-import * as tutorialState from './modules/tutorial/tutorial.state.js';
-import * as tutorialView from './modules/tutorial/tutorial.view.js';
-import * as postagensView from './modules/postagens/postagens.view.js';
-import * as relatoriosView from './modules/relatorios/relatorios.view.js';
 import { registrarAtendente } from './core/navegacao.js';
+import { iniciarAtualizacao } from './core/atualizacao.js';
 import { marcarAtivo, montarSidebar } from './core/sidebar.js';
-import { MODULO_PADRAO, isModuloId, type ModuloId } from '../shared/types/modulos.types.js';
+import { MODULOS, MODULO_PADRAO, isModuloId, type ModuloId } from '../shared/types/modulos.types.js';
 
-// O Record abaixo obriga todo módulo do catálogo a ter mount/destroy.
+// O Record abaixo obriga todo módulo do catálogo a ter um carregador.
 type ModuleName = ModuloId;
 
 interface AppModule {
@@ -36,157 +11,248 @@ interface AppModule {
   destroy(): void;
 }
 
-const modules: Record<ModuleName, AppModule> = {
-  kanban: {
-    mount(viewRoot) {
-      kanbanState.onBoardChange((board) => kanbanView.render(viewRoot, board));
-      void kanbanState.loadBoard();
-    },
-    destroy() {
-      kanbanView.destroy();
-      kanbanState.offBoardChange();
-    },
+/**
+ * Cada módulo é importado só quando é aberto pela primeira vez. Importar os
+ * dezesseis de saída (~100 arquivos JS servidos pelo esquema app://) atrasava
+ * a primeira tela; agora a abertura carrega o núcleo + o módulo inicial, e os
+ * outros são pré-carregados em segundo plano depois que a tela já apareceu.
+ */
+const carregadores: Record<ModuleName, () => Promise<AppModule>> = {
+  kanban: async () => {
+    const [state, view] = await Promise.all([import('./modules/kanban/kanban.state.js'), import('./modules/kanban/kanban.view.js')]);
+    return {
+      mount(viewRoot) {
+        state.onBoardChange((board) => view.render(viewRoot, board));
+        void state.loadBoard();
+      },
+      destroy() {
+        view.destroy();
+        state.offBoardChange();
+      },
+    };
   },
-  postagens: {
-    mount(viewRoot) {
-      // Vários tipos, vários arquivos: a própria tela assina os states e carrega.
-      postagensView.montar(viewRoot);
-    },
-    destroy() {
-      postagensView.destroy();
-    },
+  // Vários tipos, vários arquivos: a própria tela assina os states e carrega.
+  postagens: async () => {
+    const view = await import('./modules/postagens/postagens.view.js');
+    return { mount: (viewRoot) => view.montar(viewRoot), destroy: () => view.destroy() };
   },
-  relatorios: {
-    mount(viewRoot) {
-      relatoriosView.montar(viewRoot);
-    },
-    destroy() {
-      relatoriosView.destroy();
-    },
+  relatorios: async () => {
+    const view = await import('./modules/relatorios/relatorios.view.js');
+    return { mount: (viewRoot) => view.montar(viewRoot), destroy: () => view.destroy() };
   },
-  quadro: {
-    mount(viewRoot) {
-      quadroState.onStateChange((state) => quadroView.render(viewRoot, state));
-      void quadroState.loadState();
-    },
-    destroy() {
-      quadroView.destroy();
-    },
+  roteiros: async () => {
+    const view = await import('./modules/roteiros/roteiros.view.js');
+    return { mount: (viewRoot) => view.montar(viewRoot), destroy: () => view.destroy() };
   },
-  explorador: {
-    mount(viewRoot) {
-      exploradorState.onStateChange((state) => exploradorView.render(viewRoot, state));
-      void exploradorState.carregarTudo();
-    },
-    destroy() {
-      exploradorView.destroy();
-      exploradorState.offStateChange();
-    },
+  trafego: async () => {
+    const view = await import('./modules/trafego/trafego.view.js');
+    return { mount: (viewRoot) => view.montar(viewRoot), destroy: () => view.destroy() };
   },
-  sheets: {
-    mount(viewRoot) {
-      sheetsState.onStateChange((state) => sheetsView.render(viewRoot, state));
-      void sheetsState.loadFile();
-    },
-    destroy() {
-      sheetsView.destroy();
-    },
+  quadro: async () => {
+    const [state, view] = await Promise.all([import('./modules/quadro/quadro.state.js'), import('./modules/quadro/quadro.view.js')]);
+    return {
+      mount(viewRoot) {
+        state.onStateChange((s) => view.render(viewRoot, s));
+        void state.loadState();
+      },
+      destroy() {
+        view.destroy();
+      },
+    };
   },
-  links: {
-    mount(viewRoot) {
-      linksState.onStateChange((state) => linksView.render(viewRoot, state));
-      void linksState.loadLinks();
-    },
-    destroy() {
-      linksView.destroy();
-    },
+  explorador: async () => {
+    const [state, view] = await Promise.all([import('./modules/explorador/explorador.state.js'), import('./modules/explorador/explorador.view.js')]);
+    return {
+      mount(viewRoot) {
+        state.onStateChange((s) => view.render(viewRoot, s));
+        void state.carregarTudo();
+      },
+      destroy() {
+        view.destroy();
+        state.offStateChange();
+      },
+    };
   },
-  copy: {
-    mount(viewRoot) {
-      copyState.onStateChange((state) => copyView.render(viewRoot, state));
-      void copyState.loadSnippets();
-    },
-    destroy() {
-      copyView.destroy();
-      copyState.offStateChange();
-    },
+  sheets: async () => {
+    const [state, view] = await Promise.all([import('./modules/sheets/sheets.state.js'), import('./modules/sheets/sheets.view.js')]);
+    return {
+      mount(viewRoot) {
+        state.onStateChange((s) => view.render(viewRoot, s));
+        void state.loadFile();
+      },
+      destroy() {
+        view.destroy();
+      },
+    };
   },
-  pensamentos: {
-    mount(viewRoot) {
-      pensamentosState.onStateChange((state) => pensamentosView.render(viewRoot, state));
-      void pensamentosState.loadPensamentos();
-    },
-    destroy() {
-      pensamentosView.destroy();
-      pensamentosState.offStateChange();
-    },
+  links: async () => {
+    const [state, view] = await Promise.all([import('./modules/links/links.state.js'), import('./modules/links/links.view.js')]);
+    return {
+      mount(viewRoot) {
+        state.onStateChange((s) => view.render(viewRoot, s));
+        void state.loadLinks();
+      },
+      destroy() {
+        view.destroy();
+      },
+    };
   },
-  servidores: {
-    mount(viewRoot) {
-      servidoresState.onStateChange((state) => servidoresView.render(viewRoot, state));
-      void servidoresState.loadState();
-    },
-    destroy() {
-      servidoresView.destroy();
-      servidoresState.offStateChange();
-    },
+  copy: async () => {
+    const [state, view] = await Promise.all([import('./modules/copy/copy.state.js'), import('./modules/copy/copy.view.js')]);
+    return {
+      mount(viewRoot) {
+        state.onStateChange((s) => view.render(viewRoot, s));
+        void state.loadSnippets();
+      },
+      destroy() {
+        view.destroy();
+        state.offStateChange();
+      },
+    };
   },
-  n8n: {
-    mount(viewRoot) {
-      n8nState.onStateChange((state) => n8nView.render(viewRoot, state));
-      void n8nState.load().then(() => {
-        // Busca dados frescos ao abrir, sem precisar encurtar o intervalo do poll.
-        void n8nState.atualizarAgora().catch(() => undefined);
-      });
-    },
-    destroy() {
-      n8nView.destroy();
-      n8nState.offStateChange();
-    },
+  pensamentos: async () => {
+    const [state, view] = await Promise.all([import('./modules/pensamentos/pensamentos.state.js'), import('./modules/pensamentos/pensamentos.view.js')]);
+    return {
+      mount(viewRoot) {
+        state.onStateChange((s) => view.render(viewRoot, s));
+        void state.loadPensamentos();
+      },
+      destroy() {
+        view.destroy();
+        state.offStateChange();
+      },
+    };
   },
-  github: {
-    mount(viewRoot) {
-      githubState.onStateChange((state) => githubView.render(viewRoot, state));
-      void githubState.load();
-    },
-    destroy() {
-      githubView.destroy();
-      githubState.offStateChange();
-    },
+  servidores: async () => {
+    const [state, view] = await Promise.all([import('./modules/servidores/servidores.state.js'), import('./modules/servidores/servidores.view.js')]);
+    return {
+      mount(viewRoot) {
+        state.onStateChange((s) => view.render(viewRoot, s));
+        void state.loadState();
+      },
+      destroy() {
+        view.destroy();
+        state.offStateChange();
+      },
+    };
   },
-  tutorial: {
-    mount(viewRoot) {
-      tutorialState.onStateChange((state) => tutorialView.render(viewRoot, state));
-      // Desenha na hora com o estado atual e confere em seguida, para a tela
-      // não ficar em branco esperando as verificações.
-      tutorialView.render(viewRoot, tutorialState.getCurrentState());
-      void tutorialState.conferir();
-    },
-    destroy() {
-      tutorialView.destroy();
-      tutorialState.offStateChange();
-    },
+  n8n: async () => {
+    const [state, view] = await Promise.all([import('./modules/n8n/n8n.state.js'), import('./modules/n8n/n8n.view.js')]);
+    return {
+      mount(viewRoot) {
+        state.onStateChange((s) => view.render(viewRoot, s));
+        void state.load().then(() => {
+          // Busca dados frescos ao abrir, sem precisar encurtar o intervalo do poll.
+          void state.atualizarAgora().catch(() => undefined);
+        });
+      },
+      destroy() {
+        view.destroy();
+        state.offStateChange();
+      },
+    };
   },
-  ajustes: {
-    mount(viewRoot) {
-      ajustesState.onStateChange((state) => ajustesView.render(viewRoot, state));
-      void ajustesState.load();
-    },
-    destroy() {
-      ajustesView.destroy();
-      ajustesState.offStateChange();
-    },
+  github: async () => {
+    const [state, view] = await Promise.all([import('./modules/github/github.state.js'), import('./modules/github/github.view.js')]);
+    return {
+      mount(viewRoot) {
+        state.onStateChange((s) => view.render(viewRoot, s));
+        void state.load();
+      },
+      destroy() {
+        view.destroy();
+        state.offStateChange();
+      },
+    };
+  },
+  tutorial: async () => {
+    const [state, view] = await Promise.all([import('./modules/tutorial/tutorial.state.js'), import('./modules/tutorial/tutorial.view.js')]);
+    return {
+      mount(viewRoot) {
+        state.onStateChange((s) => view.render(viewRoot, s));
+        // Desenha na hora com o estado atual e confere em seguida, para a tela
+        // não ficar em branco esperando as verificações.
+        view.render(viewRoot, state.getCurrentState());
+        void state.conferir();
+      },
+      destroy() {
+        view.destroy();
+        state.offStateChange();
+      },
+    };
+  },
+  ajustes: async () => {
+    const [state, view] = await Promise.all([import('./modules/ajustes/ajustes.state.js'), import('./modules/ajustes/ajustes.view.js')]);
+    return {
+      mount(viewRoot) {
+        state.onStateChange((s) => view.render(viewRoot, s));
+        void state.load();
+      },
+      destroy() {
+        view.destroy();
+        state.offStateChange();
+      },
+    };
   },
 };
 
-let currentModule: ModuleName | null = null;
+/** Um carregamento por módulo: a promessa fica guardada e serve às próximas aberturas. */
+const cache = new Map<ModuleName, Promise<AppModule>>();
+function carregar(nome: ModuleName): Promise<AppModule> {
+  let p = cache.get(nome);
+  if (!p) {
+    p = carregadores[nome]();
+    // Falhou (arquivo faltando no build, erro de sintaxe): deixa tentar de novo no próximo clique.
+    p.catch(() => cache.delete(nome));
+    cache.set(nome, p);
+  }
+  return p;
+}
 
-function switchModule(name: ModuleName, viewRoot: HTMLElement): void {
+let currentModule: ModuleName | null = null;
+let montado: AppModule | null = null;
+/** Cresce a cada troca: um carregamento lento que termina depois de outra troca não monta nada. */
+let pedido = 0;
+
+async function switchModule(name: ModuleName, viewRoot: HTMLElement): Promise<void> {
   if (currentModule === name) return;
-  if (currentModule) modules[currentModule].destroy();
+  montado?.destroy();
+  montado = null;
   currentModule = name;
   viewRoot.innerHTML = '';
-  modules[name].mount(viewRoot);
+  const meu = ++pedido;
+  try {
+    const modulo = await carregar(name);
+    if (meu !== pedido) return;
+    montado = modulo;
+    modulo.mount(viewRoot);
+  } catch (erro) {
+    if (meu !== pedido) return;
+    currentModule = null;
+    const aviso = document.createElement('p');
+    aviso.className = 'md-vazio';
+    aviso.textContent = `Não foi possível abrir esta área: ${erro instanceof Error ? erro.message : String(erro)}`;
+    viewRoot.replaceChildren(aviso);
+  }
+}
+
+/** Depois da primeira tela, carrega os outros módulos devagar, um por vez, sem disputar com a interação. */
+function preCarregarRestantes(): void {
+  const fila = MODULOS.map((m) => m.id).filter((id) => !cache.has(id));
+  const proximo = (): void => {
+    const nome = fila.shift();
+    if (!nome) return;
+    void carregar(nome)
+      .catch(() => undefined)
+      .then(() => agendar());
+  };
+  const agendar = (): void => {
+    if (!fila.length) return;
+    if ('requestIdleCallback' in window) window.requestIdleCallback(proximo, { timeout: 2000 });
+    else setTimeout(proximo, 50);
+  };
+  // Pequena folga: a primeira tela ainda está buscando os dados dela.
+  setTimeout(agendar, 1500);
 }
 
 function bootstrap(): void {
@@ -196,13 +262,13 @@ function bootstrap(): void {
 
   const abrir = (nome: ModuleName): void => {
     marcarAtivo(nome);
-    switchModule(nome, viewRoot);
+    void switchModule(nome, viewRoot);
   };
 
   montarSidebar(navRoot, abrir);
+  iniciarAtualizacao();
 
-  // Permite que um módulo peça navegação sem importar este arquivo de volta
-  // (o que criaria ciclo, já que app.ts importa todos eles).
+  // Permite que um módulo peça navegação sem importar este arquivo de volta.
   registrarAtendente((modulo) => {
     if (isModuloId(modulo)) abrir(modulo);
   });
@@ -211,7 +277,8 @@ function bootstrap(): void {
   void window.irisAPI.ajustes
     .getAjustes()
     .then((result) => abrir(result.ok && isModuloId(result.data.moduloInicial) ? result.data.moduloInicial : MODULO_PADRAO))
-    .catch(() => abrir(MODULO_PADRAO));
+    .catch(() => abrir(MODULO_PADRAO))
+    .finally(preCarregarRestantes);
 }
 
 document.addEventListener('DOMContentLoaded', bootstrap);

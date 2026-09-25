@@ -66,9 +66,20 @@
 
 /* ---- Pipeline ---- */
 
+/*
+ * Altura fixa da pipeline: cabe uns três cards completos por coluna (~170px
+ * cada) e o resto rola dentro da coluna. Não acompanha a janela — ocupando a
+ * altura toda, as colunas ficavam longas demais para ler. Em janela baixa,
+ * a página rola em vez de espremer as colunas.
+ */
+.vd-view.is-pipeline {
+  height: auto;
+  min-height: 100%;
+}
+
 .vd-pipeline {
-  flex: 1;
-  min-height: 0;
+  flex: none;
+  height: 580px;
   display: flex;
   gap: 18px;
   overflow-x: auto;
@@ -107,6 +118,78 @@
   height: 2px;
   border-radius: 2px;
   background: linear-gradient(90deg, color-mix(in oklch, var(--fase) 55%, transparent), transparent);
+}
+
+/* Fases recolhíveis: o título vira botão, e a fase recolhida é uma faixa estreita. */
+.vd-fase-titulo.is-botao {
+  font-family: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  border-radius: var(--radius);
+}
+
+.vd-fase-titulo.is-botao:hover { color: var(--text-muted); }
+.vd-fase-titulo.is-botao:focus-visible { outline: 2px solid var(--fase); outline-offset: 2px; }
+
+.vd-fase-titulo.is-botao svg {
+  flex-shrink: 0;
+  transform: rotate(90deg);
+  transition: transform 0.15s ease;
+}
+
+.vd-fase.is-recolhida .vd-fase-titulo svg { transform: none; }
+.vd-fase.is-recolhida .vd-fase-titulo span,
+.vd-fase.is-recolhida .vd-fase-titulo::after { display: none; }
+
+.vd-fase-faixa {
+  flex: 1;
+  min-height: 0;
+  width: 46px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  font-family: inherit;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-top: 2px solid color-mix(in oklch, var(--fase) 70%, transparent);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.vd-fase-faixa:hover { background: color-mix(in oklch, var(--fase) 8%, var(--bg-elevated)); }
+.vd-fase-faixa:focus-visible { outline: 2px solid var(--fase); outline-offset: 2px; }
+
+.vd-fase-faixa-total {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.vd-fase-faixa-nome,
+.vd-fase-faixa-etapas {
+  writing-mode: vertical-rl;
+  white-space: nowrap;
+}
+
+.vd-fase-faixa-nome {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+
+.vd-fase-faixa-etapas {
+  display: flex;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--text-faint);
 }
 
 .vd-fase-colunas {

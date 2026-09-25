@@ -827,37 +827,77 @@ function buildHomeScreen(container: HTMLElement, state: SheetsFile): void {
   }
 }
 
-function buildTablePreview(columns: { label: string }[], rows: string[][]): HTMLElement {
+/** Poucas linhas bastam para reconhecer cada coluna: a prévia serve para escolher, não para ler. */
+const LINHAS_DA_PREVIA = 3;
+
+/**
+ * Prévia com um checkbox em cada título de coluna. `marcadas` é mutado aqui mesmo
+ * (quem chamou lê o array ao confirmar); `aoMudar` só avisa para atualizar contadores.
+ */
+function buildTablePreview(
+  columns: { label: string }[],
+  rows: string[][],
+  marcadas: boolean[],
+  aoMudar: () => void,
+): { el: HTMLElement; sincronizar: () => void } {
   const wrap = document.createElement('div');
   wrap.className = 'sheets-preview-table-wrap';
   const table = document.createElement('table');
   table.className = 'sheets-preview-table';
 
+  const caixas: HTMLInputElement[] = [];
+  const celulasPorColuna: HTMLElement[][] = columns.map(() => []);
+
   const thead = document.createElement('thead');
   const headRow = document.createElement('tr');
-  columns.forEach((c) => {
+  columns.forEach((c, index) => {
     const th = document.createElement('th');
-    th.textContent = c.label || '(Sem nome)';
+    const rotulo = document.createElement('label');
+    rotulo.className = 'sheets-preview-coluna';
+    const caixa = document.createElement('input');
+    caixa.type = 'checkbox';
+    caixa.title = 'Levar esta coluna para a tabela';
+    caixa.addEventListener('change', () => {
+      marcadas[index] = caixa.checked;
+      sincronizar();
+      aoMudar();
+    });
+    caixas.push(caixa);
+    const nome = document.createElement('span');
+    nome.textContent = c.label || '(Sem nome)';
+    rotulo.append(caixa, nome);
+    th.appendChild(rotulo);
+    celulasPorColuna[index].push(th);
     headRow.appendChild(th);
   });
   thead.appendChild(headRow);
   table.appendChild(thead);
 
   const tbody = document.createElement('tbody');
-  rows.slice(0, 5).forEach((row) => {
+  rows.slice(0, LINHAS_DA_PREVIA).forEach((row) => {
     const tr = document.createElement('tr');
     columns.forEach((_, index) => {
       const td = document.createElement('td');
       const val = row[index] ?? '';
       td.textContent = truncateText(val, 200);
       td.title = val;
+      celulasPorColuna[index].push(td);
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
   });
   table.appendChild(tbody);
   wrap.appendChild(table);
-  return wrap;
+
+  function sincronizar(): void {
+    caixas.forEach((caixa, index) => {
+      caixa.checked = marcadas[index];
+      celulasPorColuna[index].forEach((cel) => cel.classList.toggle('is-coluna-fora', !marcadas[index]));
+    });
+  }
+  sincronizar();
+
+  return { el: wrap, sincronizar };
 }
 
 function buildImportSelectionScreen(container: HTMLElement, detected: DetectImportResult): void {
@@ -912,6 +952,7 @@ function buildImportSelectionScreen(container: HTMLElement, detected: DetectImpo
     selected: true,
     visible: true,
     tableName: sheet.sheetName,
+    colunas: sheet.columns.map(() => true),
     cardEl: null as HTMLElement | null,
     checkboxEl: null as HTMLInputElement | null,
   }));
@@ -987,10 +1028,34 @@ function buildImportSelectionScreen(container: HTMLElement, detected: DetectImpo
 
     const meta = document.createElement('div');
     meta.className = 'sheets-card-meta';
-    meta.textContent = `${entry.sheet.columns.length} coluna(s) · ${entry.sheet.rows.length} linha(s) detectadas`;
+    const metaTexto = document.createElement('span');
+    const atualizarMeta = (): void => {
+      const marcadas = entry.colunas.filter(Boolean).length;
+      metaTexto.textContent = `${marcadas} de ${entry.colunas.length} coluna(s) selecionada(s) · ${entry.sheet.rows.length} linha(s) detectadas`;
+      meta.classList.toggle('is-alerta', marcadas === 0);
+    };
+    const previa = buildTablePreview(entry.sheet.columns, entry.sheet.rows, entry.colunas, atualizarMeta);
+
+    const acoesColunas = document.createElement('span');
+    acoesColunas.className = 'sheets-card-meta-acoes';
+    const botaoColunas = (texto: string, valor: boolean): HTMLButtonElement => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'sheets-link-btn';
+      btn.textContent = texto;
+      btn.addEventListener('click', () => {
+        entry.colunas.fill(valor);
+        previa.sincronizar();
+        atualizarMeta();
+      });
+      return btn;
+    };
+    acoesColunas.append(botaoColunas('Marcar todas as colunas', true), botaoColunas('Desmarcar todas', false));
+    meta.append(metaTexto, acoesColunas);
+    atualizarMeta();
     card.appendChild(meta);
 
-    card.appendChild(buildTablePreview(entry.sheet.columns, entry.sheet.rows));
+    card.appendChild(previa.el);
 
     cardsWrap.appendChild(card);
   });
@@ -1017,13 +1082,26 @@ function buildImportSelectionScreen(container: HTMLElement, detected: DetectImpo
       void openAvisoModal('Nada selecionado', 'Selecione pelo menos uma tabela para importar.');
       return;
     }
-    const selections: CommitImportSelection[] = chosen.map((entry) => ({
-      sheetName: entry.sheet.sheetName,
-      tableName: entry.tableName.trim() || entry.sheet.sheetName,
-      visible: entry.visible,
-      columns: entry.sheet.columns,
-      rows: entry.sheet.rows,
-    }));
+    const semColuna = chosen.find((entry) => !entry.colunas.some(Boolean));
+    if (semColuna) {
+      void openAvisoModal(
+        'Tabela sem colunas',
+        `"${semColuna.tableName.trim() || semColuna.sheet.sheetName}" está sem nenhuma coluna marcada. Marque ao menos uma ou desmarque a tabela.`,
+      );
+      return;
+    }
+    // commitImport casa célula e coluna pela posição: filtrar as duas pelos mesmos
+    // índices basta, e o main não precisa saber que houve escolha.
+    const selections: CommitImportSelection[] = chosen.map((entry) => {
+      const indices = entry.colunas.flatMap((marcada, index) => (marcada ? [index] : []));
+      return {
+        sheetName: entry.sheet.sheetName,
+        tableName: entry.tableName.trim() || entry.sheet.sheetName,
+        visible: entry.visible,
+        columns: indices.map((i) => entry.sheet.columns[i]),
+        rows: entry.sheet.rows.map((row) => indices.map((i) => row[i] ?? '')),
+      };
+    });
     void sheetsState.commitImport({ fileName: detected.fileName, selections }).then(() => {
       importFlow = { status: 'idle' };
       refresh();

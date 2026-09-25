@@ -1,6 +1,6 @@
 {
   "name": "iris",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Iris — assistente pessoal de tarefas e organização de conteúdo (100% local)",
   "private": true,
   "main": "dist/main/main.js",
@@ -12,14 +12,20 @@
     "build": "npm run clean && npm run build:main && npm run build:renderer && npm run copy-static",
     "start": "electron .",
     "dev": "npm run build && npm run start",
-    "dist": "npm run build && electron-builder",
-    "dist:portable": "npm run build && electron-builder --win portable",
-    "dist:dir": "npm run build && electron-builder --dir"
+    "dist": "npm run build && npm run clean:release && electron-builder",
+    "dist:portable": "npm run build && npm run clean:release && electron-builder --win zip",
+    "dist:dir": "npm run build && npm run clean:release && electron-builder --dir",
+    "release": "npm run build && npm run clean:release && electron-builder --win --publish always",
+    "clean:release": "node scripts/clean-release.mjs"
   },
   "build": {
     "appId": "com.iris.app",
     "productName": "Iris",
     "npmRebuild": false,
+    "electronLanguages": [
+      "pt-BR",
+      "en-US"
+    ],
     "directories": {
       "output": "release"
     },
@@ -37,7 +43,7 @@
           ]
         },
         {
-          "target": "portable",
+          "target": "zip",
           "arch": [
             "x64"
           ]
@@ -50,8 +56,17 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Iris"
-    }
+      "shortcutName": "Iris",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "GabrielAlvesB",
+        "repo": "Iris",
+        "releaseType": "release"
+      }
+    ]
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

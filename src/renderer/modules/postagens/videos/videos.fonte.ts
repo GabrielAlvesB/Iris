@@ -92,7 +92,9 @@ export function montarFonteVideos(file: VideosFile): Fonte {
     catalogo: file,
     textoBusca: (item) => {
       const v = comoVideo(item);
-      return [v.descricao, ...v.hashtags.map((h) => `#${h}`)].join(' ');
+      // A planilha de origem entra na busca: digitar o nome dela acha os vídeos que vieram de lá.
+      const origemTexto = v.origem ? [v.origem.arquivoNome, v.origem.abaNome, v.origem.tabelaNome] : [];
+      return [v.descricao, ...v.hashtags.map((h) => `#${h}`), ...origemTexto.filter(Boolean)].join(' ');
     },
     criarRapido: (titulo, status) => videosState.criarVideo({ titulo, status: status as VideoStatus }),
     mover: (id, status, indice) => videosState.moverVideo({ videoId: id, status: status as VideoStatus, indice }),

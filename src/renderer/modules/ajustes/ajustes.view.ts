@@ -4,6 +4,15 @@ import * as ajustesState from './ajustes.state.js';
 import type { AjustesViewState } from './ajustes.state.js';
 import * as exportacaoView from '../exportacao/exportacao.view.js';
 import { abrirTutorial, consumirSecaoAjustes, type GuiaId } from '../../core/navegacao.js';
+import {
+  ICONE_ATUALIZACAO,
+  abrirPaginaDaRelease,
+  atualizarAgora,
+  getEstadoAtualizacao,
+  onAtualizacao,
+  verificarAgora,
+} from '../../core/atualizacao.js';
+import type { EstadoAtualizacao } from '../../../shared/types/atualizacao.types.js';
 import { buildAssinatura } from '../relatorios/relatorios.documento.js';
 import {
   assinarSidebar,
@@ -16,10 +25,12 @@ import {
 } from '../../core/sidebar.js';
 import { ICONES, buildAviso, buildBotao, buildCabecalho, buildSelo, svg, type Tom } from '../../ui/pagina.js';
 
-type Secao = 'n8n' | 'github' | 'credenciais' | 'preferencias' | 'relatorios' | 'backup';
+type Secao = 'n8n' | 'github' | 'credenciais' | 'preferencias' | 'relatorios' | 'atualizacoes' | 'backup';
 
 let secaoAtiva: Secao = 'n8n';
 let containerAtual: HTMLElement | null = null;
+/** Assinatura do progresso da atualização, viva só com a seção aberta. */
+let pararAtualizacao: (() => void) | null = null;
 
 interface ItemNav {
   id: Secao;
@@ -55,6 +66,16 @@ const NAV: ItemNav[] = [
     rotulo: 'Relatórios',
     icone: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/>',
     estado: (s) => (s.ajustes.assinatura.nome.trim() ? { texto: 'assinatura definida', tom: 'ok' } : { texto: 'sem assinatura', tom: 'neutro' }),
+  },
+  {
+    id: 'atualizacoes',
+    rotulo: 'Atualizações',
+    icone: ICONE_ATUALIZACAO,
+    estado: () => {
+      const e = getEstadoAtualizacao();
+      if (e?.nova && e.situacao !== 'em-dia') return { texto: `versão ${e.nova.versao} disponível`, tom: 'atencao' };
+      return { texto: 'em dia', tom: 'ok' };
+    },
   },
   { id: 'backup', rotulo: 'Backup', icone: ICONES.backup },
 ];
@@ -576,6 +597,134 @@ function buildSecaoPreferencias(state: AjustesViewState): HTMLElement {
   return painel;
 }
 
+function formatarTamanho(bytes: number): string {
+  return `${(bytes / 1024 / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} MB`;
+}
+
+function descreverSituacao(e: EstadoAtualizacao): { texto: string; tom: Tom } {
+  switch (e.situacao) {
+    case 'verificando':
+      return { texto: 'Procurando versão nova…', tom: 'neutro' };
+    case 'em-dia':
+      return { texto: 'Você está na versão mais recente', tom: 'ok' };
+    case 'disponivel':
+      return { texto: `Versão ${e.nova?.versao ?? ''} disponível`, tom: 'atencao' };
+    case 'baixando':
+      return { texto: `Baixando… ${Math.round((e.progresso ?? 0) * 100)}%`, tom: 'neutro' };
+    case 'instalando':
+      return { texto: 'Instalando — o Iris vai fechar e abrir de novo', tom: 'neutro' };
+    case 'erro':
+      return { texto: e.erro ?? 'Falhou', tom: 'erro' };
+    default:
+      return { texto: 'Ainda não verificado', tom: 'neutro' };
+  }
+}
+
+/** Redesenha só o corpo da seção: o progresso chega em dezenas de pushes. */
+function desenharAtualizacao(corpo: HTMLElement, e: EstadoAtualizacao | null): void {
+  corpo.replaceChildren();
+  if (!e) {
+    corpo.appendChild(buildSelo('Carregando…', 'neutro'));
+    return;
+  }
+
+  const versao = document.createElement('p');
+  versao.className = 'aj-atualizacao-versao';
+  versao.textContent = `Versão instalada: ${e.versaoAtual}`;
+  corpo.appendChild(versao);
+
+  const situacao = descreverSituacao(e);
+  const status = document.createElement('div');
+  status.className = 'aj-status';
+  status.appendChild(buildSelo(situacao.texto, situacao.tom));
+  if (e.verificadoEm && e.situacao !== 'verificando') {
+    const quando = document.createElement('span');
+    quando.className = 'aj-campo-dica';
+    quando.textContent = `verificado em ${new Date(e.verificadoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}`;
+    status.appendChild(quando);
+  }
+  corpo.appendChild(status);
+
+  if (e.situacao === 'baixando') {
+    const pct = Math.round((e.progresso ?? 0) * 100);
+    const trilho = document.createElement('div');
+    trilho.className = 'aj-progresso';
+    trilho.setAttribute('role', 'progressbar');
+    trilho.setAttribute('aria-valuenow', String(pct));
+    const barra = document.createElement('span');
+    barra.style.width = `${pct}%`;
+    trilho.appendChild(barra);
+    corpo.appendChild(trilho);
+  }
+
+  if (e.nova) {
+    const nova = document.createElement('div');
+    nova.className = 'aj-atualizacao-nova';
+    const titulo = document.createElement('strong');
+    const data = e.nova.publicadaEm ? new Date(e.nova.publicadaEm).toLocaleDateString('pt-BR') : '';
+    titulo.textContent = [`Novidades da ${e.nova.versao}`, data, e.nova.tamanho ? formatarTamanho(e.nova.tamanho) : '']
+      .filter(Boolean)
+      .join(' · ');
+    nova.appendChild(titulo);
+    const notas = document.createElement('p');
+    notas.className = 'aj-atualizacao-notas';
+    notas.textContent = e.nova.notas.trim() || 'A release não trouxe descrição.';
+    nova.appendChild(notas);
+    corpo.appendChild(nova);
+  }
+
+  if (e.modo !== 'instalado' && e.nova) {
+    corpo.appendChild(
+      buildAviso(
+        e.modo === 'portatil'
+          ? 'Esta é a versão portátil (.zip): ela não se substitui sozinha. Baixe o .zip novo na página da release, ou use o instalador para receber as próximas automaticamente.'
+          : 'Rodando pelo código-fonte (npm run dev): atualize com git pull.',
+        'neutro',
+      ),
+    );
+  }
+
+  const acoes = document.createElement('div');
+  acoes.className = 'aj-acoes';
+  const ocupado = e.situacao === 'verificando' || e.situacao === 'baixando' || e.situacao === 'instalando';
+  const falhou = (error: unknown): void => desenharAtualizacao(corpo, { ...e, situacao: 'erro', erro: mensagemDe(error) });
+
+  if (e.nova && e.modo === 'instalado') {
+    const atualizar = buildBotao(e.situacao === 'erro' ? 'Tentar de novo' : 'Atualizar agora', {
+      variante: 'primario',
+      icone: ICONE_ATUALIZACAO,
+    });
+    atualizar.disabled = ocupado;
+    atualizar.addEventListener('click', () => void atualizarAgora().catch(falhou));
+    acoes.appendChild(atualizar);
+  }
+  if (e.nova && e.modo !== 'instalado') {
+    const pagina = buildBotao('Abrir página do download', { variante: 'primario', icone: ICONES.externo });
+    pagina.addEventListener('click', () => void abrirPaginaDaRelease().catch(falhou));
+    acoes.appendChild(pagina);
+  }
+  const verificar = buildBotao('Verificar agora', { icone: ICONES.atualizar });
+  verificar.disabled = ocupado;
+  verificar.addEventListener('click', () => void verificarAgora().catch(falhou));
+  acoes.appendChild(verificar);
+  corpo.appendChild(acoes);
+}
+
+function buildSecaoAtualizacoes(): HTMLElement {
+  const painel = buildPainel(
+    'Atualizações',
+    'O Iris procura versão nova no GitHub ao abrir e a cada 6 horas. Atualizar baixa o instalador, confere o arquivo e reinstala por cima — os dados continuam onde estão.',
+    ICONE_ATUALIZACAO,
+  );
+  const corpo = document.createElement('div');
+  corpo.className = 'aj-corpo';
+  desenharAtualizacao(corpo, getEstadoAtualizacao());
+  pararAtualizacao?.();
+  pararAtualizacao = onAtualizacao((e) => desenharAtualizacao(corpo, e));
+  painel.appendChild(corpo);
+  return painel;
+}
+
 function buildSecaoBackup(): HTMLElement {
   const painel = buildPainel(
     'Backup e restauração',
@@ -623,6 +772,8 @@ function buildNav(state: AjustesViewState): HTMLElement {
       if (secaoAtiva === item.id) return;
       // A seção de backup mantém uma referência de status; soltar antes de trocar.
       if (secaoAtiva === 'backup') exportacaoView.destroy();
+      pararAtualizacao?.();
+      pararAtualizacao = null;
       secaoAtiva = item.id;
       rerender();
     });
@@ -646,7 +797,7 @@ export function render(container: HTMLElement, state: AjustesViewState): void {
     buildCabecalho({
       icone: ICONES.ajustes,
       titulo: 'Ajustes',
-      subtitulo: 'Conexões, segurança, preferências, relatórios e backup',
+      subtitulo: 'Conexões, segurança, preferências, relatórios, atualizações e backup',
     }),
   );
 
@@ -663,6 +814,7 @@ export function render(container: HTMLElement, state: AjustesViewState): void {
     credenciais: () => buildSecaoCredenciais(state),
     preferencias: () => buildSecaoPreferencias(state),
     relatorios: () => buildSecaoRelatorios(state),
+    atualizacoes: () => buildSecaoAtualizacoes(),
     backup: () => buildSecaoBackup(),
   };
   conteudo.appendChild(secoes[secaoAtiva]());
@@ -679,5 +831,7 @@ export function destroy(): void {
   }
   // O statusEl do módulo de exportação sobreviveria ao DOM destruído.
   exportacaoView.destroy();
+  pararAtualizacao?.();
+  pararAtualizacao = null;
   containerAtual = null;
 }

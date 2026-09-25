@@ -1,6 +1,7 @@
 import type { SheetRow, SheetTable } from '../../../shared/types/sheets.types';
 import {
   CAMPOS_VIDEO,
+  PRIORIDADES,
   VIDEO_STATUS,
   type CampoVideo,
   type MapeamentoColunas,
@@ -15,6 +16,7 @@ import {
   normalizar,
   parseData,
   parseHora,
+  parsePrioridade,
   parseScore,
   resolverStatus,
   sugerirMapeamento,
@@ -41,6 +43,8 @@ interface Previa {
   hashtags: number;
   score?: number;
   scoreInvalido?: string;
+  prioridade?: string;
+  prioridadeInvalida?: string;
   tagsConhecidas: string[];
   tagsNovas: string[];
   redes: string[];
@@ -72,6 +76,8 @@ function converter(
     hashtags: extrairHashtags(valor('hashtags')).length,
     score: parseScore(valor('score')),
     scoreInvalido: valor('score') && parseScore(valor('score')) === undefined ? valor('score') : undefined,
+    prioridade: PRIORIDADES.find((p) => p.id === parsePrioridade(valor('prioridade')))?.rotulo,
+    prioridadeInvalida: valor('prioridade') && parsePrioridade(valor('prioridade')) === undefined ? valor('prioridade') : undefined,
     tagsConhecidas: tags.filter((t) => file.tags.some((x) => normalizar(x.nome) === normalizar(t))),
     tagsNovas: tags.filter((t) => !file.tags.some((x) => normalizar(x.nome) === normalizar(t))),
     redes: redesEscritas.map(redeDoNome).filter((id): id is string => Boolean(id)),
@@ -146,6 +152,8 @@ function buildPreviaCard(file: VideosFile, previa: Previa, tagsExtras: Set<strin
   const notas: string[] = [];
   if (previa.score !== undefined) notas.push(`score ${previa.score.toLocaleString('pt-BR')}`);
   if (previa.scoreInvalido) notas.push(`score "${previa.scoreInvalido}" não reconhecido (use 0 a 100)`);
+  if (previa.prioridade) notas.push(`prioridade ${previa.prioridade.toLowerCase()}`);
+  if (previa.prioridadeInvalida) notas.push(`prioridade "${previa.prioridadeInvalida}" não reconhecida (use alta, média ou baixa)`);
   if (previa.hashtags) notas.push(`${previa.hashtags} hashtag(s)`);
   if (previa.redesDesconhecidas.length) notas.push(`rede não reconhecida: ${previa.redesDesconhecidas.join(', ')}`);
   if (notas.length) {

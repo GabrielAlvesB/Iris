@@ -25,6 +25,8 @@ import {
   tempoRelativo,
 } from '../../ui/pagina.js';
 import { ICONES_POSTAGEM } from '../postagens/postagens.ui.js';
+import { alternaveis, buildBlocosEditor, buildMenuNovoBloco, type ContextoBlocos } from './relatorios.blocos.js';
+import { catalogoAtual } from './relatorios.metricas.js';
 import { buildAssinatura, buildDocumento, descreverPeriodo, todosOsItens } from './relatorios.documento.js';
 import { ICONES_RELATORIO, abrirAdicionarPostagens, abrirCategorias, abrirMarcacao, abrirNovoRelatorio } from './relatorios.modais.js';
 import * as relatoriosState from './relatorios.state.js';
@@ -58,6 +60,8 @@ let rascunho: Relatorio | null = null;
 let removidas = new Set<string>();
 let assinatura: AssinaturaRelatorio = { nome: '', linhas: [], formato: 'com-linha', mostrarData: true };
 let busca = '';
+/** Filtro da lista por empresa (id da tag); null = todas. */
+let filtroEmpresa: string | null = null;
 let timerSalvar: ReturnType<typeof setTimeout> | null = null;
 let pendente = false;
 let salvoEl: HTMLElement | null = null;
@@ -203,10 +207,7 @@ function buildCartao(rel: Relatorio): HTMLElement {
 
   const topo = document.createElement('div');
   topo.className = 'rel-cartao-topo';
-  const seq = document.createElement('span');
-  seq.className = 'vd-seq';
-  seq.textContent = `#${rel.seq}`;
-  topo.append(seq, buildSelo(rel.situacao === 'finalizado' ? 'Finalizado' : 'Rascunho', rel.situacao === 'finalizado' ? 'ok' : 'neutro'));
+  topo.append(buildSelo(rel.situacao === 'finalizado' ? 'Finalizado' : 'Rascunho', rel.situacao === 'finalizado' ? 'ok' : 'neutro'));
   const acoes = document.createElement('span');
   acoes.className = 'rel-cartao-acoes';
   const duplicar = buildBotao('', { icone: ICONE_DUPLICAR, variante: 'fantasma', titulo: 'Duplicar relatório' });
@@ -228,6 +229,21 @@ function buildCartao(rel: Relatorio): HTMLElement {
   titulo.className = 'rel-cartao-titulo';
   titulo.textContent = rel.titulo;
   cartao.appendChild(titulo);
+
+  if (rel.tagsNomes.length) {
+    const empresas = document.createElement('div');
+    empresas.className = 'rel-cartao-empresas';
+    const catalogo = catalogoAtual()?.tags ?? [];
+    rel.tagIds.forEach((id, i) => {
+      const chip = document.createElement('span');
+      chip.className = 'rel-empresa-chip';
+      const cor = catalogo.find((t) => t.id === id)?.cor;
+      if (cor) chip.style.setProperty('--cor-tag', cor);
+      chip.textContent = rel.tagsNomes[i] ?? '';
+      empresas.appendChild(chip);
+    });
+    cartao.appendChild(empresas);
+  }
 
   const periodo = descreverPeriodo(rel);
   if (periodo) {
@@ -328,10 +344,43 @@ function renderLista(container: HTMLElement, file: RelatoriosFile): void {
       focarBusca(containerAtual);
     }),
   );
+  // Empresas que aparecem em algum relatório (pelo nome guardado, que sobrevive à tag apagada).
+  const empresas = new Map<string, string>();
+  file.relatorios.forEach((r) => r.tagIds.forEach((id, i) => empresas.set(id, r.tagsNomes[i] ?? id)));
+  if (filtroEmpresa && !empresas.has(filtroEmpresa)) filtroEmpresa = null;
+  if (empresas.size) {
+    const pilulasEmpresa = document.createElement('div');
+    pilulasEmpresa.className = 'md-pilulas rel-filtro-empresa';
+    pilulasEmpresa.setAttribute('role', 'group');
+    pilulasEmpresa.setAttribute('aria-label', 'Filtrar por empresa');
+    const opcoes: Array<{ id: string | null; rotulo: string }> = [
+      { id: null, rotulo: 'Todas as empresas' },
+      ...[...empresas].sort((a, b) => a[1].localeCompare(b[1], 'pt-BR')).map(([id, rotulo]) => ({ id, rotulo })),
+    ];
+    opcoes.forEach((o) => {
+      const ativo = filtroEmpresa === o.id;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'md-pilula';
+      btn.classList.toggle('is-ativa', ativo);
+      btn.setAttribute('aria-pressed', String(ativo));
+      btn.textContent = o.rotulo;
+      btn.addEventListener('click', () => {
+        filtroEmpresa = o.id;
+        redesenhar();
+      });
+      pilulasEmpresa.appendChild(btn);
+    });
+    barra.appendChild(pilulasEmpresa);
+  }
   tela.appendChild(barra);
 
   const termo = busca.trim().toLocaleLowerCase('pt-BR');
-  const visiveis = file.relatorios.filter((r) => !termo || `${r.titulo} ${r.contexto} #${r.seq}`.toLocaleLowerCase('pt-BR').includes(termo));
+  const visiveis = file.relatorios.filter(
+    (r) =>
+      (!filtroEmpresa || r.tagIds.includes(filtroEmpresa)) &&
+      (!termo || `${r.titulo} ${r.contexto} ${r.tagsNomes.join(' ')}`.toLocaleLowerCase('pt-BR').includes(termo)),
+  );
   const grade = document.createElement('div');
   grade.className = 'rel-grade';
   visiveis.forEach((r) => grade.appendChild(buildCartao(r)));
@@ -356,6 +405,32 @@ function mover<T>(lista: T[], indice: number, sentido: -1 | 1): void {
   [lista[indice], lista[alvo]] = [lista[alvo]!, lista[indice]!];
 }
 
+/**
+ * A empresa do relatório são tags do catálogo único. Mudar a escolha não mexe
+ * nos blocos de métricas já feitos (são fotografias); só os novos herdam.
+ */
+function buildCampoEmpresa(rel: Relatorio): HTMLElement {
+  const tags = catalogoAtual()?.tags ?? [];
+  if (!tags.length) {
+    return campo('Empresa (tags)', Object.assign(document.createElement('p'), { className: 'md-dica', textContent: 'Crie tags em Postagens para ligar o relatório a uma empresa.' }));
+  }
+  // Tag que saiu do catálogo continua visível (pelo nome guardado) até ser desmarcada.
+  const opcoes = tags.map((t) => ({ id: t.id, rotulo: t.nome }));
+  rel.tagIds.forEach((id, i) => {
+    if (!opcoes.some((o) => o.id === id)) opcoes.push({ id, rotulo: `${rel.tagsNomes[i] ?? 'Tag removida'} (removida)` });
+  });
+  return campo(
+    'Empresa (tags)',
+    alternaveis(opcoes, rel.tagIds, (v) => {
+      rel.tagIds = v;
+      // Cópia local só para a prévia; o main renova de novo ao salvar.
+      rel.tagsNomes = v.map((id) => opcoes.find((o) => o.id === id)?.rotulo.replace(/ \(removida\)$/, '') ?? '');
+      mudouEstrutura();
+    }),
+    'A escolha de postagens e os novos blocos de métricas já vêm filtrados por estas tags.',
+  );
+}
+
 function buildGerais(rel: Relatorio): HTMLElement {
   const { secao, conteudo } = buildSecaoModal('Informações gerais', 'Capa e abertura do documento.');
   secao.classList.add('rel-bloco');
@@ -374,18 +449,26 @@ function buildGerais(rel: Relatorio): HTMLElement {
   texto('titulo')(titulo);
   const contexto = textarea(rel.contexto, 'Para quem e por quê: cliente, campanha, objetivo', 2);
   texto('contexto')(contexto);
+  const objetivos = textarea(rel.objetivos, 'O que se buscava no período: metas, números esperados…', 3);
+  objetivos.addEventListener('input', () => {
+    rel.objetivos = objetivos.value;
+    agendarSalvar();
+  });
   const inicio = input('date', rel.periodoInicio ?? '');
   const fim = input('date', rel.periodoFim ?? '');
   texto('periodoInicio')(inicio);
   texto('periodoFim')(fim);
   const resumo = textarea(rel.resumo, 'Resumo executivo: o que foi analisado e os principais achados', 4);
+  const dicaFormatacao = 'Linhas começando com "- " viram lista, "1. " lista numerada, e **texto** fica em negrito.';
   texto('resumo')(resumo);
 
   conteudo.append(
     campo('Título', titulo),
+    buildCampoEmpresa(rel),
     campo('Contexto', contexto),
     grade2(campo('Período — de', inicio), campo('até', fim)),
-    campo('Resumo / informações gerais', resumo),
+    campo('Resumo / informações gerais', resumo, dicaFormatacao),
+    campo('Objetivos (opcional)', objetivos, dicaFormatacao),
     campo(
       'Situação',
       pilulas<SituacaoRelatorio>(
@@ -401,6 +484,20 @@ function buildGerais(rel: Relatorio): HTMLElement {
       ),
     ),
   );
+
+  const automaticas = document.createElement('div');
+  automaticas.className = 'rel-automaticas';
+  automaticas.append(
+    interruptor('Resumo das marcações', 'Contagem de pontos fortes, ajustes, problemas… em Informações gerais', rel.mostrarIndicadores, (v) => {
+      rel.mostrarIndicadores = v;
+      agendarSalvar();
+    }),
+    interruptor('Tabela "Postagens utilizadas"', 'Lista das postagens analisadas, antes das seções', rel.mostrarPostagensUtilizadas, (v) => {
+      rel.mostrarPostagensUtilizadas = v;
+      agendarSalvar();
+    }),
+  );
+  conteudo.appendChild(campo('Partes automáticas do documento', automaticas));
 
   const assinaturaWrap = document.createElement('div');
   assinaturaWrap.className = 'rel-assinatura-opcao';
@@ -514,7 +611,7 @@ function buildItemEditor(secao: SecaoRelatorio, item: ItemRelatorio, indice: num
   const tipo = document.createElement('span');
   tipo.className = 'rel-item-tipo';
   tipo.innerHTML = svg(adaptador.icone, 13, 2);
-  tipo.append(`${adaptador.singular} #${item.snapshot.seq}`);
+  tipo.append(adaptador.singular);
   const titulo = document.createElement('strong');
   titulo.className = 'rel-item-titulo';
   titulo.textContent = item.snapshot.titulo;
@@ -656,16 +753,22 @@ function buildSecaoEditor(rel: Relatorio, secao: SecaoRelatorio, indice: number,
   });
   bloco.appendChild(texto);
 
+  // Blocos livres (texto, destaque, tabela, métricas, quebra), antes das postagens.
+  const ctx: ContextoBlocos = { rel, agendarSalvar, mudouEstrutura };
+  bloco.appendChild(buildBlocosEditor(secao, ctx));
+  bloco.appendChild(buildMenuNovoBloco(secao, ctx));
+
   const itens = document.createElement('div');
   itens.className = 'rel-itens';
   secao.itens.forEach((item, i) => itens.appendChild(buildItemEditor(secao, item, i, categorias)));
   bloco.appendChild(itens);
 
-  const adicionar = buildBotao('Adicionar postagens', { icone: ICONES_RELATORIO.adicionar, variante: 'secundario' });
+  const adicionar = buildBotao('Adicionar postagens para analisar', { icone: ICONES_RELATORIO.adicionar, variante: 'secundario' });
   adicionar.addEventListener('click', () =>
     abrirAdicionarPostagens(
       {
         jaNaSecao: secao.itens.map((i) => ({ tipo: i.tipo, id: i.postagemId })),
+        tagIds: rel.tagIds,
         periodoInicio: rel.periodoInicio,
         periodoFim: rel.periodoFim,
         titulo: secao.titulo,
@@ -729,7 +832,7 @@ function renderEditor(container: HTMLElement, file: RelatoriosFile): void {
   identidade.className = 'rel-editor-identidade';
   const seq = document.createElement('span');
   seq.className = 'vd-seq';
-  seq.textContent = `Relatório #${rel.seq}`;
+  seq.textContent = 'Relatório';
   const titulo = document.createElement('h1');
   titulo.className = 'rel-editor-titulo';
   titulo.textContent = rel.titulo || 'Sem título';
@@ -794,19 +897,27 @@ function renderEditor(container: HTMLElement, file: RelatoriosFile): void {
     const novaSecao = buildBotao('Nova seção', { icone: ICONES_RELATORIO.adicionar, variante: 'secundario' });
     novaSecao.classList.add('rel-nova-secao');
     novaSecao.addEventListener('click', () => {
-      rel.secoes.push({ id: crypto.randomUUID(), titulo: `Seção ${rel.secoes.length + 1}`, texto: '', itens: [] });
+      rel.secoes.push({ id: crypto.randomUUID(), titulo: `Seção ${rel.secoes.length + 1}`, texto: '', blocos: [], itens: [] });
       mudouEstrutura();
     });
     corpo.appendChild(novaSecao);
 
     const conclusao = buildSecaoModal('Conclusão', 'Fecha o documento, antes da assinatura.');
     conclusao.secao.classList.add('rel-bloco');
-    const textoConclusao = textarea(rel.conclusao, 'Síntese, recomendações finais, próximos passos', 4);
-    textoConclusao.addEventListener('input', () => {
-      rel.conclusao = textoConclusao.value;
-      agendarSalvar();
-    });
-    conclusao.conteudo.appendChild(textoConclusao);
+    const dica = 'Linhas com "- " viram lista, "1. " lista numerada, e **texto** fica em negrito.';
+    const areaFinal = (valor: string, placeholder: string, aoMudar: (v: string) => void): HTMLTextAreaElement => {
+      const area = textarea(valor, placeholder, 4);
+      area.addEventListener('input', () => {
+        aoMudar(area.value);
+        agendarSalvar();
+      });
+      return area;
+    };
+    conclusao.conteudo.append(
+      campo('Conclusão', areaFinal(rel.conclusao, 'Síntese do que a análise mostrou', (v) => (rel.conclusao = v)), dica),
+      campo('Próximos passos (opcional)', areaFinal(rel.recomendacoes, '- O que fazer no próximo período\n- Testes, ajustes, metas', (v) => (rel.recomendacoes = v)), dica),
+      campo('Observações finais (opcional)', areaFinal(rel.observacoesFinais, 'Ressalvas, fontes dos dados, combinados', (v) => (rel.observacoesFinais = v)), dica),
+    );
     if (rel.incluirAssinatura) {
       const previa = buildAssinatura(assinatura);
       if (previa) {

@@ -3,8 +3,9 @@ import { PENSAMENTOS_CHANNELS } from '../../shared/ipcChannels';
 import type { IpcResult } from '../../shared/types/common.types';
 import type {
   CreatePensamentoInput,
-  MarcarPromovidoInput,
+  MoverPensamentoInput,
   PensamentosFile,
+  PensamentosViewport,
   UpdatePensamentoInput,
 } from '../../shared/types/pensamentos.types';
 import * as pensamentosService from '../modules/pensamentos/pensamentos.service';
@@ -31,6 +32,10 @@ export function registerPensamentosIpc(): void {
     toResult<PensamentosFile>(pensamentosService.updatePensamento(input)),
   );
 
+  ipcMain.handle(PENSAMENTOS_CHANNELS.moverPensamento, (_event, input: MoverPensamentoInput) =>
+    toResult<PensamentosFile>(pensamentosService.moverPensamento(input)),
+  );
+
   ipcMain.handle(PENSAMENTOS_CHANNELS.deletePensamento, (_event, pensamentoId: string) =>
     toResult<PensamentosFile>(pensamentosService.deletePensamento(pensamentoId)),
   );
@@ -39,7 +44,7 @@ export function registerPensamentosIpc(): void {
     toResult<PensamentosFile>(pensamentosService.togglePin(pensamentoId)),
   );
 
-  ipcMain.handle(PENSAMENTOS_CHANNELS.marcarPromovido, (_event, input: MarcarPromovidoInput) =>
-    toResult<PensamentosFile>(pensamentosService.marcarPromovido(input)),
+  ipcMain.handle(PENSAMENTOS_CHANNELS.setViewport, (_event, viewport: PensamentosViewport) =>
+    toResult<PensamentosFile>(pensamentosService.setViewport(viewport)),
   );
 }

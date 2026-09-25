@@ -1,0 +1,506 @@
+/* Tráfego pago — painel, quadro de campanhas, sites, contas e o painel da campanha. */
+
+.tf-filtro-conta {
+  width: auto;
+  min-width: 180px;
+  height: 34px;
+}
+
+.tf-rolagem {
+  padding-bottom: 12px;
+}
+
+.tf-painel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tf-alertas {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tf-graficos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 14px;
+}
+
+.tf-secao {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tf-secao-titulo {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* ---------- Tabelas ---------- */
+
+.tf-tabela-wrap {
+  overflow-x: auto;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+}
+
+.tf-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.tf-tabela th {
+  padding: 9px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: left;
+  white-space: nowrap;
+  color: var(--text-faint);
+  background: var(--bg-elevated-2);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.tf-tabela td {
+  padding: 9px 12px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-soft);
+  white-space: nowrap;
+}
+
+.tf-tabela tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.tf-tabela th.tf-num,
+.tf-tabela td.tf-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.tf-forte {
+  font-weight: 600;
+  color: var(--text) !important;
+}
+
+.tf-painel .tf-tabela tbody tr {
+  cursor: pointer;
+}
+
+.tf-painel .tf-tabela tbody tr:hover,
+.tf-painel .tf-tabela tbody tr:focus-visible {
+  outline: none;
+  background: var(--bg-elevated-2);
+}
+
+/* ---------- Quadro de campanhas ---------- */
+
+.tf-quadro {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(230px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .tf-quadro {
+    grid-template-columns: repeat(2, minmax(230px, 1fr));
+  }
+}
+
+.tf-coluna {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+}
+
+.tf-coluna-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 2px 0;
+}
+
+.tf-coluna-n {
+  min-width: 22px;
+  padding: 1px 7px;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--bg-elevated-3);
+  border-radius: 999px;
+}
+
+/* Altura mínima para dar onde soltar numa coluna vazia. */
+.tf-coluna-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 64px;
+}
+
+.tf-cartao {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px 13px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  cursor: grab;
+  transition: border-color 0.12s ease;
+}
+
+.tf-cartao:hover,
+.tf-cartao:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.tf-cartao-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tf-plataforma {
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--bg-elevated-3);
+  border-radius: 999px;
+}
+
+.tf-seq {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.tf-cartao-titulo {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.tf-cartao-meta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.tf-cartao-numeros {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 2px 0 0;
+}
+
+.tf-cartao-numeros div {
+  min-width: 0;
+}
+
+.tf-cartao-numeros dt {
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+
+.tf-cartao-numeros dd {
+  margin: 0;
+  overflow: hidden;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tf-orcamento {
+  height: 5px;
+  overflow: hidden;
+  background: var(--bg-elevated-3);
+  border-radius: 999px;
+}
+
+.tf-orcamento > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: inherit;
+}
+
+.tf-orcamento > span.is-estourado {
+  background: var(--danger);
+}
+
+/* ---------- Sites e contas ---------- */
+
+.tf-lista-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tf-lista-topo {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.tf-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.tf-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 15px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+}
+
+.tf-item-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tf-item-tipo {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.tf-item-acoes {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.tf-item-titulo {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.tf-item-texto {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.tf-item-rodape {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.tf-url {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 0;
+  overflow: hidden;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--accent);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.tf-url:hover {
+  text-decoration: underline;
+}
+
+.tf-selos,
+.tf-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.tf-tag {
+  --cor-tag: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text);
+  background: color-mix(in oklch, var(--cor-tag) 16%, transparent);
+  border: 1px solid color-mix(in oklch, var(--cor-tag) 40%, transparent);
+  border-radius: 999px;
+}
+
+.tf-tag::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cor-tag);
+}
+
+.tf-verba {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tf-verba p {
+  margin: 0;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+/* ---------- Painel da campanha ---------- */
+
+.tf-nome {
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: 21px;
+  font-weight: 650;
+  line-height: 1.3;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  resize: none;
+  overflow: hidden;
+  padding: 6px 8px;
+  margin: 0 -8px;
+}
+
+.tf-nome:hover {
+  background: var(--bg-elevated-2);
+}
+
+.tf-nome:focus {
+  outline: none;
+  background: var(--bg-elevated-2);
+  border-color: var(--accent);
+}
+
+/* Uma coluna só: a tabela de dias não cabe em meia coluna de "jornal". */
+.painel.tf-painel-campanha .painel-grade {
+  display: flex;
+  column-count: auto;
+}
+
+.painel.tf-painel-campanha.is-centro .painel-grade > * {
+  margin: 0;
+}
+
+.md-pilula.tf-status.is-ativa.st-planejamento { border-color: var(--text-faint); background: var(--bg-elevated-3); }
+.md-pilula.tf-status.is-ativa.st-ativa { border-color: var(--success); background: var(--success-soft); }
+.md-pilula.tf-status.is-ativa.st-pausada { border-color: var(--warning); background: var(--warning-soft); }
+.md-pilula.tf-status.is-ativa.st-encerrada { border-color: var(--text-faint); background: var(--bg-elevated-3); }
+
+.tf-resultados-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tf-resumo {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.tf-resumo div {
+  padding: 8px 10px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+}
+
+.tf-resumo dt {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.tf-resumo dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.tf-resultados-acoes {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.tf-registros td {
+  padding: 4px 6px;
+}
+
+.tf-registros .md-input {
+  width: 100%;
+  min-width: 90px;
+  height: 30px;
+  font-size: 12.5px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.tf-registros input[type='date'].md-input {
+  min-width: 130px;
+  text-align: left;
+}
+
+.tf-registros tr.is-novo td {
+  background: var(--accent-soft);
+}
+
+.tf-links {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.tf-link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.tf-link .md-input {
+  height: 32px;
+  min-width: 0;
+}

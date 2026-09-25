@@ -3,12 +3,18 @@ import { TIPOS_POSTAGEM, type TipoPostagem } from '../../../shared/types/postage
 import {
   STATUS_MARCACAO,
   TIPOS_MARCACAO,
+  TONS_DESTAQUE,
+  type BlocoMetricas,
+  type BlocoRelatorio,
   type ItemRelatorio,
+  type LinhaMetrica,
   type Relatorio,
   type SecaoRelatorio,
 } from '../../../shared/types/relatorios.types.js';
+import { FAIXAS_SCORE, faixaDoScore } from '../../../shared/types/videos.conversao.js';
 import { svg } from '../../ui/pagina.js';
 import { formatarData } from '../postagens/postagens.ui.js';
+import { descreverPeriodoFiltro, rotuloMes } from './relatorios.metricas.js';
 import { ADAPTADORES, localMarcacaoImagem, localMarcacaoVideo } from './relatorios.tipos.js';
 
 /**
@@ -30,20 +36,52 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, classe?: string, text
   return e;
 }
 
-/** Parágrafos a partir de texto com quebras de linha (sem innerHTML). */
-function paragrafos(texto: string, classe = 'rd-texto'): HTMLElement {
+/** `**trecho**` vira negrito; o resto entra como texto puro. */
+function comNegrito(destino: HTMLElement, linha: string): void {
+  linha.split(/(\*\*[^*]+\*\*)/g).forEach((parte) => {
+    if (/^\*\*[^*]+\*\*$/.test(parte)) destino.appendChild(el('strong', undefined, parte.slice(2, -2)));
+    else if (parte) destino.append(parte);
+  });
+}
+
+const MARCADOR_LISTA = /^\s*[-•*]\s+/;
+const MARCADOR_NUMERO = /^\s*\d+[.)]\s+/;
+
+/**
+ * Texto livre em parágrafos, sem innerHTML. Uma formatação mínima, que se
+ * escreve sem barra de ferramentas: linhas com "- " viram lista, "1. " lista
+ * numerada, e **trecho** fica em negrito.
+ */
+export function paragrafos(texto: string, classe = 'rd-texto'): HTMLElement {
   const wrap = el('div', classe);
   texto
     .split(/\n{2,}/)
     .map((p) => p.trim())
     .filter(Boolean)
     .forEach((p) => {
-      const par = el('p');
-      p.split('\n').forEach((linha, i) => {
-        if (i) par.appendChild(document.createElement('br'));
-        par.append(linha);
+      let par: HTMLElement | null = null;
+      let lista: HTMLElement | null = null;
+      p.split('\n').forEach((linha) => {
+        const marcador = MARCADOR_LISTA.test(linha) ? 'ul' : MARCADOR_NUMERO.test(linha) ? 'ol' : null;
+        if (marcador) {
+          par = null;
+          if (!lista || lista.tagName.toLowerCase() !== marcador) {
+            lista = el(marcador);
+            wrap.appendChild(lista);
+          }
+          const li = el('li');
+          comNegrito(li, linha.replace(marcador === 'ul' ? MARCADOR_LISTA : MARCADOR_NUMERO, ''));
+          lista.appendChild(li);
+          return;
+        }
+        lista = null;
+        if (par) par.appendChild(document.createElement('br'));
+        else {
+          par = el('p');
+          wrap.appendChild(par);
+        }
+        comNegrito(par, linha);
       });
-      wrap.appendChild(par);
     });
   return wrap;
 }
@@ -94,7 +132,7 @@ function buildCapa(rel: Relatorio): HTMLElement {
   const marca = el('div', 'rd-marca');
   const logo = el('span', 'rd-marca-logo');
   logo.innerHTML = svg(MARCA_IRIS, 16, 2);
-  marca.append(logo, el('span', undefined, `Iris · Relatório de análise nº ${rel.seq}`));
+  marca.append(logo, el('span', undefined, 'Iris · Relatório de análise'));
   capa.appendChild(marca);
   capa.appendChild(el('h1', 'rd-titulo', rel.titulo));
   if (rel.contexto.trim()) capa.appendChild(paragrafos(rel.contexto, 'rd-contexto'));
@@ -108,9 +146,11 @@ function buildCapa(rel: Relatorio): HTMLElement {
     bloco.append(el('dt', undefined, rotulo), el('dd', undefined, valor));
     meta.appendChild(bloco);
   };
+  linha(rel.tagsNomes.length > 1 ? 'Empresas' : 'Empresa', rel.tagsNomes.join(', '));
   linha('Criado em', dataPorExtenso(rel.createdAt));
   linha('Período', descreverPeriodo(rel));
-  linha('Postagens', porTipo.length ? porTipo.map((x) => `${x.n} ${x.n === 1 ? x.t.singular.toLowerCase() : x.t.rotulo.toLowerCase()}`).join(' · ') : 'nenhuma');
+  // Só as analisadas item a item; números de blocos de métricas têm o próprio período e contagem.
+  linha('Postagens analisadas', porTipo.map((x) => `${x.n} ${x.n === 1 ? x.t.singular.toLowerCase() : x.t.rotulo.toLowerCase()}`).join(' · '));
   linha('Situação', rel.situacao === 'finalizado' ? 'Finalizado' : 'Rascunho');
   capa.appendChild(meta);
   return capa;
@@ -152,19 +192,17 @@ function buildPostagensUtilizadas(rel: Relatorio): HTMLElement | null {
   TIPOS_POSTAGEM.forEach((t) => {
     const doTipo = itens.filter((i) => i.tipo === t.id);
     if (!doTipo.length) return;
-    const adaptador = ADAPTADORES[t.id];
     secao.appendChild(el('h3', 'rd-h3', `${t.rotulo} ${t.id === 'imagem' ? 'analisadas' : 'analisados'} · ${doTipo.length}`));
     const tabela = el('table', 'rd-tabela');
     const cab = el('thead');
     const tr = el('tr');
-    ['#', 'Título', 'Etapa', 'Data', 'Redes', 'Marcações'].forEach((c) => tr.appendChild(el('th', undefined, c)));
+    ['Título', 'Etapa', 'Data', 'Redes', 'Marcações'].forEach((c) => tr.appendChild(el('th', undefined, c)));
     cab.appendChild(tr);
     const corpo = el('tbody');
     doTipo.forEach((item) => {
       const s = item.snapshot;
       const linha = el('tr');
       linha.append(
-        el('td', 'rd-num', `${adaptador.singular[0]}${s.seq}`),
         el('td', 'rd-forte', s.titulo),
         el('td', undefined, s.etapa),
         el('td', 'rd-num', s.dataAgendada ? formatarData(s.dataAgendada) : '—'),
@@ -244,7 +282,7 @@ function buildItem(item: ItemRelatorio): HTMLElement {
   const cab = el('header', 'rd-item-cab');
   const tipo = el('span', 'rd-item-tipo');
   tipo.innerHTML = svg(adaptador.icone, 12, 2);
-  tipo.append(`${adaptador.singular} #${item.snapshot.seq}`);
+  tipo.append(adaptador.singular);
   cab.append(tipo, el('h4', 'rd-item-titulo', item.snapshot.titulo));
   cartao.appendChild(cab);
   cartao.appendChild(buildDados(item));
@@ -265,10 +303,258 @@ function buildItem(item: ItemRelatorio): HTMLElement {
   return cartao;
 }
 
+// ---------- Blocos livres ----------
+
+function num(n: number, casas = 1): string {
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas });
+}
+
+function tabela(colunas: string[], linhas: string[][], classesColunas: string[] = [], rodape?: string[]): HTMLElement {
+  const t = el('table', 'rd-tabela');
+  const cab = el('thead');
+  const tr = el('tr');
+  colunas.forEach((c, i) => tr.appendChild(el('th', classesColunas[i], c)));
+  cab.appendChild(tr);
+  const corpo = el('tbody');
+  linhas.forEach((l) => {
+    const linha = el('tr');
+    l.forEach((celula, i) => linha.appendChild(el('td', classesColunas[i], celula)));
+    corpo.appendChild(linha);
+  });
+  t.append(cab, corpo);
+  if (rodape) {
+    const pe = el('tfoot');
+    const linha = el('tr');
+    rodape.forEach((c, i) => linha.appendChild(el('td', classesColunas[i], c)));
+    pe.appendChild(linha);
+    t.appendChild(pe);
+  }
+  return t;
+}
+
+function mediaTexto(l: Pick<LinhaMetrica, 'media'>): string {
+  return l.media === undefined ? '—' : num(l.media);
+}
+
+function faixaTexto(media: number | undefined): string {
+  return media === undefined ? '—' : faixaDoScore(media).rotulo;
+}
+
+function rotuloTipo(id: string, total: number): string {
+  const t = TIPOS_POSTAGEM.find((x) => x.id === id);
+  if (!t) return id;
+  return total === 1 ? t.singular.toLowerCase() : t.rotulo.toLowerCase();
+}
+
+function buildBlocoMetricas(bloco: BlocoMetricas): HTMLElement {
+  const wrap = el('div', 'rd-metricas');
+  if (bloco.titulo.trim()) wrap.appendChild(el('h3', 'rd-h3', bloco.titulo));
+  if (bloco.introducao.trim()) wrap.appendChild(paragrafos(bloco.introducao));
+  const r = bloco.resultado;
+
+  // Período: o pedido no filtro e o que de fato foi encontrado dentro dele.
+  const periodo = el('dl', 'rd-meta rd-metricas-periodo');
+  const par = (rotulo: string, valor: string): void => {
+    const d = el('div');
+    d.append(el('dt', undefined, rotulo), el('dd', undefined, valor));
+    periodo.appendChild(d);
+  };
+  par('Período analisado', descreverPeriodoFiltro(bloco.filtro));
+  if (r) {
+    par(
+      'Postagens encontradas',
+      r.primeiraData && r.ultimaData
+        ? r.primeiraData === r.ultimaData
+          ? `Todas em ${formatarData(r.primeiraData)}`
+          : `De ${formatarData(r.primeiraData)} a ${formatarData(r.ultimaData)}`
+        : 'Nenhuma no período',
+    );
+    par('Calculado em', new Date(r.calculadoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }));
+  }
+  wrap.appendChild(periodo);
+
+  if (!r) {
+    wrap.appendChild(paragrafos('Métricas ainda não calculadas.'));
+    return wrap;
+  }
+
+  const grade = el('div', 'rd-indicadores');
+  const caixa = (rotulo: string, valor: string, detalhe = '', classe = ''): void => {
+    const c = el('div', `rd-indicador ${classe}`.trim());
+    c.append(el('strong', undefined, valor), el('span', undefined, rotulo));
+    if (detalhe) c.appendChild(el('small', 'rd-indicador-detalhe', detalhe));
+    grade.appendChild(c);
+  };
+  const tiposComPostagem = r.porTipo.filter((t) => t.total > 0);
+  caixa(
+    'postagens',
+    String(r.total),
+    tiposComPostagem.length > 1 ? tiposComPostagem.map((t) => `${t.total} ${rotuloTipo(t.rotulo, t.total)}`).join(' · ') : '',
+    'is-total',
+  );
+  caixa('score geral (média)', r.media === undefined ? '—' : num(r.media), faixaTexto(r.media), 'is-score');
+  caixa('mediana', r.mediana === undefined ? '—' : num(r.mediana));
+  caixa('com score', `${r.comScore}/${r.total}`, r.total ? `${Math.round((r.comScore / r.total) * 100)}% preenchido` : '');
+  if (r.maior) caixa('maior score', num(r.maior.score), r.maior.titulo, 'is-ponto-forte');
+  if (r.menor) caixa('menor score', num(r.menor.score), r.menor.titulo, 'is-problema');
+  wrap.appendChild(grade);
+
+  if (r.filtrosDescritos.length) {
+    const filtros = el('ul', 'rd-filtros');
+    r.filtrosDescritos.forEach((f) => filtros.appendChild(el('li', undefined, f)));
+    wrap.appendChild(filtros);
+  }
+
+  const partes = new Set(bloco.partes);
+  if (partes.has('porMes') && r.porMes.length) {
+    wrap.appendChild(el('h5', 'rd-h5', 'Por mês'));
+    wrap.appendChild(
+      tabela(
+        ['Mês', 'Postagens', 'Com score', 'Score médio', 'Faixa'],
+        r.porMes.map((m) => [rotuloMes(m.rotulo).replace(/^./, (c) => c.toUpperCase()), String(m.total), String(m.comScore), mediaTexto(m), faixaTexto(m.media)]),
+        ['rd-forte', 'rd-num', 'rd-num', 'rd-num', ''],
+        r.porMes.length > 1 ? ['Total', String(r.total), String(r.comScore), r.media === undefined ? '—' : num(r.media), faixaTexto(r.media)] : undefined,
+      ),
+    );
+  }
+  if (partes.has('faixas') && r.comScore) {
+    wrap.appendChild(el('h5', 'rd-h5', 'Faixas de score'));
+    wrap.appendChild(
+      tabela(
+        ['Faixa', 'Intervalo', 'Postagens', '% das com score'],
+        FAIXAS_SCORE.map((f) => {
+          const n = r.faixas.find((x) => x.rotulo === f.id)?.total ?? 0;
+          return [f.rotulo, `${f.min} a ${Math.floor(f.max)}`, String(n), `${Math.round((n / r.comScore) * 100)}%`];
+        }),
+        ['rd-forte', 'rd-num', 'rd-num', 'rd-num'],
+      ),
+    );
+  }
+  const porGrupo = (titulo: string, coluna: string, linhas: LinhaMetrica[]): void => {
+    if (!linhas.length) return;
+    wrap.appendChild(el('h5', 'rd-h5', titulo));
+    wrap.appendChild(
+      tabela(
+        [coluna, 'Postagens', 'Com score', 'Score médio'],
+        linhas.map((l) => [l.rotulo, String(l.total), String(l.comScore), mediaTexto(l)]),
+        ['rd-forte', 'rd-num', 'rd-num', 'rd-num'],
+      ),
+    );
+  };
+  if (partes.has('redes')) porGrupo('Por rede', 'Rede', r.redes);
+  if (partes.has('tags')) porGrupo('Por tag', 'Tag', r.tags);
+  if (partes.has('postagens') && r.postagens.length) {
+    wrap.appendChild(el('h5', 'rd-h5', `Postagens · ${r.postagens.length}`));
+    wrap.appendChild(
+      tabela(
+        ['Título', 'Data', 'Redes', 'Score'],
+        r.postagens.map((p) => [
+          p.titulo,
+          formatarData(p.data),
+          p.redes.join(', ') || '—',
+          p.score === undefined ? '—' : num(p.score),
+        ]),
+        ['rd-forte', 'rd-num', '', 'rd-num'],
+      ),
+    );
+  }
+  if (bloco.comentario.trim()) {
+    wrap.appendChild(el('h5', 'rd-h5', 'Leitura dos números'));
+    wrap.appendChild(paragrafos(bloco.comentario, 'rd-texto rd-destaque'));
+  }
+  return wrap;
+}
+
+export function buildBloco(bloco: BlocoRelatorio): HTMLElement {
+  switch (bloco.tipo) {
+    case 'texto': {
+      const wrap = el('div', 'rd-bloco-livre');
+      if (bloco.titulo.trim()) wrap.appendChild(el('h3', 'rd-h3', bloco.titulo));
+      wrap.appendChild(paragrafos(bloco.texto));
+      return wrap;
+    }
+    case 'destaque': {
+      const wrap = el('aside', `rd-caixa is-${bloco.tom}`);
+      // O tom nunca vai só pela cor: sem título, o rótulo do tom aparece no lugar.
+      wrap.appendChild(el('strong', 'rd-caixa-titulo', bloco.titulo.trim() || (TONS_DESTAQUE.find((t) => t.id === bloco.tom)?.rotulo ?? '')));
+      wrap.appendChild(paragrafos(bloco.texto));
+      return wrap;
+    }
+    case 'tabela': {
+      const wrap = el('div', 'rd-bloco-livre');
+      if (bloco.titulo.trim()) wrap.appendChild(el('h3', 'rd-h3', bloco.titulo));
+      const linhas = bloco.linhas.filter((l) => l.some((c) => c.trim()));
+      wrap.appendChild(tabela(bloco.colunas, linhas, bloco.colunas.map((_, i) => (i === 0 ? 'rd-forte' : ''))));
+      return wrap;
+    }
+    case 'metricas':
+      return buildBlocoMetricas(bloco);
+    case 'analise':
+      return buildBlocoAnalise(bloco);
+    case 'colunas': {
+      const wrap = el('div', 'rd-bloco-livre rd-colunas');
+      const lado = (titulo: string, texto: string): void => {
+        const col = el('div', 'rd-coluna');
+        if (titulo.trim()) col.appendChild(el('h4', 'rd-coluna-titulo', titulo));
+        col.appendChild(paragrafos(texto));
+        wrap.appendChild(col);
+      };
+      lado(bloco.tituloEsquerda, bloco.textoEsquerda);
+      lado(bloco.tituloDireita, bloco.textoDireita);
+      return wrap;
+    }
+    case 'citacao': {
+      const wrap = el('figure', 'rd-citacao');
+      const frase = el('blockquote');
+      frase.appendChild(paragrafos(bloco.texto));
+      wrap.appendChild(frase);
+      if (bloco.fonte.trim()) wrap.appendChild(el('figcaption', undefined, `— ${bloco.fonte.trim()}`));
+      return wrap;
+    }
+    case 'quebra':
+      return el('div', 'rd-quebra');
+  }
+}
+
+/**
+ * "+12%" sobe, "-3 mil" / "−3 mil" desce. O sentido vai também no texto (seta),
+ * nunca só na cor.
+ */
+function sentidoVariacao(variacao: string): 'sobe' | 'desce' | 'neutro' {
+  const v = variacao.trim();
+  if (/^\+/.test(v)) return 'sobe';
+  if (/^[-−–]/.test(v)) return 'desce';
+  return 'neutro';
+}
+
+function buildBlocoAnalise(bloco: Extract<BlocoRelatorio, { tipo: 'analise' }>): HTMLElement {
+  const wrap = el('div', 'rd-bloco-livre rd-analise');
+  if (bloco.titulo.trim()) wrap.appendChild(el('h3', 'rd-h3', bloco.titulo));
+  const preenchidos = bloco.indicadores.filter((i) => i.rotulo.trim() || i.valor.trim());
+  if (preenchidos.length) {
+    const grade = el('div', 'rd-indicadores');
+    preenchidos.forEach((ind) => {
+      const c = el('div', 'rd-indicador is-manual');
+      c.append(el('strong', undefined, ind.valor.trim() || '—'), el('span', undefined, ind.rotulo));
+      if (ind.variacao.trim()) {
+        const sentido = sentidoVariacao(ind.variacao);
+        const seta = sentido === 'sobe' ? '▲ ' : sentido === 'desce' ? '▼ ' : '';
+        c.appendChild(el('small', `rd-variacao is-${sentido}`, `${seta}${ind.variacao.trim()}`));
+      }
+      if (ind.nota.trim()) c.appendChild(el('small', 'rd-indicador-detalhe', ind.nota));
+      grade.appendChild(c);
+    });
+    wrap.appendChild(grade);
+  }
+  if (bloco.texto.trim()) wrap.appendChild(paragrafos(bloco.texto));
+  return wrap;
+}
+
 function buildSecao(secao: SecaoRelatorio, numero: number): HTMLElement {
   const bloco = el('section', 'rd-bloco rd-secao');
   bloco.appendChild(el('h2', 'rd-h2', `${numero}. ${secao.titulo}`));
   if (secao.texto.trim()) bloco.appendChild(paragrafos(secao.texto));
+  secao.blocos.forEach((b) => bloco.appendChild(buildBloco(b)));
   // Dentro da seção, os itens seguem agrupados por tipo, na ordem do catálogo.
   const tipos: TipoPostagem[] = TIPOS_POSTAGEM.map((t) => t.id);
   tipos.forEach((t) => secao.itens.filter((i) => i.tipo === t).forEach((item) => bloco.appendChild(buildItem(item))));
@@ -281,16 +567,20 @@ export function buildDocumento(rel: Relatorio, assinatura: AssinaturaRelatorio):
   const doc = el('div', 'rd-documento');
   doc.appendChild(buildCapa(rel));
 
-  const indicadores = buildIndicadores(rel);
-  if (rel.resumo.trim() || indicadores) {
+  const indicadores = rel.mostrarIndicadores ? buildIndicadores(rel) : null;
+  if (rel.resumo.trim() || rel.objetivos.trim() || indicadores) {
     const geral = el('section', 'rd-bloco');
     geral.appendChild(el('h2', 'rd-h2', 'Informações gerais'));
     if (rel.resumo.trim()) geral.appendChild(paragrafos(rel.resumo));
+    if (rel.objetivos.trim()) {
+      geral.appendChild(el('h3', 'rd-h3', 'Objetivos'));
+      geral.appendChild(paragrafos(rel.objetivos));
+    }
     if (indicadores) geral.appendChild(indicadores);
     doc.appendChild(geral);
   }
 
-  const utilizadas = buildPostagensUtilizadas(rel);
+  const utilizadas = rel.mostrarPostagensUtilizadas ? buildPostagensUtilizadas(rel) : null;
   if (utilizadas) doc.appendChild(utilizadas);
 
   rel.secoes.forEach((secao, i) => doc.appendChild(buildSecao(secao, i + 1)));
@@ -300,6 +590,20 @@ export function buildDocumento(rel: Relatorio, assinatura: AssinaturaRelatorio):
     conclusao.appendChild(el('h2', 'rd-h2', 'Conclusão'));
     conclusao.appendChild(paragrafos(rel.conclusao));
     doc.appendChild(conclusao);
+  }
+
+  if (rel.recomendacoes.trim()) {
+    const recomendacoes = el('section', 'rd-bloco');
+    recomendacoes.appendChild(el('h2', 'rd-h2', 'Próximos passos'));
+    recomendacoes.appendChild(paragrafos(rel.recomendacoes));
+    doc.appendChild(recomendacoes);
+  }
+
+  if (rel.observacoesFinais.trim()) {
+    const obs = el('section', 'rd-bloco');
+    obs.appendChild(el('h2', 'rd-h2', 'Observações finais'));
+    obs.appendChild(paragrafos(rel.observacoesFinais, 'rd-texto rd-destaque'));
+    doc.appendChild(obs);
   }
 
   if (rel.incluirAssinatura) {

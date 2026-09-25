@@ -126,10 +126,191 @@ export interface ItemImagem extends ItemBase {
 export type ItemRelatorio = ItemVideo | ItemImagem;
 export type MarcacaoDe<T extends TipoPostagem> = Extract<ItemRelatorio, { tipo: T }>['marcacoes'][number];
 
+// ---------- Blocos livres ----------
+// Uma seção tem, na ordem: o texto de abertura, os blocos (na ordem que o
+// usuário escolher) e as postagens analisadas.
+
+export const TONS_DESTAQUE = [
+  { id: 'info', rotulo: 'Informação' },
+  { id: 'ok', rotulo: 'Resultado positivo' },
+  { id: 'atencao', rotulo: 'Atenção' },
+  { id: 'alerta', rotulo: 'Alerta' },
+] as const;
+
+export type TomDestaque = (typeof TONS_DESTAQUE)[number]['id'];
+
+export function isTomDestaque(v: unknown): v is TomDestaque {
+  return typeof v === 'string' && TONS_DESTAQUE.some((t) => t.id === v);
+}
+
+export type BaseMetricas = 'publicados' | 'todos';
+
+/** O que entra na conta de um bloco de métricas. Listas vazias = sem filtro. */
+export interface FiltroMetricas {
+  tipos: TipoPostagem[];
+  /** YYYY-MM-DD; sem data = sem limite daquele lado. */
+  inicio?: string;
+  fim?: string;
+  base: BaseMetricas;
+  redeIds: string[];
+  tagIds: string[];
+  prioridades: string[];
+}
+
+/** Partes opcionais do bloco de métricas (os números principais sempre aparecem). */
+export const PARTES_METRICAS = [
+  { id: 'porMes', rotulo: 'Tabela por mês' },
+  { id: 'faixas', rotulo: 'Faixas de score' },
+  { id: 'redes', rotulo: 'Por rede' },
+  { id: 'tags', rotulo: 'Por tag' },
+  { id: 'postagens', rotulo: 'Lista das postagens' },
+] as const;
+
+export type ParteMetricas = (typeof PARTES_METRICAS)[number]['id'];
+
+export function isParteMetricas(v: unknown): v is ParteMetricas {
+  return typeof v === 'string' && PARTES_METRICAS.some((p) => p.id === v);
+}
+
+export interface LinhaMetrica {
+  rotulo: string;
+  total: number;
+  comScore: number;
+  /** Média dos scores; ausente quando ninguém do grupo tem score. */
+  media?: number;
+}
+
+export interface PostagemMetrica {
+  tipo: TipoPostagem;
+  seq: number;
+  titulo: string;
+  /** Dia que contou para o período (YYYY-MM-DD). */
+  data: string;
+  score?: number;
+  redes: string[];
+}
+
+/**
+ * Números calculados, guardados no relatório: o documento é uma fotografia
+ * do momento do cálculo, como a cópia (snapshot) de cada postagem. Nomes de
+ * rede e tag vão por extenso — apagar uma tag depois não apaga o dado.
+ */
+export interface ResultadoMetricas {
+  calculadoEm: string;
+  /** Filtros escritos por extenso ("Redes: Instagram, TikTok"). */
+  filtrosDescritos: string[];
+  /** Primeiro e último dia com postagem dentro do filtro. */
+  primeiraData?: string;
+  ultimaData?: string;
+  total: number;
+  comScore: number;
+  media?: number;
+  mediana?: number;
+  maior?: { titulo: string; score: number };
+  menor?: { titulo: string; score: number };
+  porTipo: LinhaMetrica[];
+  /** rotulo = YYYY-MM */
+  porMes: LinhaMetrica[];
+  /** rotulo = id da faixa (FAIXAS_SCORE); total = quantidade na faixa. */
+  faixas: LinhaMetrica[];
+  redes: LinhaMetrica[];
+  tags: LinhaMetrica[];
+  postagens: PostagemMetrica[];
+}
+
+export interface BlocoTexto {
+  id: string;
+  tipo: 'texto';
+  titulo: string;
+  texto: string;
+}
+
+export interface BlocoDestaque {
+  id: string;
+  tipo: 'destaque';
+  tom: TomDestaque;
+  titulo: string;
+  texto: string;
+}
+
+export interface BlocoTabela {
+  id: string;
+  tipo: 'tabela';
+  titulo: string;
+  colunas: string[];
+  linhas: string[][];
+}
+
+export interface BlocoMetricas {
+  id: string;
+  tipo: 'metricas';
+  titulo: string;
+  filtro: FiltroMetricas;
+  partes: ParteMetricas[];
+  resultado: ResultadoMetricas | null;
+  /** Texto que apresenta os números, antes deles. */
+  introducao: string;
+  /** Leitura dos números, escrita pelo usuário. */
+  comentario: string;
+}
+
+export interface BlocoQuebra {
+  id: string;
+  tipo: 'quebra';
+}
+
+/** Um número digitado à mão — para o que não sai do app (alcance, seguidores, vendas…). */
+export interface IndicadorManual {
+  id: string;
+  rotulo: string;
+  valor: string;
+  /** Texto livre ("+12%", "−3 mil"): o sinal do começo decide a cor no documento. */
+  variacao: string;
+  nota: string;
+}
+
+/** Texto + métrica: indicadores escritos pelo usuário e a análise deles. */
+export interface BlocoAnalise {
+  id: string;
+  tipo: 'analise';
+  titulo: string;
+  indicadores: IndicadorManual[];
+  texto: string;
+}
+
+/** Dois textos lado a lado ("Pontos fortes" / "A melhorar"). */
+export interface BlocoColunas {
+  id: string;
+  tipo: 'colunas';
+  tituloEsquerda: string;
+  textoEsquerda: string;
+  tituloDireita: string;
+  textoDireita: string;
+}
+
+export interface BlocoCitacao {
+  id: string;
+  tipo: 'citacao';
+  texto: string;
+  fonte: string;
+}
+
+export type BlocoRelatorio =
+  | BlocoTexto
+  | BlocoDestaque
+  | BlocoTabela
+  | BlocoMetricas
+  | BlocoAnalise
+  | BlocoColunas
+  | BlocoCitacao
+  | BlocoQuebra;
+export type TipoBloco = BlocoRelatorio['tipo'];
+
 export interface SecaoRelatorio {
   id: string;
   titulo: string;
   texto: string;
+  blocos: BlocoRelatorio[];
   itens: ItemRelatorio[];
 }
 
@@ -138,8 +319,17 @@ export type SituacaoRelatorio = 'rascunho' | 'finalizado';
 export interface Relatorio extends BaseEntity {
   seq: number;
   titulo: string;
+  /**
+   * A empresa/cliente do relatório, pelas tags do catálogo único de postagens:
+   * a seleção de postagens e os blocos de métricas já vêm filtrados por elas.
+   */
+  tagIds: string[];
+  /** Nomes das tags por extenso, renovados ao salvar — apagar a tag não apaga a empresa do documento. */
+  tagsNomes: string[];
   /** Para quem e por quê: cliente, campanha, objetivo. */
   contexto: string;
+  /** Objetivos do período (o que se buscava). */
+  objetivos: string;
   /** YYYY-MM-DD */
   periodoInicio?: string;
   periodoFim?: string;
@@ -147,7 +337,14 @@ export interface Relatorio extends BaseEntity {
   resumo: string;
   secoes: SecaoRelatorio[];
   conclusao: string;
+  /** Próximos passos / recomendações. */
+  recomendacoes: string;
+  /** Observações finais, depois das recomendações. */
+  observacoesFinais: string;
   incluirAssinatura: boolean;
+  /** Partes automáticas do documento, que o usuário pode tirar. */
+  mostrarIndicadores: boolean;
+  mostrarPostagensUtilizadas: boolean;
   situacao: SituacaoRelatorio;
 }
 
@@ -161,6 +358,7 @@ export interface RelatoriosFile {
 
 export interface CriarRelatorioInput {
   titulo: string;
+  tagIds?: string[];
   contexto?: string;
   periodoInicio?: string;
   periodoFim?: string;

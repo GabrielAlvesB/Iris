@@ -13,6 +13,9 @@ import { registerAjustesIpc } from './ajustes.ipc';
 import { registerVideosIpc } from './videos.ipc';
 import { registerImagensIpc } from './imagens.ipc';
 import { registerRelatoriosIpc } from './relatorios.ipc';
+import { registerRoteirosIpc } from './roteiros.ipc';
+import { registerTrafegoIpc } from './trafego.ipc';
+import { registerAtualizacaoIpc } from './atualizacao.ipc';
 
 export function registerAllIpcHandlers(): void {
   registerKanbanIpc();
@@ -30,4 +33,7 @@ export function registerAllIpcHandlers(): void {
   registerVideosIpc();
   registerImagensIpc();
   registerRelatoriosIpc();
+  registerRoteirosIpc();
+  registerTrafegoIpc();
+  registerAtualizacaoIpc();
 }
