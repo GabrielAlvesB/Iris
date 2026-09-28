@@ -8,6 +8,8 @@ import {
   type PensamentosViewport,
 } from '../../../shared/types/pensamentos.types.js';
 import * as pensamentosState from './pensamentos.state.js';
+import { ICONE_IA, abrirMenuIa, acoesDeTexto, sugerirItensComIa } from '../../ui/ia.js';
+import { abrirModulo } from '../../core/navegacao.js';
 import { haModalAberto, mensagemDeErro, openAvisoModal, openConfirmModal } from '../../ui/modal.js';
 import { buildBotao, buildBusca, buildCabecalho, svg, tempoRelativo } from '../../ui/pagina.js';
 
@@ -358,6 +360,43 @@ function buildEditor(el: HTMLElement): HTMLTextAreaElement {
   return textarea;
 }
 
+/** Primeira linha do post-it, sem #tags, como título da checklist. */
+function tituloDoPensamento(texto: string): string {
+  const linha = texto.split('\n').map((l) => l.replace(/#[\p{L}\p{N}_-]+/gu, '').trim()).find(Boolean) ?? 'Checklist do pensamento';
+  return linha.length > 80 ? `${linha.slice(0, 77)}…` : linha;
+}
+
+function abrirIaDoPostit(btn: HTMLButtonElement, pensamento: Pensamento): void {
+  const opcoes = { area: 'Pensamentos (post-its de ideias)', campo: 'Pensamento', desenvolver: true };
+  abrirMenuIa(btn, [
+    ...acoesDeTexto(btn, () => pensamento.texto, opcoes, (texto) => void pensamentosState.updatePensamento({ pensamentoId: pensamento.id, texto })),
+    {
+      rotulo: 'Virar checklist no To-do',
+      dica: 'A IA quebra a ideia em passos e cria a checklist',
+      fazer: () => {
+        void sugerirItensComIa(btn, { area: 'Pensamentos → To-do', campo: 'Passos para tirar a ideia do papel', texto: pensamento.texto }, 'Passos da checklist').then(
+          async (itens) => {
+            if (!itens.length) return;
+            const r = await window.irisAPI.todo.criarChecklist({ titulo: tituloDoPensamento(pensamento.texto), descricao: pensamento.texto, itens });
+            if (!r.ok) {
+              await openAvisoModal('Não deu para criar a checklist', r.error, { erro: true });
+              return;
+            }
+            const abrir = await openConfirmModal({
+              title: 'Checklist criada',
+              message: `"${tituloDoPensamento(pensamento.texto)}" está no To-do com ${itens.length} ${itens.length === 1 ? 'item' : 'itens'}.`,
+              danger: false,
+              confirmText: 'Abrir o To-do',
+              cancelText: 'Ficar aqui',
+            });
+            if (abrir) abrirModulo('todo');
+          },
+        );
+      },
+    },
+  ]);
+}
+
 function buildPostit(pensamento: Pensamento): HTMLElement {
   const el = document.createElement('article');
   el.className = 'postit';
@@ -405,6 +444,7 @@ function buildPostit(pensamento: Pensamento): HTMLElement {
       pensamento.fixado ? 'is-ativo' : '',
     ),
   );
+  acoes.appendChild(buildAcao('IA: desenvolver, melhorar, virar checklist', ICONE_IA, (btn) => abrirIaDoPostit(btn, pensamento)));
   acoes.appendChild(buildAcao('Excluir', ICON_TRASH, () => void excluir(pensamento), 'is-perigo'));
   barra.appendChild(acoes);
   el.appendChild(barra);

@@ -1,6 +1,6 @@
 {
   "name": "iris",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Iris — assistente pessoal de tarefas e organização de conteúdo (100% local)",
   "private": true,
   "main": "dist/main/main.js",

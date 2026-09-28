@@ -31,6 +31,7 @@ export const MODULOS = [
   { id: 'kanban', rotulo: 'Kanban', posicao: 'topo' },
   { id: 'todo', rotulo: 'To-do', posicao: 'topo' },
   { id: 'postagens', rotulo: 'Postagens', posicao: 'conteudo' },
+  { id: 'ia', rotulo: 'Estúdio IA', posicao: 'conteudo' },
   { id: 'relatorios', rotulo: 'Relatórios', posicao: 'conteudo' },
   { id: 'roteiros', rotulo: 'Roteiros', posicao: 'conteudo' },
   { id: 'sheets', rotulo: 'Sheets', posicao: 'conteudo' },

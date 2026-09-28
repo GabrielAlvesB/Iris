@@ -31,6 +31,7 @@ import {
   svg,
   type Tom,
 } from '../../ui/pagina.js';
+import { buildBotaoIa, sugerirItensComIa } from '../../ui/ia.js';
 import * as kanbanState from '../kanban/kanban.state.js';
 import * as todoState from './todo.state.js';
 
@@ -651,6 +652,17 @@ function buildRodapeCartao(l: Checklist): HTMLElement {
     rodape.appendChild(restaurar);
     return rodape;
   }
+  const sugerir = buildBotaoIa('Sugerir itens', 'A IA sugere itens a partir do título, da descrição e do que já existe');
+  sugerir.addEventListener('click', () => {
+    void sugerirItensComIa(
+      sugerir,
+      { area: 'To-do', campo: 'Itens da checklist', titulo: l.titulo, descricao: l.descricao, itens: l.itens.map((i) => i.texto) },
+      `Itens para "${l.titulo}"`,
+    ).then((textos) => {
+      if (textos.length) executar(todoState.adicionarItens({ checklistId: l.id, textos }));
+    });
+  });
+  rodape.appendChild(sugerir);
   const kanban = buildBotao(l.envio ? 'Enviar de novo' : 'Enviar ao Kanban', {
     icone: ICONES.kanban,
     variante: 'fantasma',

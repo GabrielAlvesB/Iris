@@ -21,6 +21,7 @@ import { openConfirmModal } from '../../ui/modal.js';
 import { buildBotao, svg } from '../../ui/pagina.js';
 import { ICONES_POSTAGEM, hojeIso, somarDias } from '../postagens/postagens.ui.js';
 import { buildBloco } from './relatorios.documento.js';
+import { comIaRelatorio, resumoDoResultado } from './relatorios.ia.js';
 import { calcularMetricas, catalogoAtual, intervaloDoMes, mesExato, novoBlocoMetricas } from './relatorios.metricas.js';
 
 /**
@@ -174,7 +175,7 @@ function editorTexto(bloco: Extract<BlocoRelatorio, { tipo: 'texto' | 'destaque'
     bloco.texto = area.value;
     ctx.agendarSalvar();
   });
-  wrap.appendChild(campo('Texto', area, DICA_FORMATACAO));
+  wrap.appendChild(campo('Texto', comIaRelatorio(area, bloco.tipo === 'destaque' ? `Caixa de destaque "${bloco.titulo}"` : `Bloco de texto "${bloco.titulo}"`, ctx.rel), DICA_FORMATACAO));
   return wrap;
 }
 
@@ -321,7 +322,13 @@ function editorMetricas(bloco: BlocoMetricas, ctx: ContextoBlocos): HTMLElement 
     bloco.introducao = introducao.value;
     ctx.agendarSalvar();
   });
-  wrap.appendChild(campo('Texto antes dos números (opcional)', introducao, DICA_FORMATACAO));
+  wrap.appendChild(
+    campo(
+      'Texto antes dos números (opcional)',
+      comIaRelatorio(introducao, `Introdução do bloco de métricas "${bloco.titulo}"`, ctx.rel, () => resumoDoResultado(bloco.resultado)),
+      DICA_FORMATACAO,
+    ),
+  );
 
   wrap.append(campo('Período', atalhos), datas);
 
@@ -389,7 +396,13 @@ function editorMetricas(bloco: BlocoMetricas, ctx: ContextoBlocos): HTMLElement 
     bloco.comentario = comentario.value;
     ctx.agendarSalvar();
   });
-  wrap.appendChild(campo('Leitura dos números (opcional)', comentario, DICA_FORMATACAO));
+  wrap.appendChild(
+    campo(
+      'Leitura dos números (opcional)',
+      comIaRelatorio(comentario, `Leitura dos números do bloco "${bloco.titulo}"`, ctx.rel, () => resumoDoResultado(bloco.resultado)),
+      DICA_FORMATACAO,
+    ),
+  );
 
   // Prévia dos números, com o mesmo desenho do PDF.
   const cabPrevia = document.createElement('div');
@@ -477,7 +490,16 @@ function editorAnalise(bloco: BlocoAnalise, ctx: ContextoBlocos): HTMLElement {
   wrap.appendChild(acoes);
 
   wrap.appendChild(
-    campo('Análise', areaLigada(bloco.texto, 'O que esses números mostram? Compare, explique, recomende…', 6, (v) => (bloco.texto = v), ctx), DICA_FORMATACAO),
+    campo(
+      'Análise',
+      comIaRelatorio(
+        areaLigada(bloco.texto, 'O que esses números mostram? Compare, explique, recomende…', 6, (v) => (bloco.texto = v), ctx),
+        `Análise dos indicadores "${bloco.titulo}"`,
+        ctx.rel,
+        () => bloco.indicadores.map((i) => `${i.rotulo}: ${i.valor}${i.variacao ? ` (${i.variacao})` : ''}${i.nota ? ` — ${i.nota}` : ''}`).join('\n'),
+      ),
+      DICA_FORMATACAO,
+    ),
   );
   return wrap;
 }

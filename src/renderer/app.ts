@@ -40,6 +40,10 @@ const carregadores: Record<ModuleName, () => Promise<AppModule>> = {
     const view = await import('./modules/relatorios/relatorios.view.js');
     return { mount: (viewRoot) => view.montar(viewRoot), destroy: () => view.destroy() };
   },
+  ia: async () => {
+    const view = await import('./modules/ia/ia.view.js');
+    return { mount: (viewRoot) => view.montar(viewRoot), destroy: () => view.destroy() };
+  },
   todo: async () => {
     const view = await import('./modules/todo/todo.view.js');
     return { mount: (viewRoot) => view.montar(viewRoot), destroy: () => view.destroy() };

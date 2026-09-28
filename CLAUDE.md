@@ -11,10 +11,10 @@ TypeScript puro, **sem framework de UI e sem bundler**. O DOM é construído à 
 `document.createElement`. As únicas dependências de runtime são `sortablejs` (drag-and-drop),
 `ssh2` (comandos remotos) e `xlsx` (import/export de planilhas).
 
-Dezessete módulos, organizados na sidebar por categoria:
+Dezoito módulos, organizados na sidebar por categoria:
 
 - **soltos no topo**: Kanban, To-do (id `todo`)
-- **Conteúdo**: Postagens (pipeline de conteúdo: vídeos, imagens), Relatórios (análises com PDF),
+- **Conteúdo**: Postagens (pipeline de conteúdo: vídeos, imagens), Estúdio IA (id `ia`), Relatórios (análises com PDF),
   Roteiros (escrever → revisar → aprovar; aprovado vira card no Kanban), Sheets
 - **Arquivos**: Biblioteca (id interno `explorador`), Quadro, Copy, Pensamentos, Links rápidos
 - **Sistema**: Servidores, n8n, GitHub
@@ -255,6 +255,51 @@ não seria decifrável em outra máquina.
   O selo lê o quadro do Kanban para mostrar a coluna e as subtarefas atuais do card.
 - Reordenar com filtro ativo: a tela manda a ordem completa, trocando só as posições das
   checklists visíveis — as escondidas não saem do lugar.
+
+## Inteligência artificial
+
+- **Provedores** (catálogo único `PROVEDORES` em [ia.types.ts](src/shared/types/ia.types.ts)):
+  OpenRouter, OpenAI, Anthropic (Claude — **não gera imagem**), Google Gemini e "Compatível com
+  OpenAI" (base URL; Ollama/LM Studio local funciona sem chave). Um adaptador por provedor em
+  [src/main/modules/ia/provedores/](src/main/modules/ia/provedores) com a mesma interface
+  (`listarModelos`, `gerarTexto`, `gerarImagem?`); o compatível reusa o da OpenAI (`criarOpenAi`).
+  Modelos se escolhem por `abrirSeletorModelo` (ui/ia.ts: busca, rolagem, preço do OpenRouter) —
+  o `<datalist>` do Chromium não rola com centenas de itens. `RECOMENDACOES_OPENROUTER` traz
+  id sugerido + termo de busca (se o id sumir, o seletor abre filtrado).
+  Tudo em HTTP direto pelo `httpClient` (aceita `FormData` para o multipart de `/images/edits`),
+  sem SDK. Erros viram mensagens em português em `chamarJson` (401/403 chave, 402/429 crédito…).
+- **Chaves** no secretStore como `ia.<provedor>.apiKey`; a tela recebe só `temChave`/`configurado`
+  e `finalChave` (os 4 últimos caracteres, para reconhecer qual está salva — a chave inteira nunca
+  sai do main). O campo tem o olho só para o que está sendo digitado.
+  Config sem chave em `ia.json` (entra no backup). `resolver(capacidade)` escolhe o provedor:
+  pedido explícito → padrão → primeiro configurado com a capacidade.
+- **Prompts moram no main** ([ia.prompts.ts](src/main/modules/ia/ia.prompts.ts)): a tela manda
+  `TarefaTexto` + `ContextoTexto`. Tarefas com opções pedem JSON (`lerVariantes` é tolerante).
+- **Imagens**: `gerarImagem` (ia.tarefas.ts) devolve a tarefa na hora e empurra `ia:tarefa`;
+  o resultado é recortado/redimensionado com `nativeImage` para o formato exato
+  (`FORMATOS_IMAGEM_IA`, ex. thumb 1280×720). Tudo vai para a **galeria interna**
+  (`userData/ia-galeria/<id>.png` + `ia-galeria.json`, fora do backup — binário);
+  "Salvar na Biblioteca" copia para a pasta padrão (raiz + subpasta "Iris IA", pathGuard) e cria
+  o recurso na coleção Thumbnails. Anexar a uma postagem = salvar na Biblioteca + `recursoIds`.
+- **Referências nunca por caminho vindo do renderer**: arquivo escolhido no dialog do main (mapa
+  id → caminho), recurso da Biblioteca por id (validado com `assertDentroDasRaizes`) ou item da
+  galeria por id. PNG/JPG/WebP, até 20 MB, até 8.
+- **Onde aparece**: Estúdio IA ([ia.view.ts](src/renderer/modules/ia/ia.view.ts), criador
+  compartilhado em `ia.criador.ts`); "Sugerir com IA" nos painéis de vídeo e imagem
+  (`postagens.ia.ts` — preenche disparando `input`, o mesmo caminho da digitação); "Thumbnail com
+  IA" na seção Materiais (`ia.thumbnail.ts`); botão "IA" na barra dos Roteiros (`roteiros.ia.ts`).
+  Sem IA configurada, `exigirIa()` explica e leva a Ajustes › Inteligência artificial / Tutorial.
+- **Assistente de texto genérico** (ui/ia.ts): `comAssistente(textarea, {area, campo, contexto})`
+  envolve qualquer campo com o botão "IA" (Escrever / Melhorar / Resumir ou Desenvolver);
+  `sugerirItensComIa` + `escolherItens` para checklists e subtarefas (tarefa `lista-itens`). Usado
+  em Relatórios (`relatorios.ia.ts` manda o relatório inteiro + números das métricas como
+  `referencia`), Kanban (descrição e subtarefas), To-do ("Sugerir itens") e Pensamentos (post-it →
+  desenvolver ou virar checklist no To-do).
+- **Estúdio**: o criador aceita vários formatos marcados — cada um vira uma tarefa própria;
+  "Pedir ideias" (`ideias-imagem`, 4 conceitos → prompt); "Modificar" (`abrirModificacao` em
+  ia.acoes.ts) manda a imagem da galeria como referência com o pedido do que mudar.
+- Config e tarefas compartilhadas no renderer: [core/ia.ts](src/renderer/core/ia.ts). Guia do
+  Tutorial: `GUIA_IA` (GuiaId `'ia'`).
 
 ## Tráfego pago
 

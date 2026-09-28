@@ -16,6 +16,8 @@ import {
 } from '../../core/atualizacao.js';
 import type { EstadoAtualizacao } from '../../../shared/types/atualizacao.types.js';
 import { buildAssinatura } from '../relatorios/relatorios.documento.js';
+import { buildSecaoIa } from './ajustes.ia.js';
+import { ICONE_IA } from '../../ui/ia.js';
 import {
   assinarSidebar,
   definirLargura,
@@ -27,7 +29,7 @@ import {
 } from '../../core/sidebar.js';
 import { ICONES, buildAviso, buildBotao, buildCabecalho, buildSelo, svg, type Tom } from '../../ui/pagina.js';
 
-type Secao = 'n8n' | 'github' | 'credenciais' | 'preferencias' | 'relatorios' | 'atualizacoes' | 'backup';
+type Secao = 'n8n' | 'github' | 'ia' | 'credenciais' | 'preferencias' | 'relatorios' | 'atualizacoes' | 'backup';
 
 let secaoAtiva: Secao = 'n8n';
 let containerAtual: HTMLElement | null = null;
@@ -54,6 +56,13 @@ const NAV: ItemNav[] = [
     rotulo: 'GitHub',
     icone: ICONES.github,
     estado: (s) => (s.github.temToken ? { texto: 'configurado', tom: 'ok' } : { texto: 'pendente', tom: 'atencao' }),
+  },
+  {
+    id: 'ia',
+    rotulo: 'Inteligência artificial',
+    icone: ICONE_IA,
+    estado: (s) =>
+      s.ia.provedores.some((p) => p.configurado) ? { texto: 'configurado', tom: 'ok' } : { texto: 'pendente', tom: 'atencao' },
   },
   {
     id: 'credenciais',
@@ -366,7 +375,7 @@ function buildSecaoGithub(state: AjustesViewState): HTMLElement {
 function buildSecaoCredenciais(state: AjustesViewState): HTMLElement {
   const painel = buildPainel(
     'Segurança das credenciais',
-    'Como o Iris guarda a API key do n8n, o token do GitHub e as passphrases das chaves SSH.',
+    'Como o Iris guarda as chaves de IA, a API key do n8n, o token do GitHub e as passphrases das chaves SSH.',
     ICONES.escudo,
   );
 
@@ -825,7 +834,7 @@ export function render(container: HTMLElement, state: AjustesViewState): void {
     buildCabecalho({
       icone: ICONES.ajustes,
       titulo: 'Ajustes',
-      subtitulo: 'Conexões, segurança, preferências, relatórios, atualizações e backup',
+      subtitulo: 'Conexões, inteligência artificial, segurança, preferências, relatórios, atualizações e backup',
     }),
   );
 
@@ -839,6 +848,7 @@ export function render(container: HTMLElement, state: AjustesViewState): void {
   const secoes: Record<Secao, () => HTMLElement> = {
     n8n: () => buildSecaoN8n(state),
     github: () => buildSecaoGithub(state),
+    ia: () => buildSecaoIa({ buildPainel, buildCampo, buildInput, buildStatus }, state.ia),
     credenciais: () => buildSecaoCredenciais(state),
     preferencias: () => buildSecaoPreferencias(state),
     relatorios: () => buildSecaoRelatorios(state),

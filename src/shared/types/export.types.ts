@@ -38,6 +38,8 @@ export interface ExportBundle {
   roteiros?: RoteirosFile;
   trafego?: TrafegoFile;
   todo?: TodoFile;
+  /** Config das IAs, sem as chaves (ficam no cofre, fora do backup). */
+  ia?: unknown;
   /** @deprecated O módulo Arquivos virou Explorador. Só existe em backups antigos. */
   arquivos?: unknown;
 }

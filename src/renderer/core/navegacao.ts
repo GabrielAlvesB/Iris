@@ -10,7 +10,7 @@
 import type { ModuloId } from '../../shared/types/modulos.types.js';
 import type { TipoPostagem } from '../../shared/types/postagens.types.js';
 
-export type GuiaId = 'n8n' | 'servidores' | 'github';
+export type GuiaId = 'n8n' | 'servidores' | 'github' | 'ia';
 
 type Atendente = (modulo: string) => void;
 

@@ -3,11 +3,13 @@ import type { TutorialViewState } from './tutorial.state.js';
 import { GUIAS } from './tutorial.content.js';
 import type { Bloco, EstadoPasso, Guia, GuiaId, Passo } from './tutorial.types.js';
 import { ICONES, buildBotao, buildCabecalho, buildSelo, svg } from '../../ui/pagina.js';
+import { ICONE_IA } from '../../ui/ia.js';
 
 const ICONE_DO_GUIA: Record<GuiaId, string> = {
   n8n: ICONES.n8n,
   servidores: ICONES.servidor,
   github: ICONES.github,
+  ia: ICONE_IA,
 };
 
 function estadoDoPasso(state: TutorialViewState, passo: Passo): EstadoPasso {

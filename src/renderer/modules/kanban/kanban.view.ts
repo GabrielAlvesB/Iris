@@ -1,4 +1,5 @@
 import type { KanbanBoard, KanbanCard, KanbanColumn, KanbanSubtask } from '../../../shared/types/kanban.types';
+import { buildBotaoIa, comAssistente, sugerirItensComIa } from '../../ui/ia.js';
 import * as kanbanState from './kanban.state.js';
 import { destroySortables, initSortables } from './kanban.dragdrop.js';
 import { ICONES_MODAL, openFormModal, openConfirmModal, openAvisoModal, buildSecaoModal, haModalAberto } from '../../ui/modal.js';
@@ -774,9 +775,24 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
   handle.grade.appendChild(props);
 
   // ---- Subtarefas ----
-  const subtarefas = buildSecaoModal('Subtarefas');
+  const sugerirSub = buildBotaoIa('Sugerir', 'A IA sugere subtarefas a partir do título e da descrição');
+  const subtarefas = buildSecaoModal('Subtarefas', undefined, sugerirSub);
   subtarefas.secao.classList.add('kanban-cp-secao');
   const subtasksWrap = document.createElement('div');
+  sugerirSub.addEventListener('click', () => {
+    if (!panelDraft) return;
+    const draft = panelDraft;
+    void sugerirItensComIa(
+      sugerirSub,
+      { area: 'Kanban', campo: 'Subtarefas do card', titulo: draft.title, descricao: draft.description, itens: draft.subtasks.map((s) => s.title) },
+      'Subtarefas sugeridas',
+    ).then((itens) => {
+      if (!itens.length || panelDraft !== draft) return;
+      itens.forEach((title) => draft.subtasks.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, title, done: false }));
+      renderSubtasks(subtasksWrap, salvarSeExistir);
+      salvarSeExistir();
+    });
+  });
   subtasksWrap.className = 'kanban-cp-subtarefas';
   renderSubtasks(subtasksWrap, salvarSeExistir);
   subtarefas.conteudo.appendChild(subtasksWrap);
@@ -801,7 +817,13 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
     salvarSeExistir();
   });
   requestAnimationFrame(ajustarDescricao);
-  descricao.conteudo.appendChild(descTextarea);
+  descricao.conteudo.appendChild(
+    comAssistente(descTextarea, {
+      area: 'Kanban',
+      campo: 'Descrição do card (contexto e critério de pronto)',
+      contexto: () => ({ titulo: panelDraft?.title, itens: panelDraft?.subtasks.map((s) => s.title) }),
+    }),
+  );
   handle.grade.appendChild(descricao.secao);
 
   // ---- Rodapé ----

@@ -156,6 +156,27 @@ export const TRAFEGO_CHANNELS = {
   importarRegistros: 'trafego:importarRegistros',
 } as const;
 
+export const IA_CHANNELS = {
+  getConfig: 'ia:getConfig',
+  salvarProvedor: 'ia:salvarProvedor',
+  salvarPadroes: 'ia:salvarPadroes',
+  testarProvedor: 'ia:testarProvedor',
+  listarModelos: 'ia:listarModelos',
+  gerarTexto: 'ia:gerarTexto',
+  referenciasDoComputador: 'ia:referenciasDoComputador',
+  descreverReferencia: 'ia:descreverReferencia',
+  gerarImagem: 'ia:gerarImagem',
+  cancelarTarefa: 'ia:cancelarTarefa',
+  listarTarefas: 'ia:listarTarefas',
+  limparTarefas: 'ia:limparTarefas',
+  listarGaleria: 'ia:listarGaleria',
+  abrirImagem: 'ia:abrirImagem',
+  excluirImagem: 'ia:excluirImagem',
+  exportarImagem: 'ia:exportarImagem',
+  salvarNaBiblioteca: 'ia:salvarNaBiblioteca',
+  vincularPostagem: 'ia:vincularPostagem',
+} as const;
+
 export const TODO_CHANNELS = {
   getFile: 'todo:getFile',
   criarChecklist: 'todo:criarChecklist',

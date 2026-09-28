@@ -39,7 +39,8 @@ function getSessaoInsegura(): Session {
 export interface HttpOptions {
   method?: string;
   headers?: Record<string, string>;
-  body?: string;
+  /** FormData para multipart (edição de imagem da OpenAI); o net.fetch monta o boundary. */
+  body?: string | FormData;
   timeoutMs?: number;
   /** Só tem efeito se o host estiver em setHostsInseguros(). */
   permitirTlsInseguro?: boolean;

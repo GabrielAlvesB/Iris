@@ -417,4 +417,202 @@ const GUIA_GITHUB: Guia = {
   ],
 };
 
-export const GUIAS: Guia[] = [GUIA_N8N, GUIA_SERVIDORES, GUIA_GITHUB];
+/** Um provedor configurado? Usado pelos passos de cada provedor. */
+async function provedorPronto(id: string): Promise<boolean> {
+  const r = await window.irisAPI.ia.getConfig();
+  return r.ok && r.data.provedores.some((p) => p.id === id && p.configurado);
+}
+
+const GUIA_IA: Guia = {
+  id: 'ia',
+  titulo: 'Inteligência artificial — suas chaves de IA',
+  resumo:
+    'O Iris usa a SUA chave de IA (OpenRouter, OpenAI/ChatGPT, Claude, Gemini ou qualquer serviço compatível) para escrever legendas, roteiros e gerar imagens e thumbnails. A chave fica cifrada no seu computador, as chamadas saem direto do app para o provedor, e o custo é cobrado pelo provedor na sua conta — o Iris não cobra nada nem guarda seus pedidos em lugar nenhum além do seu PC.',
+  passos: [
+    {
+      id: 'ia.onde',
+      titulo: '1. Onde a IA aparece no Iris',
+      blocos: [
+        {
+          tipo: 'lista',
+          itens: [
+            'Estúdio IA (categoria Conteúdo): gerar imagens e thumbnails a partir de texto ou de imagens que você já tem ("faça uma imagem baseada nestas"), em vários formatos de uma vez (thumb, feed, story…). "Pedir ideias" traz conceitos diferentes; "Modificar" altera uma imagem já criada. Tudo fica numa galeria, e dá para salvar na Biblioteca ou anexar a uma postagem.',
+            'Postagens → painel do vídeo → Conteúdo: botão "Sugerir com IA" gera opções de descrição e hashtags.',
+            'Postagens → painel da imagem → Legenda: opções de legenda, CTA e texto alternativo.',
+            'Postagens → Materiais: "Gerar thumbnail com IA", já com título, descrição e as imagens da postagem como referência.',
+            'Roteiros → editor → botão "IA": gerar rascunho, melhorar o trecho selecionado, revisar o roteiro inteiro, sugerir gancho e CTA.',
+            'Relatórios → botão "IA" no canto dos campos de texto (resumo, objetivos, seções, blocos, conclusão, próximos passos): escreve, melhora ou resume usando o relatório inteiro e os números dos blocos de métricas.',
+            'Kanban → card: "Sugerir" subtarefas e o botão "IA" na descrição.',
+            'To-do → "Sugerir itens" em cada checklist.',
+            'Pensamentos → botão de IA no post-it: desenvolver a ideia, melhorar o texto ou virar uma checklist no To-do.',
+          ],
+        },
+      ],
+    },
+    {
+      id: 'ia.qual',
+      titulo: '2. Qual provedor escolher',
+      blocos: [
+        {
+          tipo: 'lista',
+          itens: [
+            'OpenRouter — uma chave só para centenas de modelos (GPT, Claude, Gemini…), texto E imagem. O jeito mais simples de começar.',
+            'OpenAI (ChatGPT) — texto e imagens (gpt-image), inclusive editar a partir de imagens de referência.',
+            'Google (Gemini) — texto e imagens (Gemini Image), também com imagens de referência. Tem cota gratuita para testar.',
+            'Anthropic (Claude) — excelente para textos e roteiros, mas NÃO gera imagens.',
+            'Compatível com OpenAI — Groq, DeepSeek, Together, ou uma IA rodando no seu PC (Ollama, LM Studio).',
+          ],
+        },
+        {
+          tipo: 'aviso',
+          nivel: 'info',
+          texto:
+            'Você pode configurar vários ao mesmo tempo e escolher um padrão para texto e outro para imagem em Ajustes. Ex.: Claude para roteiros e OpenRouter para as imagens.',
+        },
+        {
+          tipo: 'aviso',
+          nivel: 'atencao',
+          texto:
+            'Cada geração custa alguns centavos (imagens custam mais que texto). Coloque um limite de gasto no painel do provedor se quiser ter controle.',
+        },
+      ],
+      verificar: async () => {
+        const r = await window.irisAPI.ia.getConfig();
+        return r.ok && r.data.provedores.some((p) => p.configurado);
+      },
+    },
+    {
+      id: 'ia.openrouter',
+      titulo: '3. OpenRouter',
+      blocos: [
+        {
+          tipo: 'lista',
+          itens: [
+            'Crie a conta em openrouter.ai e coloque crédito em Credits (a partir de US$ 5)',
+            'Em Keys, clique em "Create Key", dê um nome (ex.: Iris) e copie a chave (começa com sk-or-)',
+            'No Iris: Ajustes → Inteligência artificial → OpenRouter → cole a chave → Salvar → Testar',
+            'Para imagens, escolha um modelo marcado como "gera imagem" (ex.: google/gemini-2.5-flash-image)',
+          ],
+        },
+        { tipo: 'link', url: 'https://openrouter.ai/settings/keys', rotulo: 'Abrir a página de chaves do OpenRouter' },
+      ],
+      verificar: () => provedorPronto('openrouter'),
+    },
+    {
+      id: 'ia.openai',
+      titulo: '4. OpenAI (ChatGPT)',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            'A assinatura do ChatGPT Plus não vale para a API: a API tem cobrança própria, por uso, na plataforma de desenvolvedores.',
+        },
+        {
+          tipo: 'lista',
+          itens: [
+            'Entre em platform.openai.com e adicione crédito em Settings → Billing',
+            'Em API keys, clique em "Create new secret key" e copie (começa com sk-)',
+            'No Iris: Ajustes → Inteligência artificial → OpenAI → cole → Salvar → Testar',
+          ],
+        },
+        {
+          tipo: 'aviso',
+          nivel: 'atencao',
+          texto:
+            'Para gerar imagens com gpt-image a OpenAI pode pedir que a organização seja verificada (Settings → Organization → Verify). Sem isso, a geração de imagem volta erro 403.',
+        },
+        { tipo: 'link', url: 'https://platform.openai.com/api-keys', rotulo: 'Abrir a página de chaves da OpenAI' },
+      ],
+      verificar: () => provedorPronto('openai'),
+    },
+    {
+      id: 'ia.anthropic',
+      titulo: '5. Anthropic (Claude)',
+      blocos: [
+        {
+          tipo: 'lista',
+          itens: [
+            'Entre em console.anthropic.com e adicione crédito em Billing',
+            'Em Settings → API Keys, clique em "Create Key" e copie (começa com sk-ant-)',
+            'No Iris: Ajustes → Inteligência artificial → Anthropic → cole → Salvar → Testar',
+          ],
+        },
+        {
+          tipo: 'aviso',
+          nivel: 'info',
+          texto: 'O Claude escreve e lê imagens, mas não gera imagens. Para o Estúdio, configure também outro provedor.',
+        },
+        { tipo: 'link', url: 'https://console.anthropic.com/settings/keys', rotulo: 'Abrir a página de chaves da Anthropic' },
+      ],
+      verificar: () => provedorPronto('anthropic'),
+    },
+    {
+      id: 'ia.google',
+      titulo: '6. Google (Gemini)',
+      blocos: [
+        {
+          tipo: 'lista',
+          itens: [
+            'Entre em aistudio.google.com com sua conta Google',
+            'Clique em "Get API key" → "Create API key" e copie',
+            'No Iris: Ajustes → Inteligência artificial → Google → cole → Salvar → Testar',
+          ],
+        },
+        {
+          tipo: 'aviso',
+          nivel: 'info',
+          texto: 'A cota gratuita tem limite por minuto e por dia. Para uso contínuo, ative o faturamento no Google Cloud.',
+        },
+        { tipo: 'link', url: 'https://aistudio.google.com/apikey', rotulo: 'Abrir o Google AI Studio' },
+      ],
+      verificar: () => provedorPronto('google'),
+    },
+    {
+      id: 'ia.compativel',
+      titulo: '7. Qualquer outra IA (compatível com OpenAI)',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            'Muitos serviços usam o mesmo formato da API da OpenAI. Preencha o endereço base e, se o serviço pedir, a chave:',
+        },
+        {
+          tipo: 'lista',
+          itens: [
+            'Groq: https://api.groq.com/openai/v1',
+            'DeepSeek: https://api.deepseek.com/v1',
+            'Together: https://api.together.xyz/v1',
+            'Ollama no seu PC: http://localhost:11434/v1 (sem chave)',
+            'LM Studio no seu PC: http://localhost:1234/v1 (sem chave)',
+          ],
+        },
+        {
+          tipo: 'aviso',
+          nivel: 'info',
+          texto: 'Geração de imagem só funciona se o serviço tiver o endpoint de imagens da OpenAI; a maioria só tem texto.',
+        },
+      ],
+      verificar: () => provedorPronto('compativel'),
+    },
+    {
+      id: 'ia.padroes',
+      titulo: '8. Escolher os padrões e a pasta das imagens',
+      blocos: [
+        {
+          tipo: 'lista',
+          itens: [
+            'Em Ajustes → Inteligência artificial → Padrões: escolha qual IA escreve os textos e qual gera as imagens',
+            'Escolha também a pasta da Biblioteca onde "Salvar na Biblioteca" grava as imagens (padrão: uma subpasta "Iris IA" dentro de uma pasta monitorada)',
+            'Toda imagem gerada fica também na galeria do Estúdio, mesmo sem salvar na Biblioteca',
+          ],
+        },
+      ],
+      verificar: async () => {
+        const r = await window.irisAPI.ia.getConfig();
+        return r.ok && Boolean(r.data.texto || r.data.imagem);
+      },
+    },
+  ],
+};
+
+export const GUIAS: Guia[] = [GUIA_IA, GUIA_N8N, GUIA_SERVIDORES, GUIA_GITHUB];

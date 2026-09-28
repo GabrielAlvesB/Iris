@@ -29,6 +29,7 @@ import { alternaveis, buildBlocosEditor, buildMenuNovoBloco, type ContextoBlocos
 import { catalogoAtual } from './relatorios.metricas.js';
 import { buildAssinatura, buildDocumento, descreverPeriodo, todosOsItens } from './relatorios.documento.js';
 import { ICONES_RELATORIO, abrirAdicionarPostagens, abrirCategorias, abrirMarcacao, abrirNovoRelatorio } from './relatorios.modais.js';
+import { comIaRelatorio } from './relatorios.ia.js';
 import * as relatoriosState from './relatorios.state.js';
 import { ADAPTADORES, carregarPostagens, localMarcacaoImagem, localMarcacaoVideo } from './relatorios.tipos.js';
 
@@ -467,8 +468,8 @@ function buildGerais(rel: Relatorio): HTMLElement {
     buildCampoEmpresa(rel),
     campo('Contexto', contexto),
     grade2(campo('Período — de', inicio), campo('até', fim)),
-    campo('Resumo / informações gerais', resumo, dicaFormatacao),
-    campo('Objetivos (opcional)', objetivos, dicaFormatacao),
+    campo('Resumo / informações gerais', comIaRelatorio(resumo, 'Resumo executivo (o que foi analisado e os principais achados)', rel), dicaFormatacao),
+    campo('Objetivos (opcional)', comIaRelatorio(objetivos, 'Objetivos do período', rel), dicaFormatacao),
     campo(
       'Situação',
       pilulas<SituacaoRelatorio>(
@@ -751,7 +752,7 @@ function buildSecaoEditor(rel: Relatorio, secao: SecaoRelatorio, indice: number,
     secao.texto = texto.value;
     agendarSalvar();
   });
-  bloco.appendChild(texto);
+  bloco.appendChild(comIaRelatorio(texto, `Introdução da seção "${secao.titulo}"`, rel));
 
   // Blocos livres (texto, destaque, tabela, métricas, quebra), antes das postagens.
   const ctx: ContextoBlocos = { rel, agendarSalvar, mudouEstrutura };
@@ -914,9 +915,21 @@ function renderEditor(container: HTMLElement, file: RelatoriosFile): void {
       return area;
     };
     conclusao.conteudo.append(
-      campo('Conclusão', areaFinal(rel.conclusao, 'Síntese do que a análise mostrou', (v) => (rel.conclusao = v)), dica),
-      campo('Próximos passos (opcional)', areaFinal(rel.recomendacoes, '- O que fazer no próximo período\n- Testes, ajustes, metas', (v) => (rel.recomendacoes = v)), dica),
-      campo('Observações finais (opcional)', areaFinal(rel.observacoesFinais, 'Ressalvas, fontes dos dados, combinados', (v) => (rel.observacoesFinais = v)), dica),
+      campo('Conclusão', comIaRelatorio(areaFinal(rel.conclusao, 'Síntese do que a análise mostrou', (v) => (rel.conclusao = v)), 'Conclusão do relatório', rel), dica),
+      campo(
+        'Próximos passos (opcional)',
+        comIaRelatorio(
+          areaFinal(rel.recomendacoes, '- O que fazer no próximo período\n- Testes, ajustes, metas', (v) => (rel.recomendacoes = v)),
+          'Próximos passos (recomendações concretas em lista)',
+          rel,
+        ),
+        dica,
+      ),
+      campo(
+        'Observações finais (opcional)',
+        comIaRelatorio(areaFinal(rel.observacoesFinais, 'Ressalvas, fontes dos dados, combinados', (v) => (rel.observacoesFinais = v)), 'Observações finais', rel),
+        dica,
+      ),
     );
     if (rel.incluirAssinatura) {
       const previa = buildAssinatura(assinatura);

@@ -10,6 +10,8 @@ import {
 import type { CampoExtra } from '../../../../shared/types/postagens.types.js';
 import { abrirPainel as abrirCasca, type PainelHandle } from '../../../ui/painel.js';
 import { buildMateriais } from '../postagens.materiais.js';
+import { buildBotaoThumbnail } from '../../ia/ia.thumbnail.js';
+import { buildSugerirLegenda, grupoDeAcoes, nomesDaPostagem, preencherCampo } from '../postagens.ia.js';
 import type { Catalogo } from '../postagens.fonte.js';
 import {
   ICONE_SECAO,
@@ -198,6 +200,8 @@ export function abrirPainel(file: ImagensFile, catalogo: Catalogo, id: string): 
   handle = casca;
   const { grade } = casca;
 
+  // O catálogo muda quando o usuário cria uma tag: a sugestão usa o mais recente.
+  let catalogoVisto = catalogo;
   const texto = (campo: keyof Rascunho) => (v: string): void => {
     (r[campo] as string) = v;
     salvador.agendar();
@@ -247,24 +251,44 @@ export function abrirPainel(file: ImagensFile, catalogo: Catalogo, id: string): 
   // Legenda (com as hashtags dentro), CTA, link e acessibilidade
   const contLegenda = buildContador(r.legenda);
   const copiar = buildBotaoCopiar('Copiar legenda', 'Legenda pronta para colar', () => r.legenda.trim());
-  const legenda = buildSecaoPainel('Legenda', ICONE_SECAO.conteudo, copiar);
   const previa = buildPreviaHashtags(true);
   previa.desenhar(r.legenda);
+  const campoLegenda = textareaPainel(r.legenda, 'O texto da publicação. #hashtags escritas aqui são reconhecidas.', 5, (v) => {
+    r.legenda = v;
+    contLegenda.atualizar(v);
+    previa.desenhar(v);
+    salvador.agendar();
+  });
+  const campoCta = inputPainel('text', r.cta, 'Ex.: Salve para ver depois · Link na bio', texto('cta'));
+  const campoAlt = textareaPainel(r.textoAlternativo, 'Descreva a imagem para quem usa leitor de tela', 2, texto('textoAlternativo'));
+  const sugerir = buildSugerirLegenda({
+    tarefa: 'legenda-imagem',
+    contexto: () => {
+      const atual = imagensState.getCurrentState()?.imagens.find((x) => x.id === id);
+      return {
+        titulo: r.titulo,
+        briefing: r.briefing,
+        textoNaArte: r.textoNaArte,
+        legenda: r.legenda,
+        notas: r.notas,
+        formato: atual ? FORMATOS_IMAGEM.find((f) => f.id === atual.formato)?.rotulo : undefined,
+        ...(atual ? nomesDaPostagem(catalogoVisto, atual) : {}),
+      };
+    },
+    aoUsar: (v) => {
+      if (v.legenda ?? v.texto) preencherCampo(campoLegenda, v.legenda ?? v.texto ?? '');
+      if (v.cta) preencherCampo(campoCta, v.cta);
+      if (v.textoAlternativo) preencherCampo(campoAlt, v.textoAlternativo);
+    },
+  });
+  const legenda = buildSecaoPainel('Legenda', ICONE_SECAO.conteudo, grupoDeAcoes(sugerir, copiar));
   const legendaWrap = document.createElement('div');
-  legendaWrap.append(
-    textareaPainel(r.legenda, 'O texto da publicação. #hashtags escritas aqui são reconhecidas.', 5, (v) => {
-      r.legenda = v;
-      contLegenda.atualizar(v);
-      previa.desenhar(v);
-      salvador.agendar();
-    }),
-    previa.el,
-  );
+  legendaWrap.append(campoLegenda, previa.el);
   legenda.conteudo.append(
     buildCampo('Legenda', legendaWrap, contLegenda.el),
-    buildCampo('Chamada para ação (CTA)', inputPainel('text', r.cta, 'Ex.: Salve para ver depois · Link na bio', texto('cta'))),
+    buildCampo('Chamada para ação (CTA)', campoCta),
     buildCampo('Link de destino', inputPainel('url', r.link, 'https://…', texto('link'))),
-    buildCampo('Texto alternativo', textareaPainel(r.textoAlternativo, 'Descreva a imagem para quem usa leitor de tela', 2, texto('textoAlternativo'))),
+    buildCampo('Texto alternativo', campoAlt),
   );
   grade.appendChild(legenda.secao);
 
@@ -293,6 +317,7 @@ export function abrirPainel(file: ImagensFile, catalogo: Catalogo, id: string): 
   grade.appendChild(historico.secao);
 
   redesenharSecoes = (cat, atual) => {
+    catalogoVisto = cat;
     casca.estado.replaceChildren(buildSeloEtapa(atual, IMAGEM_STATUS));
     etapasSlot.replaceChildren(buildEtapas(IMAGEM_STATUS, atual.status, (status) => salvar({ status: status as Imagem['status'] })));
     prioridadeSlot.replaceChildren(buildPrioridadeEscolha(atual.prioridade, (prioridade) => salvar({ prioridade })));
@@ -302,7 +327,27 @@ export function abrirPainel(file: ImagensFile, catalogo: Catalogo, id: string): 
     redesSlot.replaceChildren(buildRedes(cat, atual.redeIds, (redeIds) => salvar({ redeIds })));
     tagsSlot.replaceChildren(buildTags(cat, atual.tagIds, (tagIds) => salvar({ tagIds }), avisar));
     publicacoesSlot.replaceChildren(buildPublicacoes(cat, atual.redeIds, atual.publicacoes, (publicacoes) => salvar({ publicacoes })));
-    materiaisSlot.replaceChildren(buildMateriais(atual, (input) => salvar(input)));
+    materiaisSlot.replaceChildren(
+      buildMateriais(
+        atual,
+        (input) => salvar(input),
+        buildBotaoThumbnail({
+          tipo: 'imagem',
+          id: atual.id,
+          titulo: r.titulo || atual.titulo,
+          // Carrossel gera a primeira peça, quadrada.
+          formato: atual.formato === 'carrossel' ? 'quadrado' : atual.formato,
+          recursoIds: atual.recursoIds,
+          contexto: () => ({
+            titulo: r.titulo,
+            briefing: r.briefing,
+            textoNaArte: r.textoNaArte,
+            legenda: r.legenda,
+            ...nomesDaPostagem(catalogoVisto, atual),
+          }),
+        }),
+      ),
+    );
     historicoSlot.replaceChildren(buildHistorico(atual.historico));
     casca.rodape.replaceChildren(
       ...buildRodapePostagem(atual, {

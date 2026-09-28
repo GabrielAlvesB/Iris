@@ -198,7 +198,7 @@ function abrirSeletor(video: ComMateriais, salvar: SalvarRecursos): void {
 }
 
 /** Usada pelos painéis de todos os tipos de postagem. */
-export function buildMateriais(video: ComMateriais, salvar: SalvarRecursos): HTMLElement {
+export function buildMateriais(video: ComMateriais, salvar: SalvarRecursos, extra?: HTMLElement): HTMLElement {
   const campo = document.createElement('div');
   campo.className = 'vd-campo';
 
@@ -214,7 +214,8 @@ export function buildMateriais(video: ComMateriais, salvar: SalvarRecursos): HTM
   const anexar = buildBotao('Anexar', { icone: ICONES_VIDEO.clipe, variante: 'fantasma', titulo: 'Anexar arquivos da Biblioteca' });
   anexar.classList.add('is-mini');
   anexar.addEventListener('click', () => abrirSeletor(video, salvar));
-  cabeca.append(rotulo, anexar);
+  // extra: ação de quem monta o painel (ex.: "Thumbnail com IA").
+  cabeca.append(rotulo, ...(extra ? [extra] : []), anexar);
   campo.appendChild(cabeca);
 
   const lista = document.createElement('div');

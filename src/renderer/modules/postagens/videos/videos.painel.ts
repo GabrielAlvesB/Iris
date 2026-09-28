@@ -3,6 +3,8 @@ import { descreverOrigem, extrairHashtags } from '../../../../shared/types/video
 import { svg } from '../../../ui/pagina.js';
 import { abrirPainel as abrirCasca, type PainelHandle } from '../../../ui/painel.js';
 import { buildMateriais } from '../postagens.materiais.js';
+import { buildBotaoThumbnail } from '../../ia/ia.thumbnail.js';
+import { buildSugerirLegenda, grupoDeAcoes, hashtagsComCerquilha, nomesDaPostagem, preencherCampo } from '../postagens.ia.js';
 import {
   ICONE_SECAO,
   buildAgendamento,
@@ -271,29 +273,40 @@ export function abrirPainel(file: VideosFile, id: string): void {
   const copiar = buildBotaoCopiar('Copiar legenda', 'Descrição + hashtags, prontas para colar', () =>
     legendaCompleta({ descricao: r.descricao, hashtags: extrairHashtags(r.hashtags) }),
   );
-  const conteudo = buildSecaoPainel('Conteúdo', ICONE_SECAO.conteudo, copiar);
-  conteudo.conteudo.appendChild(
-    buildCampo(
-      'Descrição / legenda',
-      textareaPainel(r.descricao, 'O texto que acompanha o vídeo', 5, (v) => {
-        r.descricao = v;
-        contDescricao.atualizar(v);
-        salvador.agendar();
-      }),
-      contDescricao.el,
-    ),
-  );
+  const campoDescricao = textareaPainel(r.descricao, 'O texto que acompanha o vídeo', 5, (v) => {
+    r.descricao = v;
+    contDescricao.atualizar(v);
+    salvador.agendar();
+  });
+  let campoHashtags: HTMLTextAreaElement | null = null;
+  const sugerir = buildSugerirLegenda({
+    tarefa: 'legenda-video',
+    contexto: () => {
+      const arquivoAtual = videosState.getCurrentState();
+      const atual = arquivoAtual?.videos.find((v) => v.id === id);
+      return {
+        titulo: r.titulo,
+        descricao: r.descricao,
+        notas: r.notas,
+        ...(atual ? nomesDaPostagem(arquivoAtual, atual) : {}),
+      };
+    },
+    aoUsar: (v) => {
+      if (v.legenda ?? v.texto) preencherCampo(campoDescricao, v.legenda ?? v.texto ?? '');
+      if (v.hashtags?.length && campoHashtags) preencherCampo(campoHashtags, hashtagsComCerquilha(v.hashtags));
+    },
+  });
+  const conteudo = buildSecaoPainel('Conteúdo', ICONE_SECAO.conteudo, grupoDeAcoes(sugerir, copiar));
+  conteudo.conteudo.appendChild(buildCampo('Descrição / legenda', campoDescricao, contDescricao.el));
   const previa = buildPreviaHashtags();
   previa.desenhar(r.hashtags);
   const hashtagsWrap = document.createElement('div');
-  hashtagsWrap.append(
-    textareaPainel(r.hashtags, '#horadecodar #javascript', 2, (v) => {
-      r.hashtags = v;
-      previa.desenhar(v);
-      salvador.agendar();
-    }),
-    previa.el,
-  );
+  campoHashtags = textareaPainel(r.hashtags, '#horadecodar #javascript', 2, (v) => {
+    r.hashtags = v;
+    previa.desenhar(v);
+    salvador.agendar();
+  });
+  hashtagsWrap.append(campoHashtags, previa.el);
   conteudo.conteudo.appendChild(buildCampo('Hashtags', hashtagsWrap));
   grade.appendChild(conteudo.secao);
 
@@ -339,7 +352,20 @@ export function abrirPainel(file: VideosFile, id: string): void {
     redesSlot.replaceChildren(buildRedes(arquivo, atual.redeIds, (redeIds) => salvar({ redeIds })));
     tagsSlot.replaceChildren(buildTags(arquivo, atual.tagIds, (tagIds) => salvar({ tagIds }), avisar));
     publicacoesSlot.replaceChildren(buildPublicacoes(arquivo, atual.redeIds, atual.publicacoes, (publicacoes) => salvar({ publicacoes })));
-    materiaisSlot.replaceChildren(buildMateriais(atual, (input) => salvar(input)));
+    materiaisSlot.replaceChildren(
+      buildMateriais(
+        atual,
+        (input) => salvar(input),
+        buildBotaoThumbnail({
+          tipo: 'video',
+          id: atual.id,
+          titulo: r.titulo || atual.titulo,
+          formato: 'thumb-youtube',
+          recursoIds: atual.recursoIds,
+          contexto: () => ({ titulo: r.titulo, descricao: r.descricao, notas: r.notas, ...nomesDaPostagem(videosState.getCurrentState(), atual) }),
+        }),
+      ),
+    );
     const origem = buildOrigem(atual);
     origemSlot.replaceChildren(...(origem ? [origem] : []));
     historicoSlot.replaceChildren(buildHistorico(atual.historico));

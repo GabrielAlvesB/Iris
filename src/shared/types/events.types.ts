@@ -1,5 +1,6 @@
 import type { EstadoAtualizacao } from './atualizacao.types';
 import type { GithubSnapshot } from './github.types';
+import type { TarefaIa } from './ia.types';
 import type { N8nSnapshot } from './n8n.types';
 import type { TipoPostagem } from './postagens.types';
 import type { ServidoresFile, SshSaidaChunk } from './servidores.types';
@@ -20,6 +21,8 @@ export type IrisEvent =
   /** Agendadas publicadas sozinhas no horário: o renderer relê o arquivo do tipo. */
   | { topic: 'postagens:mudou'; payload: { tipo: TipoPostagem } }
   | { topic: 'atualizacao:estado'; payload: EstadoAtualizacao }
+  /** Geração de imagem em andamento, pronta, com erro ou cancelada. */
+  | { topic: 'ia:tarefa'; payload: TarefaIa }
   | { topic: 'app:erro'; payload: { escopo: string; mensagem: string } };
 
 export type IrisEventTopic = IrisEvent['topic'];

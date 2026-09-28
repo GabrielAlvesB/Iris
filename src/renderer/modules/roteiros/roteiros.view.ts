@@ -27,6 +27,7 @@ import {
 import * as videosState from '../postagens/videos/videos.state.js';
 import { paragrafos } from '../relatorios/relatorios.documento.js';
 import { duracaoDoTexto, renderMarkdown, secoesDoRoteiro, textoFalado, tituloDoTexto } from './roteiros.markdown.js';
+import { buildBotaoIaRoteiro } from './roteiros.ia.js';
 import * as roteirosState from './roteiros.state.js';
 
 /**
@@ -869,7 +870,8 @@ function abrirEditor(roteiroId: string): void {
     r.texto = areaTexto.value;
     agendarSalvar();
   });
-  const escrita = buildSecaoModal('Roteiro', 'Escreva livre. A prévia ao lado formata e monta o índice das seções.', buildBarraEscrita(areaTexto));
+  const barraEscrita = buildBarraEscrita(areaTexto);
+  const escrita = buildSecaoModal('Roteiro', 'Escreva livre. A prévia ao lado formata e monta o índice das seções.', barraEscrita);
   escrita.secao.classList.add('rot-secao-escrita');
   escrita.conteudo.append(areaTexto, Object.assign(document.createElement('p'), { className: 'md-dica', textContent: DICA_MARKDOWN }));
   form.appendChild(escrita.secao);
@@ -890,13 +892,35 @@ function abrirEditor(roteiroId: string): void {
   resumoExtras.textContent = 'Gancho, CTA e observações para a produção (opcional)';
   const corpoExtras = document.createElement('div');
   corpoExtras.className = 'rot-extras-corpo';
+  const campoGancho = campoTexto('Gancho', r.gancho, 'A primeira frase — o que faz a pessoa parar de rolar', 2, (v) => (r.gancho = v));
+  const campoCta = campoTexto('CTA', r.cta, 'Ex.: Comenta aqui embaixo o que você acha', 2, (v) => (r.cta = v));
   corpoExtras.append(
-    campoTexto('Gancho', r.gancho, 'A primeira frase — o que faz a pessoa parar de rolar', 2, (v) => (r.gancho = v)),
-    campoTexto('CTA', r.cta, 'Ex.: Comenta aqui embaixo o que você acha', 2, (v) => (r.cta = v)),
+    campoGancho,
+    campoCta,
     campoTexto('Observações para a produção', r.observacoes, 'Referências, cortes, trilha, legenda…', 3, (v) => (r.observacoes = v)),
   );
   extras.append(resumoExtras, corpoExtras);
   form.appendChild(extras);
+
+  barraEscrita.appendChild(
+    buildBotaoIaRoteiro({
+      area: areaTexto,
+      contexto: () => ({
+        titulo: r.titulo,
+        formato: rotuloFormato(r.formato),
+        duracao: r.duracao,
+        gancho: r.gancho,
+        cta: r.cta,
+        observacoes: r.observacoes,
+        tags: r.tagIds.map((id) => catalogoTags().find((t) => t.id === id)?.nome).filter((n): n is string => Boolean(n)),
+      }),
+      gancho: () => campoGancho.querySelector('textarea'),
+      cta: () => campoCta.querySelector('textarea'),
+      abrirExtras: () => {
+        extras.open = true;
+      },
+    }),
+  );
 
   // Verificação
   const verificacao = buildSecaoModal('Verificação', 'Confira antes de aprovar.');

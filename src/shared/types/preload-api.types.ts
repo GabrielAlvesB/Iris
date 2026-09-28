@@ -142,6 +142,23 @@ import type {
   ReordenarItensInput,
   TodoFile,
 } from './todo.types';
+import type {
+  DestinoBiblioteca,
+  GerarImagemInput,
+  IaConfig,
+  ItemGaleriaComMiniatura,
+  ModeloIa,
+  PedidoTexto,
+  ProvedorId,
+  ReferenciaIa,
+  RefImagem,
+  RespostaTexto,
+  SalvarNaBibliotecaResult,
+  SalvarPadroesInput,
+  SalvarProvedorInput,
+  TarefaIa,
+  VinculoPostagem,
+} from './ia.types';
 
 export interface KanbanApi {
   getBoard(): Promise<IpcResult<KanbanBoard>>;
@@ -336,6 +353,32 @@ export interface TrafegoApi {
   importarRegistros(campanhaId: string): Promise<IpcResult<ImportarRegistrosResult>>;
 }
 
+export interface IaApi {
+  getConfig(): Promise<IpcResult<IaConfig>>;
+  /** apiKey: undefined mantém, '' remove. A chave nunca volta para a tela. */
+  salvarProvedor(input: SalvarProvedorInput): Promise<IpcResult<IaConfig>>;
+  salvarPadroes(input: SalvarPadroesInput): Promise<IpcResult<IaConfig>>;
+  testarProvedor(id: ProvedorId): Promise<IpcResult<string>>;
+  listarModelos(id: ProvedorId, forcar?: boolean): Promise<IpcResult<ModeloIa[]>>;
+  gerarTexto(pedido: PedidoTexto): Promise<IpcResult<RespostaTexto>>;
+  /** Dialog de arquivos no main; o caminho fica lá, a tela recebe ids. */
+  referenciasDoComputador(): Promise<IpcResult<ReferenciaIa[]>>;
+  descreverReferencia(ref: RefImagem): Promise<IpcResult<ReferenciaIa>>;
+  /** Devolve a tarefa na hora; o progresso chega pelo evento 'ia:tarefa'. */
+  gerarImagem(input: GerarImagemInput): Promise<IpcResult<TarefaIa>>;
+  cancelarTarefa(tarefaId: string): Promise<IpcResult<TarefaIa[]>>;
+  listarTarefas(): Promise<IpcResult<TarefaIa[]>>;
+  limparTarefas(): Promise<IpcResult<TarefaIa[]>>;
+  listarGaleria(): Promise<IpcResult<ItemGaleriaComMiniatura[]>>;
+  /** data URL da imagem em tamanho real. */
+  abrirImagem(id: string): Promise<IpcResult<string>>;
+  excluirImagem(id: string): Promise<IpcResult<ItemGaleriaComMiniatura[]>>;
+  /** Caminho salvo, ou null se cancelou. */
+  exportarImagem(id: string): Promise<IpcResult<string | null>>;
+  salvarNaBiblioteca(id: string, destino?: DestinoBiblioteca): Promise<IpcResult<SalvarNaBibliotecaResult>>;
+  vincularPostagem(id: string, postagem: VinculoPostagem): Promise<IpcResult<void>>;
+}
+
 export interface TodoApi {
   getFile(): Promise<IpcResult<TodoFile>>;
   criarChecklist(input: CriarChecklistInput): Promise<IpcResult<TodoFile>>;
@@ -412,6 +455,7 @@ export interface IrisApi {
   copy: CopyApi;
   pensamentos: PensamentosApi;
   todo: TodoApi;
+  ia: IaApi;
   roteiros: RoteirosApi;
   trafego: TrafegoApi;
   explorador: ExploradorApi;

@@ -4,6 +4,7 @@ import * as sheetsService from '../sheets/sheets.service';
 import * as linksService from '../links/links.service';
 import * as pensamentosService from '../pensamentos/pensamentos.service';
 import * as todoService from '../todo/todo.service';
+import * as iaService from '../ia/ia.service';
 import * as exploradorService from '../explorador/explorador.service';
 import * as servidoresService from '../servidores/servidores.service';
 import * as n8nService from '../n8n/n8n.service';
@@ -28,7 +29,7 @@ const SCHEMA_VERSION = 1;
  * a baseUrl: as credenciais ficam no cofre, referenciadas por chave.
  */
 export async function buildExportBundle(): Promise<ExportBundle> {
-  const [kanban, quadro, sheets, links, pensamentos, explorador, servidores, n8n, github, ajustes, copy, videos, imagens, relatorios, roteiros, trafego, todo] =
+  const [kanban, quadro, sheets, links, pensamentos, explorador, servidores, n8n, github, ajustes, copy, videos, imagens, relatorios, roteiros, trafego, todo, ia] =
     await Promise.all([
       kanbanService.getFullFile(),
       quadroService.getFullFile(),
@@ -47,6 +48,7 @@ export async function buildExportBundle(): Promise<ExportBundle> {
       roteirosService.getFullFile(),
       trafegoService.getFullFile(),
       todoService.getFullFile(),
+      iaService.getFullFile(),
     ]);
 
   return {
@@ -69,6 +71,7 @@ export async function buildExportBundle(): Promise<ExportBundle> {
     roteiros,
     trafego,
     todo,
+    ia,
   };
 }
 
@@ -102,6 +105,7 @@ export async function restoreFromBundle(raw: unknown): Promise<void> {
     raw.roteiros ? roteirosService.replaceFile(raw.roteiros) : Promise.resolve(),
     raw.trafego ? trafegoService.replaceFile(raw.trafego) : Promise.resolve(),
     raw.todo ? todoService.replaceFile(raw.todo) : Promise.resolve(),
+    raw.ia ? iaService.replaceFile(raw.ia) : Promise.resolve(),
   ]);
   // Depois dos vídeos, de propósito: as imagens validam tags e redes contra o
   // catálogo que mora em videos.json, que precisa já ser o do backup.
