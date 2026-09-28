@@ -1,5 +1,5 @@
 import type { IpcResult } from './common.types';
-import type { EstadoAtualizacao } from './atualizacao.types';
+import type { EstadoAtualizacao, InstaladorLocal, VersaoPublicada } from './atualizacao.types';
 import type {
   CreateCardInput,
   CreateColumnInput,
@@ -243,6 +243,14 @@ export interface AtualizacaoApi {
   /** Baixa, confere e instala; o app fecha e reabre na versão nova. */
   atualizar(): Promise<IpcResult<EstadoAtualizacao>>;
   abrirPagina(): Promise<IpcResult<void>>;
+  /** Todas as releases publicadas, da mais nova para a mais antiga. */
+  listarVersoes(): Promise<IpcResult<VersaoPublicada[]>>;
+  /** Baixa e instala uma versão da lista (mais nova ou anterior). */
+  instalarVersao(versao: string): Promise<IpcResult<EstadoAtualizacao>>;
+  /** Abre o seletor de arquivo; null se cancelou. O caminho não sai do main. */
+  escolherInstalador(): Promise<IpcResult<InstaladorLocal | null>>;
+  /** Instala o arquivo escolhido por último em escolherInstalador. */
+  instalarArquivo(): Promise<IpcResult<EstadoAtualizacao>>;
 }
 
 export interface EventsApi {

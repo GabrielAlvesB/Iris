@@ -227,4 +227,8 @@ export const ATUALIZACAO_CHANNELS = {
   verificar: 'atualizacao:verificar',
   atualizar: 'atualizacao:atualizar',
   abrirPagina: 'atualizacao:abrirPagina',
+  listarVersoes: 'atualizacao:listarVersoes',
+  instalarVersao: 'atualizacao:instalarVersao',
+  escolherInstalador: 'atualizacao:escolherInstalador',
+  instalarArquivo: 'atualizacao:instalarArquivo',
 } as const;

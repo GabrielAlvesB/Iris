@@ -281,6 +281,10 @@ const irisAPI: IrisApi = {
     verificar: () => ipcRenderer.invoke(ATUALIZACAO_CHANNELS.verificar),
     atualizar: () => ipcRenderer.invoke(ATUALIZACAO_CHANNELS.atualizar),
     abrirPagina: () => ipcRenderer.invoke(ATUALIZACAO_CHANNELS.abrirPagina),
+    listarVersoes: () => ipcRenderer.invoke(ATUALIZACAO_CHANNELS.listarVersoes),
+    instalarVersao: (versao) => ipcRenderer.invoke(ATUALIZACAO_CHANNELS.instalarVersao, versao),
+    escolherInstalador: () => ipcRenderer.invoke(ATUALIZACAO_CHANNELS.escolherInstalador),
+    instalarArquivo: () => ipcRenderer.invoke(ATUALIZACAO_CHANNELS.instalarArquivo),
   },
   events: {
     on: subscribe,

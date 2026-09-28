@@ -33,10 +33,46 @@ export interface EstadoAtualizacao {
   situacao: SituacaoAtualizacao;
   modo: ModoAtualizacao;
   nova?: NovaVersao;
+  /** Versão sendo baixada/instalada — pode não ser a `nova` (instalação manual de outra versão). */
+  versaoAlvo?: string;
   /** 0 a 1, durante o download. */
   progresso?: number;
   erro?: string;
+  /** O repositório não tem release publicada: "em dia" só porque não há com o que comparar. */
+  semReleases?: boolean;
   verificadoEm?: string;
+}
+
+/** Onde uma versão fica em relação à que está rodando. */
+export type RelacaoVersao = 'mais-nova' | 'atual' | 'anterior';
+
+/** Uma release do GitHub, para a lista "Escolher versão". */
+export interface VersaoPublicada {
+  versao: string;
+  publicadaEm: string;
+  notas: string;
+  paginaUrl: string;
+  tamanho?: number;
+  preRelease: boolean;
+  /** Tem instalador e latest.yml: dá para instalar pelo app. */
+  instalavel: boolean;
+  relacao: RelacaoVersao;
+}
+
+/** Instalador escolhido no disco. O caminho fica só no main. */
+export interface InstaladorLocal {
+  nome: string;
+  versao?: string;
+  tamanho: number;
+  /** Havia um latest.yml ao lado e o SHA-512 bateu. */
+  conferido: boolean;
+  relacao?: RelacaoVersao;
+}
+
+export function relacaoCom(versao: string, atual: string): RelacaoVersao {
+  if (versaoMaior(versao, atual)) return 'mais-nova';
+  if (versaoMaior(atual, versao)) return 'anterior';
+  return 'atual';
 }
 
 /** "0.1.10" > "0.1.9": compara número a número, ignorando o "v" da tag. */

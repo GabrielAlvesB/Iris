@@ -8,7 +8,9 @@ import {
   ICONE_ATUALIZACAO,
   abrirPaginaDaRelease,
   atualizarAgora,
+  abrirEscolhaDeVersao,
   getEstadoAtualizacao,
+  instalarDeArquivo,
   onAtualizacao,
   verificarAgora,
 } from '../../core/atualizacao.js';
@@ -606,13 +608,15 @@ function descreverSituacao(e: EstadoAtualizacao): { texto: string; tom: Tom } {
     case 'verificando':
       return { texto: 'Procurando versão nova…', tom: 'neutro' };
     case 'em-dia':
-      return { texto: 'Você está na versão mais recente', tom: 'ok' };
+      return e.semReleases
+        ? { texto: 'Nenhuma versão publicada no GitHub ainda', tom: 'neutro' }
+        : { texto: 'Você está na versão mais recente', tom: 'ok' };
     case 'disponivel':
       return { texto: `Versão ${e.nova?.versao ?? ''} disponível`, tom: 'atencao' };
     case 'baixando':
-      return { texto: `Baixando… ${Math.round((e.progresso ?? 0) * 100)}%`, tom: 'neutro' };
+      return { texto: `Baixando${e.versaoAlvo ? ` a ${e.versaoAlvo}` : ''}… ${Math.round((e.progresso ?? 0) * 100)}%`, tom: 'neutro' };
     case 'instalando':
-      return { texto: 'Instalando — o Iris vai fechar e abrir de novo', tom: 'neutro' };
+      return { texto: `Instalando${e.versaoAlvo ? ` a ${e.versaoAlvo}` : ''} — o Iris vai fechar e abrir de novo`, tom: 'neutro' };
     case 'erro':
       return { texto: e.erro ?? 'Falhou', tom: 'erro' };
     default:
@@ -708,6 +712,30 @@ function desenharAtualizacao(corpo: HTMLElement, e: EstadoAtualizacao | null): v
   verificar.addEventListener('click', () => void verificarAgora().catch(falhou));
   acoes.appendChild(verificar);
   corpo.appendChild(acoes);
+
+  // Troca manual: qualquer versão publicada, ou um instalador do disco (o de
+  // release/ gerado pelo npm run dist, sem precisar publicar).
+  const manual = document.createElement('div');
+  manual.className = 'aj-atualizacao-manual';
+  const textos = document.createElement('div');
+  textos.appendChild(Object.assign(document.createElement('strong'), { textContent: 'Trocar de versão manualmente' }));
+  textos.appendChild(
+    Object.assign(document.createElement('span'), {
+      className: 'aj-campo-dica',
+      textContent: 'Escolha qualquer versão publicada (inclusive voltar para uma anterior) ou instale um Iris-Setup-….exe que está no seu computador.',
+    }),
+  );
+  const acoesManuais = document.createElement('div');
+  acoesManuais.className = 'aj-acoes';
+  const versoes = buildBotao('Escolher versão…', { icone: ICONES.branch });
+  versoes.disabled = ocupado;
+  versoes.addEventListener('click', abrirEscolhaDeVersao);
+  const arquivo = buildBotao('Instalar de um arquivo…', { icone: ICONES.pasta });
+  arquivo.disabled = ocupado;
+  arquivo.addEventListener('click', () => void instalarDeArquivo().catch(falhou));
+  acoesManuais.append(versoes, arquivo);
+  manual.append(textos, acoesManuais);
+  corpo.appendChild(manual);
 }
 
 function buildSecaoAtualizacoes(): HTMLElement {

@@ -418,3 +418,91 @@ select.aj-input {
   color: var(--text-muted);
   white-space: pre-wrap;
 }
+
+/* ---- Troca manual de versão ---- */
+
+.aj-atualizacao-manual {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.aj-atualizacao-manual > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.aj-atualizacao-manual strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.aj-versoes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.aj-versao {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+}
+
+.aj-versao.is-atual {
+  border-color: var(--border);
+}
+
+.aj-versao-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.aj-versao-titulo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.aj-versao-titulo strong {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text);
+}
+
+.aj-versao-notas summary {
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.aj-versao-notas p {
+  margin: 6px 0 0;
+  max-height: 160px;
+  overflow-y: auto;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+}
+
+.aj-versao .pg-botao {
+  flex-shrink: 0;
+}
+
+/* Dentro do bloco manual a borda já vem do próprio bloco. */
+.aj-atualizacao-manual .aj-acoes {
+  padding-top: 0;
+  border-top: none;
+}

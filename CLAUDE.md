@@ -329,6 +329,13 @@ não seria decifrável em outra máquina.
   Antes de fechar, `aguardarEscritas()` do jsonStore.
 - Só a instalação NSIS se atualiza (detectada pelo `Uninstall Iris.exe` ao lado do exe); o .zip
   portátil e o `npm run dev` só avisam e abrem a página da release.
+- **Troca manual** (Ajustes › Atualizações): "Escolher versão…" lista todas as releases
+  (`listarVersoes`, sem rascunhos) e instala qualquer uma — mais nova, a mesma ou anterior
+  (voltar avisa que dados de recursos novos podem não ser entendidos). "Instalar de um
+  arquivo…" roda um `Iris-Setup-*.exe` do disco (ex.: o de `release/` antes de publicar); se
+  há `latest.yml` ao lado descrevendo o arquivo, confere o SHA-512 e recusa se não bater. O
+  caminho escolhido fica **só no main** (`arquivoEscolhido`) — o renderer nunca manda caminho
+  para executar. Fora da instalação NSIS, o instalador abre no modo assistente.
 - Verifica 12 s após abrir e a cada 6 h (tarefa `atualizacao:verificar`); estado por push
   `atualizacao:estado`. UI: aviso na barra lateral ([core/atualizacao.ts](src/renderer/core/atualizacao.ts))
   e Ajustes › Atualizações.

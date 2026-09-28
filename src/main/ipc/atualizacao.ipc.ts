@@ -1,7 +1,7 @@
-import { ipcMain } from 'electron';
+import { BrowserWindow, ipcMain } from 'electron';
 import { ATUALIZACAO_CHANNELS } from '../../shared/ipcChannels';
 import type { IpcResult } from '../../shared/types/common.types';
-import type { EstadoAtualizacao } from '../../shared/types/atualizacao.types';
+import type { EstadoAtualizacao, InstaladorLocal, VersaoPublicada } from '../../shared/types/atualizacao.types';
 import * as atualizacaoService from '../modules/atualizacao/atualizacao.service';
 
 function toResult<T>(promise: Promise<T>): Promise<IpcResult<T>> {
@@ -23,4 +23,16 @@ export function registerAtualizacaoIpc(): void {
   ipcMain.handle(ATUALIZACAO_CHANNELS.atualizar, () => toResult<EstadoAtualizacao>(atualizacaoService.atualizar()));
 
   ipcMain.handle(ATUALIZACAO_CHANNELS.abrirPagina, () => toResult<void>(atualizacaoService.abrirPagina()));
+
+  ipcMain.handle(ATUALIZACAO_CHANNELS.listarVersoes, () => toResult<VersaoPublicada[]>(atualizacaoService.listarVersoes()));
+
+  ipcMain.handle(ATUALIZACAO_CHANNELS.instalarVersao, (_event, versao: string) =>
+    toResult<EstadoAtualizacao>(atualizacaoService.instalarVersao(versao)),
+  );
+
+  ipcMain.handle(ATUALIZACAO_CHANNELS.escolherInstalador, (event) =>
+    toResult<InstaladorLocal | null>(atualizacaoService.escolherInstalador(BrowserWindow.fromWebContents(event.sender))),
+  );
+
+  ipcMain.handle(ATUALIZACAO_CHANNELS.instalarArquivo, () => toResult<EstadoAtualizacao>(atualizacaoService.instalarArquivo()));
 }

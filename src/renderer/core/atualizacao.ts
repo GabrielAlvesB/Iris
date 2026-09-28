@@ -1,6 +1,6 @@
-import type { EstadoAtualizacao } from '../../shared/types/atualizacao.types.js';
-import { openAvisoModal, openConfirmModal } from '../ui/modal.js';
-import { svg } from '../ui/pagina.js';
+import type { EstadoAtualizacao, InstaladorLocal, RelacaoVersao, VersaoPublicada } from '../../shared/types/atualizacao.types.js';
+import { openAvisoModal, openConfirmModal, openCustomModal } from '../ui/modal.js';
+import { buildAviso, buildBotao, buildSelo, svg, type Tom } from '../ui/pagina.js';
 import { abrirAjustes } from './navegacao.js';
 
 /**
@@ -68,9 +68,161 @@ export async function atualizarAgora(): Promise<void> {
   if (!r.ok) await openAvisoModal('Não deu para atualizar', r.error, { erro: true });
 }
 
+const AVISO_DE_VOLTAR =
+  'Voltar para uma versão anterior pode fazer ela não entender dados criados por recursos mais novos ' +
+  '(ex.: uma área que ela ainda não tinha). Antes, faça um backup em Ajustes › Backup e restauração.';
+
+function confirmarInstalacao(versao: string | undefined, relacao: RelacaoVersao | undefined, origem: string): Promise<boolean> {
+  const alvo = versao ? `a versão ${versao}` : 'este instalador';
+  const titulo =
+    relacao === 'anterior' ? `Voltar para a versão ${versao}` : relacao === 'atual' ? `Reinstalar a versão ${versao}` : `Instalar ${alvo}`;
+  const texto =
+    `O Iris vai ${origem} e, quando terminar, fechar sozinho para instalar ${alvo} e abrir de novo. ` +
+    'Seus dados ficam na pasta de dados, fora da instalação.' +
+    (relacao === 'anterior' ? `\n\n${AVISO_DE_VOLTAR}` : '');
+  return openConfirmModal({
+    title: titulo,
+    message: texto,
+    confirmText: relacao === 'anterior' ? 'Voltar para esta versão' : 'Instalar',
+    danger: relacao === 'anterior',
+  });
+}
+
+export async function listarVersoes(): Promise<VersaoPublicada[]> {
+  const r = await window.irisAPI.atualizacao.listarVersoes();
+  if (!r.ok) throw new Error(r.error);
+  return r.data;
+}
+
+/** Instala uma versão publicada (mais nova, a mesma ou anterior), depois de confirmar. */
+export async function instalarVersao(v: VersaoPublicada): Promise<boolean> {
+  if (!(await confirmarInstalacao(v.versao, v.relacao, 'baixar o instalador do GitHub, conferir o arquivo'))) return false;
+  const r = await window.irisAPI.atualizacao.instalarVersao(v.versao);
+  if (!r.ok) {
+    await openAvisoModal('Não deu para instalar', r.error, { erro: true });
+    return false;
+  }
+  return true;
+}
+
+function formatarMb(bytes: number): string {
+  return `${(bytes / 1024 / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} MB`;
+}
+
+/**
+ * Instalar um Iris-Setup-….exe que está no disco — o de release/ recém-gerado
+ * pelo npm run dist, antes (ou em vez) de publicar no GitHub.
+ */
+export async function instalarDeArquivo(): Promise<void> {
+  const escolha = await window.irisAPI.atualizacao.escolherInstalador();
+  if (!escolha.ok) {
+    await openAvisoModal('Instalador recusado', escolha.error, { erro: true });
+    return;
+  }
+  const arquivo: InstaladorLocal | null = escolha.data;
+  if (!arquivo) return;
+  const conferencia = arquivo.conferido
+    ? 'conferido com o latest.yml ao lado dele'
+    : 'sem latest.yml ao lado para conferir — use só um instalador que você mesmo gerou ou baixou do GitHub';
+  const origem = `usar o arquivo ${arquivo.nome} (${formatarMb(arquivo.tamanho)}, ${conferencia})`;
+  if (!(await confirmarInstalacao(arquivo.versao, arquivo.relacao, origem))) return;
+  const r = await window.irisAPI.atualizacao.instalarArquivo();
+  if (!r.ok) await openAvisoModal('Não deu para instalar', r.error, { erro: true });
+}
+
+const SELO_DA_RELACAO: Record<RelacaoVersao, { texto: string; tom: Tom }> = {
+  'mais-nova': { texto: 'Mais nova', tom: 'ok' },
+  atual: { texto: 'Instalada', tom: 'neutro' },
+  anterior: { texto: 'Anterior', tom: 'atencao' },
+};
+
+/** Lista das releases publicadas, cada uma com o botão de instalar. */
+export function abrirEscolhaDeVersao(): void {
+  void openCustomModal(
+    'Escolher versão',
+    ({ corpo, rodape, fechar }) => {
+      const fecharBtn = buildBotao('Fechar', { variante: 'fantasma' });
+      fecharBtn.addEventListener('click', fechar);
+      rodape.appendChild(fecharBtn);
+
+      const carregando = document.createElement('p');
+      carregando.className = 'md-vazio';
+      carregando.textContent = 'Buscando as versões publicadas no GitHub…';
+      corpo.appendChild(carregando);
+
+      const modo = estado?.modo;
+      listarVersoes()
+        .then((versoes) => {
+          corpo.replaceChildren();
+          if (modo !== 'instalado') {
+            corpo.appendChild(
+              buildAviso(
+                'Esta cópia não foi instalada pelo instalador (portátil ou npm run dev): ela não se troca sozinha. Use a página da release para baixar.',
+                'neutro',
+              ),
+            );
+          }
+          if (!versoes.length) {
+            corpo.appendChild(Object.assign(document.createElement('p'), { className: 'md-vazio', textContent: 'Nenhuma versão publicada ainda. Publique com npm run release.' }));
+            return;
+          }
+          const lista = document.createElement('div');
+          lista.className = 'aj-versoes';
+          versoes.forEach((v) => {
+            const linha = document.createElement('div');
+            linha.className = 'aj-versao';
+            linha.classList.toggle('is-atual', v.relacao === 'atual');
+
+            const info = document.createElement('div');
+            info.className = 'aj-versao-info';
+            const titulo = document.createElement('div');
+            titulo.className = 'aj-versao-titulo';
+            titulo.appendChild(Object.assign(document.createElement('strong'), { textContent: v.versao }));
+            titulo.appendChild(buildSelo(SELO_DA_RELACAO[v.relacao].texto, SELO_DA_RELACAO[v.relacao].tom));
+            if (v.preRelease) titulo.appendChild(buildSelo('Pré-lançamento', 'atencao'));
+            info.appendChild(titulo);
+            const detalhe = [
+              v.publicadaEm ? new Date(v.publicadaEm).toLocaleDateString('pt-BR') : '',
+              v.tamanho ? formatarMb(v.tamanho) : '',
+              v.instalavel ? '' : 'sem instalador na release',
+            ]
+              .filter(Boolean)
+              .join(' · ');
+            info.appendChild(Object.assign(document.createElement('span'), { className: 'aj-campo-dica', textContent: detalhe }));
+            if (v.notas.trim()) {
+              const notas = document.createElement('details');
+              notas.className = 'aj-versao-notas';
+              notas.appendChild(Object.assign(document.createElement('summary'), { textContent: 'O que mudou' }));
+              notas.appendChild(Object.assign(document.createElement('p'), { textContent: v.notas.trim() }));
+              info.appendChild(notas);
+            }
+            linha.appendChild(info);
+
+            const rotulo = v.relacao === 'anterior' ? 'Voltar para esta' : v.relacao === 'atual' ? 'Reinstalar' : 'Instalar';
+            const acao = buildBotao(rotulo, { variante: v.relacao === 'mais-nova' ? 'primario' : 'secundario', icone: ICONE_ATUALIZACAO });
+            acao.disabled = !v.instalavel || modo !== 'instalado';
+            if (acao.disabled) acao.title = v.instalavel ? 'Só a versão instalada se troca sozinha' : 'A release não tem o instalador e o latest.yml';
+            acao.addEventListener('click', () => {
+              void instalarVersao(v).then((ok) => {
+                if (ok) fechar();
+              });
+            });
+            linha.appendChild(acao);
+            lista.appendChild(linha);
+          });
+          corpo.appendChild(lista);
+        })
+        .catch((erro: unknown) => {
+          corpo.replaceChildren(buildAviso(erro instanceof Error ? erro.message : String(erro), 'erro'));
+        });
+    },
+    { largura: 600, icone: ICONE_ATUALIZACAO, subtitulo: `Instalada agora: ${estado?.versaoAtual ?? '—'}` },
+  );
+}
+
 function textoDoAviso(e: EstadoAtualizacao): string | null {
   if (e.situacao === 'disponivel' && e.nova) return `Versão ${e.nova.versao} disponível`;
-  if (e.situacao === 'baixando') return `Baixando ${Math.round((e.progresso ?? 0) * 100)}%`;
+  if (e.situacao === 'baixando') return `Baixando${e.versaoAlvo ? ` ${e.versaoAlvo}` : ''} ${Math.round((e.progresso ?? 0) * 100)}%`;
   if (e.situacao === 'instalando') return 'Instalando…';
   if (e.situacao === 'erro' && e.nova) return 'Atualização com erro';
   return null;
