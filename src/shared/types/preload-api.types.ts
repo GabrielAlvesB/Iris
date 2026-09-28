@@ -130,6 +130,18 @@ import type {
   PensamentosViewport,
   UpdatePensamentoInput,
 } from './pensamentos.types';
+import type {
+  AdicionarItensInput,
+  ArquivarChecklistInput,
+  AtualizarChecklistInput,
+  AtualizarItemInput,
+  CriarChecklistInput,
+  EnviarAoKanbanInput,
+  MarcarTodosInput,
+  RemoverItemInput,
+  ReordenarItensInput,
+  TodoFile,
+} from './todo.types';
 
 export interface KanbanApi {
   getBoard(): Promise<IpcResult<KanbanBoard>>;
@@ -316,6 +328,23 @@ export interface TrafegoApi {
   importarRegistros(campanhaId: string): Promise<IpcResult<ImportarRegistrosResult>>;
 }
 
+export interface TodoApi {
+  getFile(): Promise<IpcResult<TodoFile>>;
+  criarChecklist(input: CriarChecklistInput): Promise<IpcResult<TodoFile>>;
+  atualizarChecklist(input: AtualizarChecklistInput): Promise<IpcResult<TodoFile>>;
+  excluirChecklist(checklistId: string): Promise<IpcResult<TodoFile>>;
+  duplicarChecklist(checklistId: string): Promise<IpcResult<TodoFile>>;
+  arquivarChecklist(input: ArquivarChecklistInput): Promise<IpcResult<TodoFile>>;
+  reordenarChecklists(checklistIds: string[]): Promise<IpcResult<TodoFile>>;
+  adicionarItens(input: AdicionarItensInput): Promise<IpcResult<TodoFile>>;
+  atualizarItem(input: AtualizarItemInput): Promise<IpcResult<TodoFile>>;
+  removerItem(input: RemoverItemInput): Promise<IpcResult<TodoFile>>;
+  reordenarItens(input: ReordenarItensInput): Promise<IpcResult<TodoFile>>;
+  marcarTodos(input: MarcarTodosInput): Promise<IpcResult<TodoFile>>;
+  limparConcluidos(checklistId: string): Promise<IpcResult<TodoFile>>;
+  enviarAoKanban(input: EnviarAoKanbanInput): Promise<IpcResult<TodoFile>>;
+}
+
 export interface PensamentosApi {
   getPensamentos(): Promise<IpcResult<PensamentosFile>>;
   createPensamento(input: CreatePensamentoInput): Promise<IpcResult<PensamentosFile>>;
@@ -374,6 +403,7 @@ export interface IrisApi {
   links: LinksApi;
   copy: CopyApi;
   pensamentos: PensamentosApi;
+  todo: TodoApi;
   roteiros: RoteirosApi;
   trafego: TrafegoApi;
   explorador: ExploradorApi;

@@ -2466,10 +2466,8 @@
   padding: 0 6px;
 }
 
-.vd-score.is-baixo { --c: var(--danger); }
-.vd-score.is-regular { --c: var(--warning); }
-.vd-score.is-bom { --c: #3987e5; }
-.vd-score.is-excelente { --c: var(--success); }
+.vd-score.is-negativo { --c: var(--danger); }
+.vd-score.is-positivo { --c: var(--success); }
 
 .vd-score-campo {
   display: grid;
@@ -2492,10 +2490,8 @@
   transition: width 0.15s ease;
 }
 
-.vd-score-trilho i.is-baixo { background: var(--danger); }
-.vd-score-trilho i.is-regular { background: var(--warning); }
-.vd-score-trilho i.is-bom { background: #3987e5; }
-.vd-score-trilho i.is-excelente { background: var(--success); }
+.vd-score-trilho i.is-negativo { background: var(--danger); }
+.vd-score-trilho i.is-positivo { background: var(--success); }
 
 .vd-score-faixa {
   min-width: 64px;
@@ -2616,6 +2612,12 @@
   stroke: var(--text-faint);
   stroke-width: 1;
   stroke-dasharray: 4 4;
+}
+
+/* A meta (85) é o corte entre positivo e negativo: verde para não ser lida como a média. */
+.gf-referencia.is-meta {
+  stroke: var(--success);
+  stroke-dasharray: 2 3;
 }
 
 .gf-alvo {
@@ -2745,6 +2747,14 @@ button.gf-ranking-linha {
   height: 100%;
   background: #3987e5;
   border-radius: 0 4px 4px 0;
+}
+
+.gf-ranking-trilho i.is-negativo {
+  background: var(--danger);
+}
+
+.gf-ranking-trilho i.is-positivo {
+  background: var(--success);
 }
 
 .gf-ranking-valor {

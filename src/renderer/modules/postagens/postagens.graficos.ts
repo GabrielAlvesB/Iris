@@ -7,11 +7,14 @@
  *
  * Cores validadas contra a superfície escura (#14161c) com o validador da
  * skill de dataviz: série 1 azul, série 2 laranja; faixas ordenadas numa rampa
- * de um tom de azul.
+ * de um tom de azul. As faixas de score (negativo/positivo) usam os tokens
+ * --danger e --success: vermelho e verde já significam isso no resto do app.
  */
 
 export const COR_SERIE = ['#3987e5', '#d95926'] as const;
 export const RAMPA_ORDINAL = ['#184f95', '#256abf', '#3987e5', '#86b6ef'] as const;
+/** Na ordem de FAIXAS_SCORE: negativo, positivo. */
+export const CORES_FAIXA = ['#ef4444', '#22c55e'] as const;
 
 const NS = 'http://www.w3.org/2000/svg';
 const LARGURA = 600;
@@ -254,7 +257,7 @@ export function buildColunas(
 export function buildLinha(
   categorias: string[],
   valores: Array<number | null>,
-  referencia: { valor: number; rotulo: string } | null,
+  referencias: Array<{ valor: number; rotulo: string; classe?: string }>,
   descricao: string,
 ): SVGSVGElement {
   const altura = 230;
@@ -268,13 +271,21 @@ export function buildLinha(
   const x = (i: number): number => (categorias.length > 1 ? esq + passo * i : esq + areaL / 2);
   const y = (v: number): number => topo + areaA - (v / 100) * areaA;
 
-  if (referencia) {
-    const ry = y(referencia.valor);
-    svg.appendChild(el('line', { x1: esq, x2: esq + areaL, y1: ry, y2: ry, class: 'gf-referencia' }));
-    const rt = el('text', { x: esq + areaL + 4, y: ry + 4, class: 'gf-eixo' });
-    rt.textContent = referencia.rotulo;
-    svg.appendChild(rt);
-  }
+  // Duas referências próximas (média 84 e meta 85) embolariam os rótulos: o
+  // segundo desce o suficiente para não encostar no primeiro.
+  let ultimoRotuloY = -Infinity;
+  referencias
+    .slice()
+    .sort((a, b) => b.valor - a.valor)
+    .forEach((referencia) => {
+      const ry = y(referencia.valor);
+      svg.appendChild(el('line', { x1: esq, x2: esq + areaL, y1: ry, y2: ry, class: `gf-referencia${referencia.classe ? ` ${referencia.classe}` : ''}` }));
+      const ty = Math.max(ry + 4, ultimoRotuloY + 12);
+      ultimoRotuloY = ty;
+      const rt = el('text', { x: esq + areaL + 4, y: ty, class: 'gf-eixo' });
+      rt.textContent = referencia.rotulo;
+      svg.appendChild(rt);
+    });
 
   // A linha quebra nos meses sem score, em vez de inventar uma ligação.
   let d = '';
@@ -318,6 +329,8 @@ export interface LinhaRanking {
   valor: number | null;
   /** Texto à direita (ex.: "12 vídeos"). */
   detalhe: string;
+  /** Id da faixa de score (FAIXAS_SCORE): pinta a barra; o número continua escrito. */
+  faixa?: string;
   aoClicar?: () => void;
 }
 
@@ -346,6 +359,7 @@ export function buildRanking(linhas: LinhaRanking[], descricao: string, semValor
     if (l.valor !== null) {
       const barra = document.createElement('i');
       barra.style.width = `${Math.max(1.5, l.valor)}%`;
+      if (l.faixa) barra.className = `is-${l.faixa}`;
       trilho.appendChild(barra);
     }
     const valor = document.createElement('span');

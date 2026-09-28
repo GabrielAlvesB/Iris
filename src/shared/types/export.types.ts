@@ -14,6 +14,7 @@ import type { ImagensFile } from './imagens.types';
 import type { RelatoriosFile } from './relatorios.types';
 import type { RoteirosFile } from './roteiros.types';
 import type { TrafegoFile } from './trafego.types';
+import type { TodoFile } from './todo.types';
 
 export interface ExportBundle {
   schemaVersion: number;
@@ -36,6 +37,7 @@ export interface ExportBundle {
   relatorios?: RelatoriosFile;
   roteiros?: RoteirosFile;
   trafego?: TrafegoFile;
+  todo?: TodoFile;
   /** @deprecated O módulo Arquivos virou Explorador. Só existe em backups antigos. */
   arquivos?: unknown;
 }

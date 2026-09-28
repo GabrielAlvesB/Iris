@@ -3,6 +3,7 @@ import * as quadroService from '../quadro/quadro.service';
 import * as sheetsService from '../sheets/sheets.service';
 import * as linksService from '../links/links.service';
 import * as pensamentosService from '../pensamentos/pensamentos.service';
+import * as todoService from '../todo/todo.service';
 import * as exploradorService from '../explorador/explorador.service';
 import * as servidoresService from '../servidores/servidores.service';
 import * as n8nService from '../n8n/n8n.service';
@@ -27,7 +28,7 @@ const SCHEMA_VERSION = 1;
  * a baseUrl: as credenciais ficam no cofre, referenciadas por chave.
  */
 export async function buildExportBundle(): Promise<ExportBundle> {
-  const [kanban, quadro, sheets, links, pensamentos, explorador, servidores, n8n, github, ajustes, copy, videos, imagens, relatorios, roteiros, trafego] =
+  const [kanban, quadro, sheets, links, pensamentos, explorador, servidores, n8n, github, ajustes, copy, videos, imagens, relatorios, roteiros, trafego, todo] =
     await Promise.all([
       kanbanService.getFullFile(),
       quadroService.getFullFile(),
@@ -45,6 +46,7 @@ export async function buildExportBundle(): Promise<ExportBundle> {
       relatoriosService.getFullFile(),
       roteirosService.getFullFile(),
       trafegoService.getFullFile(),
+      todoService.getFullFile(),
     ]);
 
   return {
@@ -66,6 +68,7 @@ export async function buildExportBundle(): Promise<ExportBundle> {
     relatorios,
     roteiros,
     trafego,
+    todo,
   };
 }
 
@@ -98,6 +101,7 @@ export async function restoreFromBundle(raw: unknown): Promise<void> {
     raw.relatorios ? relatoriosService.replaceFile(raw.relatorios) : Promise.resolve(),
     raw.roteiros ? roteirosService.replaceFile(raw.roteiros) : Promise.resolve(),
     raw.trafego ? trafegoService.replaceFile(raw.trafego) : Promise.resolve(),
+    raw.todo ? todoService.replaceFile(raw.todo) : Promise.resolve(),
   ]);
   // Depois dos vídeos, de propósito: as imagens validam tags e redes contra o
   // catálogo que mora em videos.json, que precisa já ser o do backup.

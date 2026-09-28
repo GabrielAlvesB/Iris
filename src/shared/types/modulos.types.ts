@@ -17,7 +17,7 @@ export type CategoriaId = (typeof CATEGORIAS)[number]['id'];
 
 /**
  * `topo` e `rodape` ficam fora das categorias: são áreas independentes do resto
- * (o Kanban é o painel de trabalho diário; Tutorial e Ajustes são do app em si).
+ * (Kanban e To-do são o trabalho diário; Tutorial e Ajustes são do app em si).
  */
 export type PosicaoModulo = 'topo' | CategoriaId | 'rodape';
 
@@ -29,6 +29,7 @@ export interface ModuloDescritor {
 
 export const MODULOS = [
   { id: 'kanban', rotulo: 'Kanban', posicao: 'topo' },
+  { id: 'todo', rotulo: 'To-do', posicao: 'topo' },
   { id: 'postagens', rotulo: 'Postagens', posicao: 'conteudo' },
   { id: 'relatorios', rotulo: 'Relatórios', posicao: 'conteudo' },
   { id: 'roteiros', rotulo: 'Roteiros', posicao: 'conteudo' },

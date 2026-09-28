@@ -423,7 +423,10 @@ function buildBlocoMetricas(bloco: BlocoMetricas): HTMLElement {
       tabela(
         ['Faixa', 'Intervalo', 'Postagens', '% das com score'],
         FAIXAS_SCORE.map((f) => {
-          const n = r.faixas.find((x) => x.rotulo === f.id)?.total ?? 0;
+          // Resultado calculado antes do corte em 85 guarda ids de faixas que não
+          // existem mais: conta de novo pelos scores da própria fotografia.
+          const gravada = r.faixas.find((x) => x.rotulo === f.id);
+          const n = gravada ? gravada.total : r.postagens.filter((p) => p.score !== undefined && p.score >= f.min && p.score <= f.max).length;
           return [f.rotulo, `${f.min} a ${Math.floor(f.max)}`, String(n), `${Math.round((n / r.comScore) * 100)}%`];
         }),
         ['rd-forte', 'rd-num', 'rd-num', 'rd-num'],

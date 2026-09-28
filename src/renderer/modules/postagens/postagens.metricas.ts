@@ -1,9 +1,9 @@
 import { PRIORIDADES } from '../../../shared/types/postagens.types.js';
-import { FAIXAS_SCORE, faixaDoScore } from '../../../shared/types/videos.conversao.js';
+import { FAIXAS_SCORE, SCORE_META, faixaDoScore } from '../../../shared/types/videos.conversao.js';
 import { buildIndicadores, buildSegmentado, buildSelo, buildVazio, svg, type Tom } from '../../ui/pagina.js';
 import {
+  CORES_FAIXA,
   COR_SERIE,
-  RAMPA_ORDINAL,
   buildCartaoGrafico,
   buildColunas,
   buildLegenda,
@@ -262,9 +262,11 @@ function buildRankingPor<T>(
     .filter((g) => g.videos.length > 0)
     .map((g) => {
       const s = scores(g.videos);
+      const m = media(s);
       return {
         rotulo: g.rotulo,
-        valor: media(s),
+        valor: m,
+        faixa: m === null ? undefined : faixaDoScore(m).id,
         detalhe: `${g.videos.length} postage${g.videos.length > 1 ? 'ns' : 'm'}${s.length < g.videos.length ? ` · ${g.videos.length - s.length} sem score` : ''}`,
       };
     })
@@ -279,12 +281,13 @@ function rotuloTexto(texto: string): HTMLElement {
   return Object.assign(document.createElement('span'), { className: 'rl-rotulo-texto', textContent: texto });
 }
 
-function buildListaVideos(fonte: Fonte, videos: Postagem[], opcoes: MetricasOpcoes): HTMLElement {
-  if (!videos.length) return Object.assign(document.createElement('p'), { className: 'rl-vazio', textContent: 'Nenhuma postagem com score no período.' });
+function buildListaVideos(fonte: Fonte, videos: Postagem[], opcoes: MetricasOpcoes, vazio = 'Nenhuma postagem com score no período.'): HTMLElement {
+  if (!videos.length) return Object.assign(document.createElement('p'), { className: 'rl-vazio', textContent: vazio });
   return buildRanking(
     videos.map((v) => ({
       rotulo: rotuloTexto(tituloExibido(fonte.catalogo, v)),
       valor: v.score ?? null,
+      faixa: v.score === undefined ? undefined : faixaDoScore(v.score).id,
       detalhe: v.dataAgendada ? v.dataAgendada.split('-').reverse().slice(0, 2).join('/') : '—',
       aoClicar: () => opcoes.abrir(v.id),
     })),
@@ -502,8 +505,18 @@ export function buildMetricas(fonte: Fonte, opcoes: MetricasOpcoes): HTMLElement
   grade.appendChild(
     buildCartaoGrafico(
       `Score médio por ${unidade}`,
-      notaFinal === null ? 'Ainda sem scores no período' : `Linha tracejada = nota final do período (${formatarNumero(notaFinal, 1)})`,
-      buildLinha(rotulos, mediasMes, notaFinal === null ? null : { valor: notaFinal, rotulo: 'média' }, `Score médio por ${unidade}`),
+      notaFinal === null
+        ? `Ainda sem scores no período · meta ${SCORE_META}`
+        : `Tracejado cinza = nota final do período (${formatarNumero(notaFinal, 1)}) · verde = meta ${SCORE_META}`,
+      buildLinha(
+        rotulos,
+        mediasMes,
+        [
+          { valor: SCORE_META, rotulo: `meta ${SCORE_META}`, classe: 'is-meta' },
+          ...(notaFinal === null ? [] : [{ valor: notaFinal, rotulo: 'média' }]),
+        ],
+        `Score médio por ${unidade}`,
+      ),
       {
         colunas: [unidade === 'dia' ? 'Dia' : 'Mês', 'Score médio', 'Com score'],
         linhas: meses.map((m, i) => [
@@ -521,13 +534,13 @@ export function buildMetricas(fonte: Fonte, opcoes: MetricasOpcoes): HTMLElement
   grade.appendChild(
     buildCartaoGrafico(
       'Distribuição dos scores',
-      'Quais faixas de score mais foram publicadas',
+      `Quantas ficaram na meta (${SCORE_META} ou mais) e quantas abaixo dela`,
       buildColunas(
         rotulosFaixa,
-        [{ nome: fonte.rotulo, cor: RAMPA_ORDINAL[2], valores: contagemFaixa }],
+        [{ nome: fonte.rotulo, cor: CORES_FAIXA[1], valores: contagemFaixa }],
         'Distribuição dos scores por faixa',
         (n) => `${n} · ${s.length ? Math.round((n / s.length) * 100) : 0}%`,
-        RAMPA_ORDINAL,
+        CORES_FAIXA,
       ),
       {
         colunas: ['Faixa', fonte.rotulo, '%'],
@@ -577,11 +590,25 @@ export function buildMetricas(fonte: Fonte, opcoes: MetricasOpcoes): HTMLElement
   );
   grade.appendChild(cartaoRanking('Prioridades e redes', 'Score médio e quantidade', duplo));
 
-  // 6. Maiores e menores scores
+  // 6. Pontos positivos (na meta) e negativos (abaixo dela). Antes eram só "os
+  // maiores" e "os menores": um 88 aparecia como ponto fraco num mês bom.
   const comScore = videosPeriodo.filter((v) => v.score !== undefined).sort((a, b) => b.score! - a.score!);
-  grade.appendChild(cartaoRanking('Maiores scores', 'Top 10 do período — clique para abrir', buildListaVideos(fonte, comScore.slice(0, 10), opcoes)));
+  const positivos = comScore.filter((v) => v.score! >= SCORE_META);
+  const negativos = comScore.filter((v) => v.score! < SCORE_META).reverse();
+  const contagem = (n: number): string => `${n} postage${n === 1 ? 'm' : 'ns'}`;
   grade.appendChild(
-    cartaoRanking('Menores scores', 'Os 5 que mais puxam a média para baixo', buildListaVideos(fonte, comScore.slice(-5).reverse(), opcoes)),
+    cartaoRanking(
+      'Pontos positivos',
+      `Score ${SCORE_META} ou mais · ${contagem(positivos.length)}${positivos.length > 10 ? ', os 10 maiores' : ''} — clique para abrir`,
+      buildListaVideos(fonte, positivos.slice(0, 10), opcoes, `Nenhuma postagem com score ${SCORE_META} ou mais no período.`),
+    ),
+  );
+  grade.appendChild(
+    cartaoRanking(
+      'Pontos negativos',
+      `Score abaixo de ${SCORE_META} · ${contagem(negativos.length)}${negativos.length > 10 ? ', os 10 menores' : ''} — do menor para o maior`,
+      buildListaVideos(fonte, negativos.slice(0, 10), opcoes, `Nenhuma postagem abaixo de ${SCORE_META} no período.`),
+    ),
   );
 
   tela.appendChild(grade);
@@ -589,7 +616,7 @@ export function buildMetricas(fonte: Fonte, opcoes: MetricasOpcoes): HTMLElement
   const rodape = document.createElement('p');
   rodape.className = 'rl-rodape';
   rodape.innerHTML = svg(ICONES_POSTAGEM.historico, 12, 2);
-  rodape.append(`Faixas: ${FAIXAS_SCORE.map((f) => `${f.rotulo} ${f.min}–${Math.floor(f.max)}`).join(' · ')}. Postagens arquivadas não entram.`);
+  rodape.append(`Positivo: score ${SCORE_META} ou mais · Negativo: abaixo de ${SCORE_META}. Postagens arquivadas não entram.`);
   tela.appendChild(rodape);
   return tela;
 }

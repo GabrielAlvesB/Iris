@@ -1,0 +1,547 @@
+/* To-do — checklists em cartões, com itens editáveis no próprio cartão. */
+
+.td-barra {
+  row-gap: 8px;
+}
+
+.td-ordem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.td-ordem-rotulo {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.td-rolagem {
+  padding-bottom: 12px;
+}
+
+.td-vazio {
+  padding: 18px 2px;
+}
+
+/* Colunas de largura fixa-mínima; cada cartão cresce com os próprios itens. */
+.td-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+/* ---------- Criação rápida ---------- */
+
+.td-nova {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 14px;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.td-nova:focus-within {
+  border-style: solid;
+  border-color: var(--accent);
+  background: var(--bg-elevated);
+}
+
+.td-nova-icone {
+  display: inline-flex;
+  color: var(--text-faint);
+}
+
+.td-nova input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.td-nova input::placeholder {
+  color: var(--text-faint);
+}
+
+/* ---------- Cartão ---------- */
+
+.td-cartao {
+  --td-cor: var(--accent);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px 12px 8px 15px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+/* Faixa de cor à esquerda: identifica a checklist sem pintar o cartão todo. */
+.td-cartao::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--td-cor);
+}
+
+.td-cartao:hover,
+.td-cartao:focus-within {
+  border-color: var(--border);
+  box-shadow: 0 10px 26px -18px rgba(0, 0, 0, 0.9);
+}
+
+.td-cartao.is-arquivada {
+  opacity: 0.72;
+}
+
+.td-cartao-cab {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.td-titulo {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.td-titulo-btn {
+  display: block;
+  width: 100%;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: text;
+  overflow-wrap: anywhere;
+}
+
+.td-titulo-btn:hover {
+  background: var(--bg-elevated-2);
+}
+
+.td-cartao.is-concluida .td-titulo-btn {
+  color: var(--text-muted);
+}
+
+.td-edicao {
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+
+.td-icone-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: var(--text-faint);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+
+.td-icone-btn:hover,
+.td-icone-btn:focus-visible,
+.td-icone-btn[aria-expanded='true'] {
+  color: var(--text);
+  background: var(--bg-elevated-3);
+  outline: none;
+}
+
+.td-alca {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-faint);
+  cursor: grab;
+  opacity: 0.55;
+}
+
+.td-alca:hover {
+  opacity: 1;
+}
+
+.td-alca-cartao {
+  width: 16px;
+  height: 24px;
+  margin-left: -6px;
+}
+
+.td-selos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.td-selo-btn {
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.td-selo-btn:hover .pg-selo,
+.td-selo-btn:focus-visible .pg-selo {
+  filter: brightness(1.15);
+}
+
+.td-descricao {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Progresso ---------- */
+
+.td-progresso {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.td-progresso-trilho {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-elevated-3);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.td-progresso-trilho i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.2s ease;
+}
+
+.td-progresso-trilho i.is-completo {
+  background: var(--success);
+}
+
+.td-progresso-num {
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+/* ---------- Itens ---------- */
+
+.td-itens {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0 -6px;
+  padding: 0;
+  list-style: none;
+}
+
+.td-itens:empty {
+  display: none;
+}
+
+.td-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 30px;
+  padding: 3px 4px 3px 2px;
+  border-radius: var(--radius);
+  transition: background 0.1s ease;
+}
+
+.td-item:hover {
+  background: var(--bg-elevated-2);
+}
+
+.td-alca-item {
+  width: 12px;
+  height: 24px;
+  opacity: 0;
+}
+
+.td-item:hover .td-alca-item {
+  opacity: 0.55;
+}
+
+.td-itens.is-feitos .td-item {
+  padding-left: 20px;
+}
+
+.td-caixa {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin: 4px 2px 0;
+  accent-color: var(--success);
+  color-scheme: dark;
+  cursor: pointer;
+}
+
+.td-item-texto {
+  flex: 1;
+  min-width: 0;
+}
+
+.td-item-texto-btn {
+  display: block;
+  width: 100%;
+  padding: 3px 2px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: left;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  cursor: text;
+  overflow-wrap: anywhere;
+}
+
+.td-item-texto-btn:disabled {
+  cursor: default;
+}
+
+.td-item.is-feito .td-item-texto-btn {
+  color: var(--text-faint);
+  text-decoration: line-through;
+  text-decoration-color: var(--text-faint);
+}
+
+.td-item .td-edicao {
+  height: 28px;
+  font-size: 13px;
+}
+
+.td-item-remover {
+  width: 24px;
+  height: 24px;
+  opacity: 0;
+}
+
+.td-item:hover .td-item-remover,
+.td-item-remover:focus-visible {
+  opacity: 1;
+}
+
+.td-item-remover:hover {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+/* ---------- Adicionar item ---------- */
+
+.td-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 -6px;
+  padding: 0 8px;
+  border-radius: var(--radius);
+  transition: background 0.1s ease;
+}
+
+.td-add:focus-within {
+  background: var(--bg-elevated-2);
+}
+
+.td-add-icone {
+  display: inline-flex;
+  width: 16px;
+  justify-content: center;
+  color: var(--text-faint);
+}
+
+.td-add input {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.td-add input::placeholder {
+  color: var(--text-faint);
+}
+
+/* ---------- Concluídos ---------- */
+
+.td-feitos-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  padding: 3px 6px;
+  margin-left: -6px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.td-feitos-toggle:hover {
+  color: var(--text);
+  background: var(--bg-elevated-2);
+}
+
+.td-feitos-toggle svg {
+  transform: rotate(-90deg);
+  transition: transform 0.15s ease;
+}
+
+.td-feitos-toggle.is-aberto svg {
+  transform: none;
+}
+
+/* ---------- Rodapé ---------- */
+
+.td-cartao-rodape {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 -6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.td-cartao-rodape .pg-botao {
+  height: 28px;
+  font-size: 12px;
+}
+
+/* ---------- Menu "⋯" ---------- */
+
+.td-menu {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  padding: 5px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+.td-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.td-menu-item svg {
+  color: var(--text-muted);
+}
+
+.td-menu-item:hover,
+.td-menu-item:focus-visible {
+  background: var(--bg-elevated-3);
+  outline: none;
+}
+
+.td-menu-item.is-perigo,
+.td-menu-item.is-perigo svg {
+  color: var(--danger);
+}
+
+.td-menu-item.is-perigo:hover,
+.td-menu-item.is-perigo:focus-visible {
+  background: var(--danger-soft);
+}
+
+/* ---------- Modais ---------- */
+
+.td-cores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.td-cor {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: var(--td-cor);
+  border: 2px solid transparent;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px var(--bg-elevated);
+  cursor: pointer;
+}
+
+.td-cor.is-ativa {
+  border-color: var(--text);
+}
+
+.td-cor:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.td-previa {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 4px;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--text-muted);
+}

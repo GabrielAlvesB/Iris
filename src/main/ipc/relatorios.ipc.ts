@@ -28,6 +28,9 @@ function escaparHtml(texto: string): string {
   return texto.replace(/[&<>"']/g, (c) => ENTIDADES_HTML[c] ?? c);
 }
 
+/** Mesma cor do papel do documento (--rd-papel em relatorios.css). */
+const COR_PAPEL = '#ffffff';
+
 /** Nome de arquivo seguro no Windows: sem os caracteres proibidos e sem ponto no fim. */
 function nomeDeArquivo(nome: string): string {
   const limpo = nome
@@ -61,15 +64,25 @@ async function exportarPdf(event: IpcMainInvokeEvent, input: ExportarPdfInput): 
     <span>Página <span class="pageNumber"></span> de <span class="totalPages"></span></span>
   </div>`;
 
-  const pdf = await event.sender.printToPDF({
-    pageSize: 'A4',
-    printBackground: true,
-    displayHeaderFooter: true,
-    headerTemplate: '<span></span>',
-    footerTemplate: rodape,
-    // As margens laterais ficam no CSS (padding do documento), para o fundo da capa ir até a borda.
-    margins: { marginType: 'custom', top: 0.5, bottom: 0.6, left: 0, right: 0 },
-  });
+  // O printToPDF pinta as margens de cima e de baixo (onde mora o rodapé) com a
+  // cor de fundo da janela, não com a do documento: com o #0c0d12 do tema, cada
+  // página saía com uma faixa preta no topo e no pé. Branco só durante a impressão.
+  const fundoOriginal = janela?.getBackgroundColor();
+  janela?.setBackgroundColor(COR_PAPEL);
+  let pdf: Buffer;
+  try {
+    pdf = await event.sender.printToPDF({
+      pageSize: 'A4',
+      printBackground: true,
+      displayHeaderFooter: true,
+      headerTemplate: '<span></span>',
+      footerTemplate: rodape,
+      // As margens laterais ficam no CSS (padding do documento), para o fundo da capa ir até a borda.
+      margins: { marginType: 'custom', top: 0.5, bottom: 0.6, left: 0, right: 0 },
+    });
+  } finally {
+    if (janela && fundoOriginal) janela.setBackgroundColor(fundoOriginal);
+  }
   await fs.promises.writeFile(escolha.filePath, pdf);
   return { canceled: false, filePath: escolha.filePath };
 }

@@ -252,11 +252,15 @@ export function parseScore(texto: string): number | undefined {
   return n >= 0 && n <= 100 ? n : undefined;
 }
 
+/**
+ * O corte é 85: a partir dele a postagem é considerada boa; abaixo, é ponto a
+ * melhorar. Duas faixas só — o Gabriel lê o score como "passou ou não passou".
+ */
+export const SCORE_META = 85;
+
 export const FAIXAS_SCORE = [
-  { id: 'baixo', rotulo: 'Baixo', min: 0, max: 39.99, tom: 'erro' },
-  { id: 'regular', rotulo: 'Regular', min: 40, max: 59.99, tom: 'atencao' },
-  { id: 'bom', rotulo: 'Bom', min: 60, max: 79.99, tom: 'neutro' },
-  { id: 'excelente', rotulo: 'Excelente', min: 80, max: 100, tom: 'ok' },
+  { id: 'negativo', rotulo: 'Negativo', min: 0, max: 84.99, tom: 'erro' },
+  { id: 'positivo', rotulo: 'Positivo', min: 85, max: 100, tom: 'ok' },
 ] as const;
 
 export type FaixaScore = (typeof FAIXAS_SCORE)[number];

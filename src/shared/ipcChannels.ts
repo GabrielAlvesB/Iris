@@ -156,6 +156,23 @@ export const TRAFEGO_CHANNELS = {
   importarRegistros: 'trafego:importarRegistros',
 } as const;
 
+export const TODO_CHANNELS = {
+  getFile: 'todo:getFile',
+  criarChecklist: 'todo:criarChecklist',
+  atualizarChecklist: 'todo:atualizarChecklist',
+  excluirChecklist: 'todo:excluirChecklist',
+  duplicarChecklist: 'todo:duplicarChecklist',
+  arquivarChecklist: 'todo:arquivarChecklist',
+  reordenarChecklists: 'todo:reordenarChecklists',
+  adicionarItens: 'todo:adicionarItens',
+  atualizarItem: 'todo:atualizarItem',
+  removerItem: 'todo:removerItem',
+  reordenarItens: 'todo:reordenarItens',
+  marcarTodos: 'todo:marcarTodos',
+  limparConcluidos: 'todo:limparConcluidos',
+  enviarAoKanban: 'todo:enviarAoKanban',
+} as const;
+
 export const PENSAMENTOS_CHANNELS = {
   getPensamentos: 'pensamentos:getPensamentos',
   createPensamento: 'pensamentos:createPensamento',

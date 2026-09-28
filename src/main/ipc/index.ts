@@ -5,6 +5,7 @@ import { registerExportIpc } from './export.ipc';
 import { registerLinksIpc } from './links.ipc';
 import { registerCopyIpc } from './copy.ipc';
 import { registerPensamentosIpc } from './pensamentos.ipc';
+import { registerTodoIpc } from './todo.ipc';
 import { registerExploradorIpc } from './explorador.ipc';
 import { registerServidoresIpc } from './servidores.ipc';
 import { registerN8nIpc } from './n8n.ipc';
@@ -25,6 +26,7 @@ export function registerAllIpcHandlers(): void {
   registerLinksIpc();
   registerCopyIpc();
   registerPensamentosIpc();
+  registerTodoIpc();
   registerExploradorIpc();
   registerServidoresIpc();
   registerN8nIpc();

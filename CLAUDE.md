@@ -11,9 +11,9 @@ TypeScript puro, **sem framework de UI e sem bundler**. O DOM é construído à 
 `document.createElement`. As únicas dependências de runtime são `sortablejs` (drag-and-drop),
 `ssh2` (comandos remotos) e `xlsx` (import/export de planilhas).
 
-Dezesseis módulos, organizados na sidebar por categoria:
+Dezessete módulos, organizados na sidebar por categoria:
 
-- **soltos no topo**: Kanban
+- **soltos no topo**: Kanban, To-do (id `todo`)
 - **Conteúdo**: Postagens (pipeline de conteúdo: vídeos, imagens), Relatórios (análises com PDF),
   Roteiros (escrever → revisar → aprovar; aprovado vira card no Kanban), Sheets
 - **Arquivos**: Biblioteca (id interno `explorador`), Quadro, Copy, Pensamentos, Links rápidos
@@ -204,6 +204,9 @@ não seria decifrável em outra máquina.
   na prévia e no PDF. Para exportar, o renderer monta-o em `#impressao` e o main chama
   `printToPDF` na própria janela; [relatorios-impressao.css](src/renderer/styles/relatorios-impressao.css)
   esconde o resto no `@media print`. Não há janela oculta nem segundo gerador de HTML.
+  O `printToPDF` pinta as margens de cima/baixo com a **cor de fundo da janela** (`#0c0d12`):
+  o handler troca para branco durante a impressão e restaura depois — sem isso cada página
+  sai com faixas pretas no topo e no rodapé.
 - **Empresa por tags** (`relatorios.json` v3): `Relatorio.tagIds` são tags do catálogo único;
   `tagsNomes` é a cópia por extenso, renovada **no main** ao criar/salvar
   (`renovarNomesDasTags`) — apagar a tag não apaga a empresa do documento. O seletor
@@ -240,6 +243,18 @@ não seria decifrável em outra máquina.
   criação tira título (`# …`) e duração ("Duração estimada:") do próprio texto.
 - O editor é um painel com a prévia ao lado; texto salva por `atualizarSilencioso` (sem
   notificar, para não redesenhar sob o cursor) e a lista redesenha ao fechar.
+
+## To-do
+
+- `todo.json`: várias checklists (título, descrição, cor, prioridade, prazo, itens, `ordem`
+  manual, `arquivada`). Tudo se edita no próprio cartão ([todo.view.ts](src/renderer/modules/todo/todo.view.ts));
+  o menu "⋯" tem o resto. Colar várias linhas no "Adicionar item" cria um item por linha.
+- **Enviar ao Kanban** (`enviarAoKanban` no main): cria o card na coluna escolhida com os itens
+  como `subtasks`, prioridade e prazo; grava `envio` e a checklist continua no To-do marcada
+  como enviada (o card é cópia). Reenviar com o card ainda existente exige `forcarNovo`.
+  O selo lê o quadro do Kanban para mostrar a coluna e as subtarefas atuais do card.
+- Reordenar com filtro ativo: a tela manda a ordem completa, trocando só as posições das
+  checklists visíveis — as escondidas não saem do lugar.
 
 ## Tráfego pago
 
@@ -288,7 +303,10 @@ não seria decifrável em outra máquina.
   informação extra com nome de score é promovida ao campo na migração, com preferência para
   "Score Editorial" (o nome usado nas planilhas dele) sobre outros como "Score Viral".
   Campo que o mapeamento lembrado de uma aba não cobre recebe o palpite pelo nome da coluna. Faixas em
-  `FAIXAS_SCORE` (videos.conversao.ts). A aba **Métricas** (postagens.metricas.ts) usa
+  `FAIXAS_SCORE` (videos.conversao.ts): **só duas, corte em `SCORE_META` = 85** — 85 ou mais é
+  positivo (verde), abaixo é negativo (vermelho). A aba Métricas mostra "Pontos positivos" e
+  "Pontos negativos" por esse corte e a linha da meta no gráfico de score médio. Resultados de
+  relatório gravados com as faixas antigas são recontados pelos scores do próprio resultado. A aba **Métricas** (postagens.metricas.ts) usa
   gráficos SVG próprios de [postagens.graficos.ts](src/renderer/modules/postagens/postagens.graficos.ts):
   um eixo só, cores validadas contra a superfície escura, tabela alternativa em cada
   gráfico. Mês de um vídeo publicado = `dataAgendada` (não `publicadoEm`, que num lote
