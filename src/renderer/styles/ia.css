@@ -57,9 +57,13 @@
 
 /* ---------- Menu de ações (Roteiros) ---------- */
 
+/*
+ * Acima dos painéis e modais (950–1000): o menu abre de dentro deles —
+ * "Anexar" nos Materiais, "Gerar com qual IA?" no painel da postagem.
+ */
 .ia-menu {
   position: fixed;
-  z-index: 60;
+  z-index: 1100;
   display: flex;
   flex-direction: column;
   width: 300px;
@@ -110,6 +114,53 @@
 .ia-menu-textos small {
   font-size: 11.5px;
   color: var(--text-muted);
+}
+
+.ia-menu-titulo {
+  margin: 0;
+  padding: 6px 10px 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* "Gerar com": a IA desta vez, com a padrão marcada. */
+.ia-menu-escolha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 8px 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ia-menu-escolha-rotulo {
+  width: 100%;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.ia-menu-pilula {
+  padding: 3px 10px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.ia-menu-pilula:hover {
+  color: var(--text);
+  background: var(--bg-elevated-3);
+}
+
+.ia-menu-pilula.is-marcada {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .rot-barra-ia {
@@ -380,8 +431,34 @@
   color: var(--text-muted);
 }
 
-.ia-tarefa.is-erro .ia-tarefa-topo .pg-botao {
+/* Só o primeiro botão empurra; os seguintes ficam colados a ele. */
+.ia-tarefa.is-erro .ia-tarefa-topo .pg-botao:first-of-type {
   margin-left: auto;
+}
+
+.ia-tarefas-barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.ia-tarefa-detalhe summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ia-tarefa-detalhe pre {
+  margin: 6px 0 0;
+  max-height: 160px;
+  overflow: auto;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .ia-tarefa-prompt {
@@ -882,4 +959,190 @@
   display: flex;
   gap: 6px;
   justify-content: flex-end;
+}
+
+/* ---------- Visualização grande ---------- */
+
+.ia-vis-modal .modal-custom-corpo {
+  overflow: hidden;
+}
+
+.ia-vis {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 18px;
+  min-height: 0;
+}
+
+@media (max-width: 980px) {
+  .ia-vis {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.ia-vis-palco {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 420px;
+  max-height: 72vh;
+  padding: 12px;
+  background:
+    repeating-conic-gradient(var(--bg-elevated-2) 0% 25%, var(--bg-elevated-3) 0% 50%) 50% / 24px 24px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.ia-vis-palco img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(72vh - 24px);
+  object-fit: contain;
+  border-radius: 6px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+.ia-vis-seta {
+  position: absolute;
+  top: 50%;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: var(--text);
+  background: rgba(12, 13, 18, 0.72);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.ia-vis-seta:hover,
+.ia-vis-seta:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.ia-vis-seta.is-esq {
+  left: 12px;
+}
+
+.ia-vis-seta.is-dir {
+  right: 12px;
+}
+
+.ia-vis-lado {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  max-height: 72vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.ia-vis-selos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ia-vis-bloco-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ia-vis-lado h4 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.ia-vis-prompt {
+  margin: 6px 0 0;
+  max-height: 170px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  background: var(--bg-elevated-2);
+  border-radius: var(--radius);
+}
+
+.ia-vis-detalhes {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 12px;
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.ia-vis-detalhes dt {
+  color: var(--text-faint);
+}
+
+.ia-vis-detalhes dd {
+  margin: 0;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ia-vis-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.ia-vis-botoes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.ia-vis-botoes .pg-botao {
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.ia-vis-botoes .pg-botao span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ia-vis-grupo.is-criar .ia-vis-botoes .pg-botao:first-child {
+  grid-column: 1 / -1;
+}
+
+.ia-vis-grupo.is-criar .ia-vis-botoes .pg-botao:nth-child(4),
+.ia-vis-grupo.is-usar .ia-vis-botoes .pg-botao:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+
+.ia-item-acao.is-perigo {
+  margin-left: auto;
+}
+
+.ia-item-acao.is-perigo:hover,
+.ia-item-acao.is-perigo:focus-visible {
+  color: var(--danger);
+  background: var(--danger-soft);
 }

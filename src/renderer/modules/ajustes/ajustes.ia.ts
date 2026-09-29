@@ -23,7 +23,8 @@ export interface PecasAjustes {
   buildPainel: (titulo: string, descricao: string, icone: string, guia?: GuiaId) => HTMLElement;
   buildCampo: (rotulo: string, elemento: HTMLElement, dica?: string) => HTMLElement;
   buildInput: (tipo: string, valor: string, placeholder: string) => HTMLInputElement;
-  buildStatus: () => { el: HTMLElement; mostrar: (texto: string, tom: Tom) => void };
+  /** `chave` mantém o aviso ("Salvo") no status certo depois do redesenho. */
+  buildStatus: (chave?: string) => { el: HTMLElement; mostrar: (texto: string, tom: Tom) => void };
 }
 
 const ROTULO_CAPACIDADE: Record<Capacidade, string> = {
@@ -230,7 +231,7 @@ function buildCartaoProvedor(p: PecasAjustes, d: DescritorProvedor, cfg: ConfigP
   if (imagem) corpo.appendChild(imagem.el);
   cartao.appendChild(corpo);
 
-  const status = p.buildStatus();
+  const status = p.buildStatus(`ia.${d.id}`);
   if (d.id === 'openrouter') cartao.appendChild(buildRecomendacoes(cfg, { texto, imagem }, status));
 
   const acoes = document.createElement('div');
@@ -257,7 +258,7 @@ function buildCartaoProvedor(p: PecasAjustes, d: DescritorProvedor, cfg: ConfigP
 
   const testar = buildBotao('Testar', { icone: ICONES.atualizar });
   testar.disabled = !cfg.configurado;
-  testar.title = cfg.configurado ? 'Confere a chave e carrega a lista de modelos' : 'Salve a chave primeiro';
+  testar.title = cfg.configurado ? 'Confere a chave, a lista e os modelos salvos (o de texto recebe um pedido mínimo)' : 'Salve a chave primeiro';
   testar.addEventListener('click', () => {
     testar.disabled = true;
     status.mostrar('Testando…', 'neutro');
@@ -336,7 +337,7 @@ function buildPadroes(p: PecasAjustes, ia: IaConfig): HTMLElement {
     raiz.value = ia.destino?.raizId ?? '';
   });
 
-  const status = p.buildStatus();
+  const status = p.buildStatus('ia.padroes');
   const acoes = document.createElement('div');
   acoes.className = 'aj-acoes';
   const salvar = buildBotao('Salvar padrões', { variante: 'primario', icone: ICONES.check });

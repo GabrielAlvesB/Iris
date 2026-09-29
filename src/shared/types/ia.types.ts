@@ -54,12 +54,12 @@ export const PROVEDORES: readonly DescritorProvedor[] = [
     descricao: 'Claude escreve e lê imagens muito bem, mas não gera imagens — use-o para textos e roteiros.',
     capacidades: ['texto', 'visao'],
     urlChave: 'https://console.anthropic.com/settings/keys',
-    modeloTextoSugerido: 'claude-opus-5',
+    modeloTextoSugerido: 'claude-sonnet-5',
   },
   {
     id: 'google',
     rotulo: 'Google (Gemini)',
-    descricao: 'Gemini para texto e Gemini Image para gerar e editar imagens a partir de referências.',
+    descricao: 'Gemini para texto e Gemini Image (ou Imagen) para gerar e editar imagens. Texto tem uso gratuito; imagem, em geral, só com faturamento ativo na chave.',
     capacidades: ['texto', 'visao', 'imagem', 'imagemComReferencia'],
     urlChave: 'https://aistudio.google.com/apikey',
     modeloTextoSugerido: 'gemini-2.5-flash',
@@ -258,6 +258,11 @@ export interface GerarImagemInput {
   modelo?: string;
   qualidade?: QualidadeImagem;
   postagem?: VinculoPostagem;
+  /**
+   * 'modificar': `prompt` é só o que mudar, e a (única) referência é a imagem
+   * a editar. O main monta o pedido de edição; o texto não vem da tela.
+   */
+  modo?: 'criar' | 'modificar';
 }
 
 export interface ItemGaleria {
@@ -331,6 +336,8 @@ export type TarefaTexto =
 export interface ContextoTexto {
   /** Onde o texto vai: "Próximos passos", "Descrição do card"… */
   campo?: string;
+  /** O que aquele campo deve conter e como analisar o material (ex.: conclusão = síntese com números). */
+  orientacao?: string;
   /** A área do app: "Relatório de resultados", "Kanban"… */
   area?: string;
   /** Material de apoio (ex.: o resto do relatório, com as métricas). */
@@ -360,6 +367,8 @@ export interface ContextoTexto {
 export interface PedidoTexto {
   tarefa: TarefaTexto;
   contexto: ContextoTexto;
+  /** A IA escolhida na hora; ausente = a padrão de texto de Ajustes. Usa o modelo de texto salvo dela. */
+  provedor?: ProvedorId;
 }
 
 export interface VarianteTexto {

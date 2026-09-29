@@ -5,7 +5,6 @@ import {
   type EtapaPostagem,
   type Prioridade,
   type RedeSocial,
-  type TagPostagem,
 } from '../../../shared/types/postagens.types.js';
 import type { PreferenciasVideos, VideosFile } from '../../../shared/types/videos.types.js';
 import { descreverOrigem } from '../../../shared/types/videos.conversao.js';
@@ -15,12 +14,14 @@ import { buildBotao, buildSegmentado } from '../../ui/pagina.js';
 import { buildLogoRede } from './postagens.logos.js';
 import * as videosState from './videos/videos.state.js';
 import * as imagensState from './imagens/imagens.state.js';
+import { buildCadastroTags, buildSeletorCor, formNovo, todasAsPostagens, usos } from './postagens.tags.js';
 import {
   ICONES_POSTAGEM,
   buildPrioridade,
   buildRedeBadge,
   buildScore,
   buildTagChip,
+  ordenarTags,
   tituloExibido,
 } from './postagens.ui.js';
 
@@ -29,17 +30,6 @@ import {
  * seguem a mesma estrutura (cabeçalho com ícone, seções em cartão, ações no
  * rodapé fixo). Tags, redes e exibição moram em videos.json e valem para todos.
  */
-
-export const PALETA = ['#a78bfa', '#818cf8', '#38bdf8', '#2dd4bf', '#34d399', '#a3e635', '#fbbf24', '#fb923c', '#fb7185', '#f472b6', '#e1306c', '#9498a3'];
-
-/** Postagens de todos os tipos, para contar usos de tag e rede. */
-function todasAsPostagens(): Array<{ tagIds: string[]; redeIds: string[] }> {
-  return [...(videosState.getCurrentState()?.videos ?? []), ...(imagensState.getCurrentState()?.imagens ?? [])];
-}
-
-function usos(n: number): string {
-  return n === 1 ? '1 postagem' : `${n} postagens`;
-}
 
 /** Grupo de chips alternáveis (tags ou redes). */
 export function alternaveis<T extends { id: string }>(itens: T[], selecionados: Set<string>, desenhar: (item: T, ativo: boolean) => HTMLElement): HTMLElement {
@@ -147,7 +137,7 @@ export function abrirNovaPostagem(config: NovaPostagemConfig): void {
 
       const marcacoes = buildSecaoModal('Redes e tags');
       marcacoes.conteudo.appendChild(alternaveis(file.redes, redes, (r, ativo) => buildRedeBadge(r, { comNome: true, ativo })));
-      marcacoes.conteudo.appendChild(alternaveis(file.tags, tags, (t, ativo) => buildTagChip(t, { ativo })));
+      marcacoes.conteudo.appendChild(alternaveis(ordenarTags(file.tags), tags, (t, ativo) => buildTagChip(t, { ativo })));
       corpo.appendChild(marcacoes.secao);
 
       const criar = async (abrir: boolean): Promise<void> => {
@@ -198,88 +188,6 @@ export function abrirNovaPostagem(config: NovaPostagemConfig): void {
 }
 
 // ---------- Tags e redes ----------
-
-/** Seletor de cor em bolinhas; abre ao clicar na amostra. */
-function buildSeletorCor(atual: string, aoEscolher: (cor: string) => void): HTMLElement {
-  const wrap = document.createElement('div');
-  wrap.className = 'md-cor';
-  const amostra = document.createElement('button');
-  amostra.type = 'button';
-  amostra.className = 'md-cor-amostra';
-  amostra.style.setProperty('--cor', atual);
-  amostra.title = 'Mudar cor';
-  amostra.setAttribute('aria-label', 'Mudar cor');
-  const paleta = document.createElement('div');
-  paleta.className = 'md-cor-paleta';
-  paleta.hidden = true;
-  PALETA.forEach((cor) => {
-    const opcao = document.createElement('button');
-    opcao.type = 'button';
-    opcao.className = 'md-cor-opcao';
-    opcao.classList.toggle('is-ativa', cor.toLowerCase() === atual.toLowerCase());
-    opcao.style.setProperty('--cor', cor);
-    opcao.setAttribute('aria-label', cor);
-    opcao.addEventListener('click', () => {
-      paleta.hidden = true;
-      amostra.style.setProperty('--cor', cor);
-      aoEscolher(cor);
-    });
-    paleta.appendChild(opcao);
-  });
-  amostra.addEventListener('click', () => {
-    document.querySelectorAll<HTMLElement>('.md-cor-paleta').forEach((p) => {
-      if (p !== paleta) p.hidden = true;
-    });
-    paleta.hidden = !paleta.hidden;
-  });
-  wrap.append(amostra, paleta);
-  return wrap;
-}
-
-function linhaTag(tag: TagPostagem, redesenhar: () => void, erro: (e: unknown) => void): HTMLElement {
-  const linha = document.createElement('div');
-  linha.className = 'md-item';
-  const qtd = todasAsPostagens().filter((v) => v.tagIds.includes(tag.id)).length;
-  let cor = tag.cor;
-
-  const nome = input('text', tag.nome);
-  nome.setAttribute('aria-label', 'Nome da tag');
-  const previa = document.createElement('div');
-  previa.className = 'md-item-previa';
-  const desenharPrevia = (): void => previa.replaceChildren(buildTagChip({ ...tag, nome: nome.value || tag.nome, cor }));
-  desenharPrevia();
-  const salvar = (): void => void videosState.salvarTag({ id: tag.id, nome: nome.value, cor }).then(redesenhar).catch(erro);
-  nome.addEventListener('input', desenharPrevia);
-  nome.addEventListener('change', salvar);
-
-  const contagem = document.createElement('span');
-  contagem.className = 'md-item-uso';
-  contagem.textContent = usos(qtd);
-
-  const excluir = buildBotao('', { icone: ICONES_POSTAGEM.lixeira, variante: 'fantasma', titulo: 'Excluir tag' });
-  excluir.classList.add('is-perigo');
-  excluir.addEventListener('click', () => {
-    void openConfirmModal({
-      title: 'Excluir tag',
-      message: qtd ? `"${tag.nome}" está em ${usos(qtd)} e será removida delas.` : `Excluir "${tag.nome}"?`,
-    }).then((ok) => {
-      if (ok) void videosState.excluirTag(tag.id).then(redesenhar).catch(erro);
-    });
-  });
-
-  linha.append(
-    buildSeletorCor(tag.cor, (c) => {
-      cor = c;
-      desenharPrevia();
-      salvar();
-    }),
-    nome,
-    previa,
-    contagem,
-    excluir,
-  );
-  return linha;
-}
 
 function linhaRede(rede: RedeSocial, redesenhar: () => void, erro: (e: unknown) => void): HTMLElement {
   const linha = document.createElement('div');
@@ -388,44 +296,22 @@ function buildGaleriaRedes(file: VideosFile, redesenhar: () => void, erro: (e: u
   return galeria;
 }
 
-function formNovo(placeholder: string, comSigla: boolean, aoCriar: (nome: string, cor: string, sigla: string) => Promise<void>): HTMLElement {
-  const form = document.createElement('form');
-  form.className = 'md-novo';
-  let cor = PALETA[0]!;
-  const nome = input('text', '', placeholder);
-  const sigla = input('text', '', 'Sigla');
-  sigla.maxLength = 3;
-  sigla.className = 'md-input md-item-sigla';
-  const adicionar = buildBotao('Adicionar', { icone: ICONES_POSTAGEM.mais, variante: 'secundario' });
-  adicionar.type = 'submit';
-  form.append(buildSeletorCor(cor, (c) => (cor = c)), nome);
-  if (comSigla) form.appendChild(sigla);
-  form.appendChild(adicionar);
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    if (!nome.value.trim()) {
-      nome.focus();
-      return;
-    }
-    void aoCriar(nome.value, cor, sigla.value);
-  });
-  return form;
-}
-
-export function abrirTagsERedes(abaInicial: 'tags' | 'redes' = 'tags'): void {
+export function abrirTagsERedes(abaInicial: 'empresas' | 'tags' | 'redes' = 'tags'): void {
   let aba = abaInicial;
   void openCustomModal(
-    'Tags e redes sociais',
+    'Empresas, tags e redes',
     ({ corpo, rodape, fechar }) => {
       const erro = (e: unknown): void => erroInline(corpo, e);
       const desenhar = (): void => {
         const file = videosState.getCurrentState();
         if (!file) return;
         corpo.innerHTML = '';
+        const empresas = file.tags.filter((t) => t.empresa).length;
         corpo.appendChild(
-          buildSegmentado<'tags' | 'redes'>(
+          buildSegmentado<'empresas' | 'tags' | 'redes'>(
             [
-              { value: 'tags', label: `Tags · ${file.tags.length}` },
+              { value: 'empresas', label: `Empresas · ${empresas}` },
+              { value: 'tags', label: `Tags · ${file.tags.length - empresas}` },
               { value: 'redes', label: `Redes · ${file.redes.length}` },
             ],
             aba,
@@ -436,25 +322,20 @@ export function abrirTagsERedes(abaInicial: 'tags' | 'redes' = 'tags'): void {
           ),
         );
 
-        const { secao, conteudo } =
-          aba === 'tags'
-            ? buildSecaoModal('Tags', 'Categorias para achar o conteúdo rápido: série, formato, objetivo. Aparecem com nome e cor no card.')
-            : buildSecaoModal('Redes sociais', 'Onde cada postagem será publicada. A sigla aparece no card e no calendário — mantenha curta.');
+        // Empresas e tags: o mesmo cadastro de Ajustes › Empresas e tags.
+        if (aba !== 'redes') {
+          corpo.appendChild(buildCadastroTags(aba, desenhar, erro));
+          return;
+        }
+        const { secao, conteudo } = buildSecaoModal('Redes sociais', 'Onde cada postagem será publicada. A sigla aparece no card e no calendário — mantenha curta.');
         const lista = document.createElement('div');
         lista.className = 'md-lista';
-        if (aba === 'tags') file.tags.forEach((t) => lista.appendChild(linhaTag(t, desenhar, erro)));
-        else file.redes.forEach((r) => lista.appendChild(linhaRede(r, desenhar, erro)));
+        file.redes.forEach((r) => lista.appendChild(linhaRede(r, desenhar, erro)));
         if (!lista.childElementCount) lista.appendChild(Object.assign(document.createElement('p'), { className: 'md-vazio', textContent: 'Nada cadastrado ainda.' }));
         conteudo.appendChild(lista);
-        if (aba === 'redes') {
-          const galeria = buildGaleriaRedes(file, desenhar, erro);
-          if (galeria) conteudo.appendChild(galeria);
-        }
-        conteudo.appendChild(
-          aba === 'tags'
-            ? formNovo('Nova tag (ex.: Série JS)', false, (nome, cor) => videosState.salvarTag({ nome, cor }).then(desenhar).catch(erro))
-            : formNovo('Nova rede (ex.: LinkedIn)', true, (nome, cor, sigla) => videosState.salvarRede({ nome, cor, sigla }).then(desenhar).catch(erro)),
-        );
+        const galeria = buildGaleriaRedes(file, desenhar, erro);
+        if (galeria) conteudo.appendChild(galeria);
+        conteudo.appendChild(formNovo('Nova rede (ex.: LinkedIn)', true, (nome, cor, sigla) => videosState.salvarRede({ nome, cor, sigla }).then(desenhar).catch(erro)));
         corpo.appendChild(secao);
       };
       desenhar();

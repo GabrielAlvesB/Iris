@@ -3,6 +3,7 @@ import { TIPOS_POSTAGEM } from '../../../shared/types/postagens.types.js';
 import {
   STATUS_MARCACAO,
   TIPOS_MARCACAO,
+  type BlocoRelatorio,
   type ItemRelatorio,
   type Relatorio,
   type RelatoriosFile,
@@ -11,7 +12,7 @@ import {
 } from '../../../shared/types/relatorios.types.js';
 import { abrirAjustes } from '../../core/navegacao.js';
 import { campo, grade2, input, interruptor, pilulas, textarea } from '../../ui/campos.js';
-import { buildSecaoModal, mensagemDeErro, openAvisoModal, openConfirmModal } from '../../ui/modal.js';
+import { mensagemDeErro, openAvisoModal, openConfirmModal } from '../../ui/modal.js';
 import {
   buildBotao,
   buildBusca,
@@ -24,12 +25,14 @@ import {
   svg,
   tempoRelativo,
 } from '../../ui/pagina.js';
-import { ICONES_POSTAGEM } from '../postagens/postagens.ui.js';
+import { ICONE_EMPRESA, ICONES_POSTAGEM, ordenarTags } from '../postagens/postagens.ui.js';
 import { alternaveis, buildBlocosEditor, buildMenuNovoBloco, type ContextoBlocos } from './relatorios.blocos.js';
 import { catalogoAtual } from './relatorios.metricas.js';
 import { buildAssinatura, buildDocumento, descreverPeriodo, todosOsItens } from './relatorios.documento.js';
 import { ICONES_RELATORIO, abrirAdicionarPostagens, abrirCategorias, abrirMarcacao, abrirNovoRelatorio } from './relatorios.modais.js';
-import { comIaRelatorio } from './relatorios.ia.js';
+import { MODELOS_SECAO, aplicarModelo, novaSecaoDoModelo, type ModeloSecao } from './relatorios.modelos.js';
+import { abrirMenuIa } from '../../ui/ia.js';
+import { ORIENTACOES_RELATORIO as ORIENTA, comIaRelatorio, resumoDaSecao } from './relatorios.ia.js';
 import * as relatoriosState from './relatorios.state.js';
 import { ADAPTADORES, carregarPostagens, localMarcacaoImagem, localMarcacaoVideo } from './relatorios.tipos.js';
 
@@ -93,6 +96,7 @@ export function destroy(): void {
   relatorioAberto = null;
   rascunho = null;
   salvoEl = null;
+  atualizarMapa = null;
   document.getElementById('impressao')?.remove();
 }
 
@@ -135,6 +139,7 @@ async function descarregar(): Promise<void> {
 function agendarSalvar(): void {
   pendente = true;
   marcarSalvo('Salvando…');
+  atualizarMapa?.();
   if (timerSalvar) clearTimeout(timerSalvar);
   timerSalvar = setTimeout(() => void descarregar(), 600);
 }
@@ -288,7 +293,11 @@ async function confirmarExclusao(rel: Relatorio): Promise<boolean> {
 }
 
 function buildAcoesGerais(): HTMLElement[] {
-  const categorias = buildBotao('Categorias', { icone: ICONES_RELATORIO.categorias, variante: 'secundario', titulo: 'Categorias das marcações' });
+  const categorias = buildBotao('Tipos de marcação', {
+    icone: ICONES_RELATORIO.categorias,
+    variante: 'secundario',
+    titulo: 'Os tipos que você escolhe ao marcar um momento do vídeo ou uma área da imagem (ponto forte, ajuste, problema…)',
+  });
   categorias.addEventListener('click', abrirCategorias);
   const assinar = buildBotao('', { icone: ICONE_ASSINATURA, variante: 'secundario', titulo: 'Assinatura dos relatórios (em Ajustes)' });
   assinar.addEventListener('click', () => abrirAjustes('relatorios'));
@@ -300,12 +309,22 @@ function renderLista(container: HTMLElement, file: RelatoriosFile): void {
   tela.className = 'pg-view rel-view';
 
   const novo = buildBotao('Novo relatório', { icone: ICONES_RELATORIO.adicionar, variante: 'primario' });
-  novo.addEventListener('click', () => abrirNovoRelatorio(abrirEditor));
+  novo.addEventListener('click', () =>
+    abrirNovoRelatorio((id, modelo) => {
+      abrirEditor(id);
+      // O main cria o relatório com uma seção vazia; o modelo toma o lugar dela.
+      if (rascunho && rascunho.secoes.every((x) => !x.texto.trim() && !x.blocos.length && !x.itens.length)) {
+        rascunho.secoes = [];
+        aplicarModelo(rascunho, modelo);
+        mudouEstrutura();
+      }
+    }),
+  );
   tela.appendChild(
     buildCabecalho({
       icone: ICONES_RELATORIO.relatorio,
       titulo: 'Relatórios',
-      subtitulo: 'Análises de vídeos e imagens com marcações, anotações e PDF',
+      subtitulo: 'Documentos em PDF para mostrar resultados a uma empresa: números do período, postagens comentadas e próximos passos',
       acoes: [...buildAcoesGerais(), novo],
     }),
   );
@@ -317,7 +336,7 @@ function renderLista(container: HTMLElement, file: RelatoriosFile): void {
       buildVazio(
         ICONES_RELATORIO.relatorio,
         'Nenhum relatório ainda',
-        'Um relatório reúne postagens de Postagens (vídeos e imagens), com marcações por tempo ou por área da arte, anotações e observações — e vira PDF.',
+        'Um relatório vira um PDF em quatro partes: capa, informações gerais, seções (números, destaques e postagens comentadas) e fechamento. Ao criar, escolha um modelo — ele já monta as seções.',
         comecar,
       ),
     );
@@ -407,98 +426,263 @@ function mover<T>(lista: T[], indice: number, sentido: -1 | 1): void {
 }
 
 /**
- * A empresa do relatório são tags do catálogo único. Mudar a escolha não mexe
- * nos blocos de métricas já feitos (são fotografias); só os novos herdam.
+ * A empresa do relatório são as tags-empresa do catálogo único (Ajustes ›
+ * Empresas e tags). Mudar a escolha não mexe nos blocos de métricas já feitos
+ * (são fotografias); só os novos herdam.
  */
 function buildCampoEmpresa(rel: Relatorio): HTMLElement {
-  const tags = catalogoAtual()?.tags ?? [];
-  if (!tags.length) {
-    return campo('Empresa (tags)', Object.assign(document.createElement('p'), { className: 'md-dica', textContent: 'Crie tags em Postagens para ligar o relatório a uma empresa.' }));
-  }
-  // Tag que saiu do catálogo continua visível (pelo nome guardado) até ser desmarcada.
-  const opcoes = tags.map((t) => ({ id: t.id, rotulo: t.nome }));
-  rel.tagIds.forEach((id, i) => {
-    if (!opcoes.some((o) => o.id === id)) opcoes.push({ id, rotulo: `${rel.tagsNomes[i] ?? 'Tag removida'} (removida)` });
+  const catalogo = catalogoAtual()?.tags ?? [];
+  const empresas = ordenarTags(catalogo.filter((t) => t.empresa));
+  // O nome de cada opção; o rótulo pode levar um aviso entre parênteses.
+  const nomes = new Map<string, string>();
+  const opcoes = empresas.map((t) => {
+    nomes.set(t.id, t.nome);
+    return { id: t.id, rotulo: t.nome };
   });
+  // Já escolhida e fora da lista de empresas (tag comum de antes, ou apagada):
+  // continua visível até ser desmarcada, para nada sumir sem o usuário ver.
+  rel.tagIds.forEach((id, i) => {
+    if (nomes.has(id)) return;
+    const tag = catalogo.find((t) => t.id === id);
+    const nome = tag?.nome ?? rel.tagsNomes[i] ?? 'Tag removida';
+    nomes.set(id, nome);
+    opcoes.push({ id, rotulo: `${nome} (${tag ? 'tag, não empresa' : 'removida'})` });
+  });
+  if (!opcoes.length) {
+    const cadastrar = buildBotao('Cadastrar empresa', { icone: ICONE_EMPRESA, variante: 'secundario' });
+    cadastrar.addEventListener('click', () => abrirAjustes('empresas'));
+    const vazio = document.createElement('div');
+    vazio.className = 'rel-empresa-vazia';
+    vazio.append(Object.assign(document.createElement('p'), { className: 'md-dica', textContent: 'Nenhuma empresa cadastrada ainda.' }), cadastrar);
+    return campo('Empresa', vazio);
+  }
   return campo(
-    'Empresa (tags)',
+    'Empresa',
     alternaveis(opcoes, rel.tagIds, (v) => {
       rel.tagIds = v;
       // Cópia local só para a prévia; o main renova de novo ao salvar.
-      rel.tagsNomes = v.map((id) => opcoes.find((o) => o.id === id)?.rotulo.replace(/ \(removida\)$/, '') ?? '');
+      rel.tagsNomes = v.map((id) => nomes.get(id) ?? '');
       mudouEstrutura();
     }),
-    'A escolha de postagens e os novos blocos de métricas já vêm filtrados por estas tags.',
+    'A escolha de postagens e os novos blocos de métricas já vêm filtrados pela empresa. Empresas se cadastram em Ajustes › Empresas e tags.',
   );
 }
 
-function buildGerais(rel: Relatorio): HTMLElement {
-  const { secao, conteudo } = buildSecaoModal('Informações gerais', 'Capa e abertura do documento.');
-  secao.classList.add('rel-bloco');
-  const texto = <K extends 'titulo' | 'contexto' | 'resumo' | 'periodoInicio' | 'periodoFim'>(chave: K) => (el: HTMLInputElement | HTMLTextAreaElement): void => {
+// ---------- Partes do editor ----------
+//
+// O editor segue a ordem do PDF, em quatro partes: Capa → Informações gerais →
+// Seções → Fechamento. Cada parte diz para que serve e onde aparece no
+// documento — quem monta o primeiro relatório não precisa adivinhar.
+
+const ICONE_CAPA = '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/>';
+const ICONE_GERAIS = '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>';
+const ICONE_SECOES = '<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/>';
+const ICONE_FECHAMENTO = '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/>';
+const ICONE_CHECK = '<polyline points="20 6 9 17 4 12"/>';
+const DICA_FORMATACAO = 'Linhas com "- " viram lista, "1. " lista numerada, e **texto** fica em negrito.';
+
+/** Atualiza os ✓ do mapa sem redesenhar (roda a cada digitação, via agendarSalvar). */
+let atualizarMapa: (() => void) | null = null;
+
+interface OpcoesParte {
+  id: string;
+  icone: string;
+  titulo: string;
+  /** Para que serve, em uma frase. */
+  paraQue: string;
+  /** Onde aparece no documento. */
+  noPdf: string;
+}
+
+/** Cabeçalho comum das partes: ícone, título, para que serve e "No PDF: …". */
+function buildParte(o: OpcoesParte): { parte: HTMLElement; conteudo: HTMLElement } {
+  const parte = document.createElement('section');
+  parte.className = 'rel-parte';
+  parte.id = `rel-parte-${o.id}`;
+  parte.dataset.parte = o.id;
+  const cab = document.createElement('header');
+  cab.className = 'rel-parte-cab';
+  const marca = document.createElement('span');
+  marca.className = 'rel-parte-icone';
+  marca.innerHTML = svg(o.icone, 16, 2);
+  const textos = document.createElement('div');
+  textos.className = 'rel-parte-textos';
+  textos.append(
+    Object.assign(document.createElement('h2'), { textContent: o.titulo }),
+    Object.assign(document.createElement('p'), { textContent: o.paraQue }),
+  );
+  const pdf = document.createElement('p');
+  pdf.className = 'rel-parte-pdf';
+  pdf.innerHTML = svg(ICONE_CAPA, 12, 2);
+  // Rótulo e texto num span só: como itens separados do flex, "No PDF:" quebrava em duas linhas.
+  const textoPdf = document.createElement('span');
+  textoPdf.append(Object.assign(document.createElement('strong'), { textContent: 'No PDF: ' }), o.noPdf);
+  pdf.appendChild(textoPdf);
+  textos.appendChild(pdf);
+  cab.append(marca, textos);
+  const conteudo = document.createElement('div');
+  conteudo.className = 'rel-parte-conteudo';
+  parte.append(cab, conteudo);
+  return { parte, conteudo };
+}
+
+/** Cartão de campos dentro de uma parte. */
+function cartaoDeCampos(...filhos: HTMLElement[]): HTMLElement {
+  const cartao = document.createElement('div');
+  cartao.className = 'md-secao rel-bloco rel-cartao-campos';
+  cartao.append(...filhos);
+  return cartao;
+}
+
+/** Liga um campo de texto a um campo do relatório, salvando na pausa. */
+function ligarTexto<K extends 'titulo' | 'contexto' | 'resumo' | 'objetivos' | 'conclusao' | 'recomendacoes' | 'observacoesFinais'>(
+  rel: Relatorio,
+  chave: K,
+  el: HTMLInputElement | HTMLTextAreaElement,
+): void {
+  el.addEventListener('input', () => {
+    rel[chave] = el.value;
+    if (chave === 'titulo') {
+      const cab = containerAtual?.querySelector('.rel-editor-titulo');
+      if (cab) cab.textContent = el.value || 'Sem título';
+    }
+    agendarSalvar();
+  });
+}
+
+function buildParteCapa(rel: Relatorio): HTMLElement {
+  const { parte, conteudo } = buildParte({
+    id: 'capa',
+    icone: ICONE_CAPA,
+    titulo: 'Capa',
+    paraQue: 'Identifica o relatório: do que se trata, de qual empresa e de quando.',
+    noPdf: 'primeira página — o título em destaque, o contexto logo abaixo e uma ficha com empresa, período, quantas postagens e a situação.',
+  });
+  const titulo = input('text', rel.titulo, 'Ex.: Análise de outubro — Minha Empresa');
+  titulo.classList.add('is-grande');
+  ligarTexto(rel, 'titulo', titulo);
+  const contexto = textarea(rel.contexto, 'Ex.: Revisão mensal dos vídeos curtos, para acompanhar a meta de alcance do trimestre.', 2);
+  ligarTexto(rel, 'contexto', contexto);
+  const inicio = input('date', rel.periodoInicio ?? '');
+  const fim = input('date', rel.periodoFim ?? '');
+  const periodo = (chave: 'periodoInicio' | 'periodoFim', el: HTMLInputElement): void => {
     el.addEventListener('input', () => {
-      (rel[chave] as string | undefined) = chave.startsWith('periodo') ? el.value || undefined : el.value;
-      if (chave === 'titulo') {
-        const cab = containerAtual?.querySelector('.rel-editor-titulo');
-        if (cab) cab.textContent = el.value || 'Sem título';
-      }
+      rel[chave] = el.value || undefined;
       agendarSalvar();
     });
   };
-  const titulo = input('text', rel.titulo, 'Título do relatório');
-  titulo.classList.add('is-grande');
-  texto('titulo')(titulo);
-  const contexto = textarea(rel.contexto, 'Para quem e por quê: cliente, campanha, objetivo', 2);
-  texto('contexto')(contexto);
-  const objetivos = textarea(rel.objetivos, 'O que se buscava no período: metas, números esperados…', 3);
-  objetivos.addEventListener('input', () => {
-    rel.objetivos = objetivos.value;
-    agendarSalvar();
-  });
-  const inicio = input('date', rel.periodoInicio ?? '');
-  const fim = input('date', rel.periodoFim ?? '');
-  texto('periodoInicio')(inicio);
-  texto('periodoFim')(fim);
-  const resumo = textarea(rel.resumo, 'Resumo executivo: o que foi analisado e os principais achados', 4);
-  const dicaFormatacao = 'Linhas começando com "- " viram lista, "1. " lista numerada, e **texto** fica em negrito.';
-  texto('resumo')(resumo);
-
-  conteudo.append(
-    campo('Título', titulo),
-    buildCampoEmpresa(rel),
-    campo('Contexto', contexto),
-    grade2(campo('Período — de', inicio), campo('até', fim)),
-    campo('Resumo / informações gerais', comIaRelatorio(resumo, 'Resumo executivo (o que foi analisado e os principais achados)', rel), dicaFormatacao),
-    campo('Objetivos (opcional)', comIaRelatorio(objetivos, 'Objetivos do período', rel), dicaFormatacao),
-    campo(
-      'Situação',
-      pilulas<SituacaoRelatorio>(
-        [
-          { id: 'rascunho', rotulo: 'Rascunho' },
-          { id: 'finalizado', rotulo: 'Finalizado' },
-        ],
-        () => rel.situacao,
-        (v) => {
-          rel.situacao = v;
-          agendarSalvar();
-        },
+  periodo('periodoInicio', inicio);
+  periodo('periodoFim', fim);
+  conteudo.appendChild(
+    cartaoDeCampos(
+      campo('Título', titulo),
+      buildCampoEmpresa(rel),
+      grade2(campo('Período — de', inicio), campo('até', fim, 'Filtra as postagens e as métricas. Pode ficar em branco.')),
+      campo('Contexto', contexto, 'Para quem é o relatório e por quê, em 1 a 3 frases.'),
+      campo(
+        'Situação',
+        pilulas<SituacaoRelatorio>(
+          [
+            { id: 'rascunho', rotulo: 'Rascunho' },
+            { id: 'finalizado', rotulo: 'Finalizado' },
+          ],
+          () => rel.situacao,
+          (v) => {
+            rel.situacao = v;
+            agendarSalvar();
+          },
+        ),
+        'Rascunho enquanto você trabalha; Finalizado quando for entregar. Aparece na ficha da capa e na lista de relatórios.',
       ),
     ),
   );
+  return parte;
+}
+
+function buildParteGerais(rel: Relatorio): HTMLElement {
+  const { parte, conteudo } = buildParte({
+    id: 'gerais',
+    icone: ICONE_GERAIS,
+    titulo: 'Informações gerais',
+    paraQue: 'A visão rápida: o que foi analisado e o que se descobriu. É o que a maioria das pessoas lê primeiro.',
+    noPdf: 'logo depois da capa, com o título "Informações gerais". Só aparece se tiver algo escrito ou ligado aqui.',
+  });
+  const resumo = textarea(rel.resumo, 'Ex.: Analisamos 12 vídeos publicados em setembro. O alcance cresceu 18%, puxado pelos tutoriais curtos…', 4);
+  ligarTexto(rel, 'resumo', resumo);
+  const objetivos = textarea(rel.objetivos, '- Chegar a 50 mil visualizações no mês\n- Testar vídeos de até 30 segundos', 3);
+  ligarTexto(rel, 'objetivos', objetivos);
 
   const automaticas = document.createElement('div');
   automaticas.className = 'rel-automaticas';
   automaticas.append(
-    interruptor('Resumo das marcações', 'Contagem de pontos fortes, ajustes, problemas… em Informações gerais', rel.mostrarIndicadores, (v) => {
-      rel.mostrarIndicadores = v;
-      agendarSalvar();
-    }),
-    interruptor('Tabela "Postagens utilizadas"', 'Lista das postagens analisadas, antes das seções', rel.mostrarPostagensUtilizadas, (v) => {
-      rel.mostrarPostagensUtilizadas = v;
-      agendarSalvar();
-    }),
+    interruptor(
+      'Resumo das marcações',
+      'Conta os pontos fortes, ajustes e problemas marcados nas postagens e mostra no fim desta parte.',
+      rel.mostrarIndicadores,
+      (v) => {
+        rel.mostrarIndicadores = v;
+        agendarSalvar();
+      },
+    ),
+    interruptor(
+      'Lista de postagens utilizadas',
+      'Uma tabela com todas as postagens analisadas no relatório, logo depois desta parte.',
+      rel.mostrarPostagensUtilizadas,
+      (v) => {
+        rel.mostrarPostagensUtilizadas = v;
+        agendarSalvar();
+      },
+    ),
   );
-  conteudo.appendChild(campo('Partes automáticas do documento', automaticas));
+
+  conteudo.appendChild(
+    cartaoDeCampos(
+      campo(
+        'Resumo executivo',
+        comIaRelatorio(resumo, 'Resumo executivo', rel, undefined, ORIENTA.resumo),
+        `O que foi analisado e os 2 ou 3 principais achados, com os números. ${DICA_FORMATACAO}`,
+      ),
+      campo(
+        'Objetivos (opcional)',
+        comIaRelatorio(objetivos, 'Objetivos do período', rel, undefined, ORIENTA.objetivos),
+        'As metas do período. Vira o subtítulo "Objetivos".',
+      ),
+      campo('Gerado automaticamente', automaticas, 'O Iris monta estas partes com os dados das postagens; é só ligar.'),
+    ),
+  );
+  return parte;
+}
+
+function buildParteFechamento(rel: Relatorio): HTMLElement {
+  const { parte, conteudo } = buildParte({
+    id: 'fechamento',
+    icone: ICONE_FECHAMENTO,
+    titulo: 'Fechamento',
+    paraQue: 'A conclusão da análise e o que fazer a seguir.',
+    noPdf: 'no fim do documento, depois de todas as seções: Conclusão, Próximos passos, Observações finais e a assinatura. Campo vazio não aparece.',
+  });
+  const area = (chave: 'conclusao' | 'recomendacoes' | 'observacoesFinais', placeholder: string): HTMLTextAreaElement => {
+    const el = textarea(rel[chave], placeholder, 4);
+    ligarTexto(rel, chave, el);
+    return el;
+  };
+  const cartao = cartaoDeCampos(
+    campo(
+      'Conclusão',
+      comIaRelatorio(area('conclusao', 'Ex.: Os vídeos curtos com gancho nos 3 primeiros segundos tiveram o dobro de retenção…'), 'Conclusão do relatório', rel, undefined, ORIENTA.conclusao),
+      `A síntese do que a análise mostrou. ${DICA_FORMATACAO}`,
+    ),
+    campo(
+      'Próximos passos (opcional)',
+      comIaRelatorio(area('recomendacoes', '- O que fazer no próximo período\n- Testes, ajustes, metas'), 'Próximos passos', rel, undefined, ORIENTA.proximosPassos),
+      'Ações práticas para o próximo período. Uma por linha fica mais fácil de ler.',
+    ),
+    campo(
+      'Observações finais (opcional)',
+      comIaRelatorio(area('observacoesFinais', 'Ex.: Dados do Instagram exportados em 01/10; o TikTok não informa salvamentos.'), 'Observações finais', rel, undefined, ORIENTA.observacoes),
+      'Ressalvas, de onde vieram os dados, combinados. Sai numa caixa em destaque.',
+    ),
+  );
 
   const assinaturaWrap = document.createElement('div');
   assinaturaWrap.className = 'rel-assinatura-opcao';
@@ -509,7 +693,7 @@ function buildGerais(rel: Relatorio): HTMLElement {
       rel.incluirAssinatura,
       (v) => {
         rel.incluirAssinatura = v;
-        agendarSalvar();
+        mudouEstrutura();
       },
     ),
   );
@@ -519,8 +703,190 @@ function buildGerais(rel: Relatorio): HTMLElement {
     void descarregar().then(() => abrirAjustes('relatorios'));
   });
   assinaturaWrap.appendChild(configurar);
-  conteudo.appendChild(assinaturaWrap);
-  return secao;
+  cartao.appendChild(assinaturaWrap);
+  if (rel.incluirAssinatura) {
+    const previa = buildAssinatura(assinatura);
+    if (previa) {
+      const wrap = document.createElement('div');
+      wrap.className = 'rel-assinatura-previa';
+      wrap.append(Object.assign(document.createElement('span'), { className: 'md-rotulo', textContent: 'Como a assinatura vai sair' }), previa);
+      cartao.appendChild(wrap);
+    }
+  }
+  conteudo.appendChild(cartao);
+  return parte;
+}
+
+function adicionarSecao(rel: Relatorio, modelo: ModeloSecao): void {
+  const secao = novaSecaoDoModelo(modelo, rel, rel.secoes.length + 1);
+  rel.secoes.push(secao);
+  mudouEstrutura();
+  // Leva até a seção nova, que entra no fim da lista.
+  requestAnimationFrame(() => document.getElementById(`rel-parte-secao-${secao.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+}
+
+/** "Adicionar seção": menu com os tipos prontos, cada um dizendo o que já traz. */
+function buildBotaoNovaSecao(rel: Relatorio): HTMLButtonElement {
+  const botao = buildBotao('Adicionar seção', { icone: ICONES_RELATORIO.adicionar, variante: 'secundario' });
+  botao.classList.add('rel-nova-secao');
+  botao.setAttribute('aria-haspopup', 'menu');
+  botao.addEventListener('click', () =>
+    abrirMenuIa(
+      botao,
+      MODELOS_SECAO.map((m) => ({ rotulo: m.titulo, dica: m.dica, icone: ICONE_SECOES, fazer: () => adicionarSecao(rel, m.id) })),
+      { titulo: 'Que tipo de seção?' },
+    ),
+  );
+  return botao;
+}
+
+function buildParteSecoes(rel: Relatorio, categorias: RelatoriosFile['categorias']): HTMLElement {
+  const { parte, conteudo } = buildParte({
+    id: 'secoes',
+    icone: ICONE_SECOES,
+    titulo: 'Seções',
+    paraQue:
+      'O corpo do relatório, em capítulos (ex.: "Resultados do mês", "Vídeos em destaque"). Cada seção tem, nesta ordem: uma introdução, blocos de conteúdo (números, tabelas, destaques) e as postagens analisadas.',
+    noPdf: 'depois das informações gerais, cada seção com o título numerado (1., 2., …).',
+  });
+  if (!rel.secoes.length) {
+    const vazio = document.createElement('div');
+    vazio.className = 'rel-secoes-vazio';
+    vazio.appendChild(Object.assign(document.createElement('p'), { textContent: 'Nenhuma seção ainda. Escolha por onde começar:' }));
+    const opcoes = document.createElement('div');
+    opcoes.className = 'rel-secoes-opcoes';
+    MODELOS_SECAO.forEach((m) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'rel-secao-opcao';
+      b.append(Object.assign(document.createElement('strong'), { textContent: m.titulo }), Object.assign(document.createElement('span'), { textContent: m.dica }));
+      b.addEventListener('click', () => adicionarSecao(rel, m.id));
+      opcoes.appendChild(b);
+    });
+    vazio.appendChild(opcoes);
+    conteudo.appendChild(vazio);
+    return parte;
+  }
+  rel.secoes.forEach((s, i) => conteudo.appendChild(buildSecaoEditor(rel, s, i, categorias)));
+  conteudo.appendChild(buildBotaoNovaSecao(rel));
+  return parte;
+}
+
+// ---------- Mapa do relatório ----------
+
+/**
+ * O bloco já diz alguma coisa no PDF? Um bloco recém-criado pelo modelo está
+ * vazio e não deve marcar a seção como feita. Métricas contam sempre: os
+ * números saem sozinhos das postagens.
+ */
+function blocoPreenchido(b: BlocoRelatorio): boolean {
+  switch (b.tipo) {
+    case 'metricas':
+      return true;
+    case 'tabela':
+      return b.linhas.some((linha) => linha.some((c) => c.trim()));
+    case 'analise':
+      return Boolean(b.texto.trim()) || b.indicadores.some((i) => i.valor.trim());
+    case 'colunas':
+      return Boolean(b.textoEsquerda.trim() || b.textoDireita.trim());
+    case 'quebra':
+      return false;
+    default:
+      return Boolean(b.texto.trim());
+  }
+}
+
+function secaoPreenchida(s: SecaoRelatorio): boolean {
+  return Boolean(s.texto.trim()) || s.itens.length > 0 || s.blocos.some(blocoPreenchido);
+}
+
+interface ItemMapa {
+  alvo: string;
+  rotulo: string;
+  numero?: string;
+  feito: () => boolean;
+  /** Seção: fica recuada, dentro de "Seções". */
+  filho?: boolean;
+}
+
+function itensDoMapa(rel: Relatorio): ItemMapa[] {
+  return [
+    { alvo: 'capa', rotulo: 'Capa', feito: () => Boolean(rel.titulo.trim()) && (rel.tagIds.length > 0 || Boolean(rel.periodoInicio) || Boolean(rel.contexto.trim())) },
+    { alvo: 'gerais', rotulo: 'Informações gerais', feito: () => Boolean(rel.resumo.trim()) },
+    { alvo: 'secoes', rotulo: 'Seções', feito: () => rel.secoes.some(secaoPreenchida) },
+    ...rel.secoes.map((s, i) => ({
+      alvo: `secao-${s.id}`,
+      rotulo: s.titulo.trim() || 'Sem título',
+      numero: String(i + 1),
+      feito: () => secaoPreenchida(s),
+      filho: true,
+    })),
+    { alvo: 'fechamento', rotulo: 'Fechamento', feito: () => Boolean(rel.conclusao.trim()) },
+  ];
+}
+
+/**
+ * Coluna fixa com a estrutura do documento, na ordem do PDF. ✓ quando a parte
+ * tem conteúdo; clicar leva até ela; a parte na tela fica marcada.
+ */
+function buildMapa(rel: Relatorio): HTMLElement {
+  const mapa = document.createElement('nav');
+  mapa.className = 'rel-mapa';
+  mapa.setAttribute('aria-label', 'Estrutura do relatório');
+  mapa.append(
+    Object.assign(document.createElement('p'), { className: 'rel-mapa-titulo', textContent: 'Estrutura do relatório' }),
+    Object.assign(document.createElement('p'), { className: 'rel-mapa-dica', textContent: 'O PDF segue esta ordem.' }),
+  );
+  const lista = document.createElement('ol');
+  lista.className = 'rel-mapa-lista';
+  const itens = itensDoMapa(rel);
+  const botoes = itens.map((item) => {
+    const li = document.createElement('li');
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'rel-mapa-item';
+    b.classList.toggle('is-filho', Boolean(item.filho));
+    b.dataset.alvo = item.alvo;
+    const estado = document.createElement('span');
+    estado.className = 'rel-mapa-estado';
+    const rotulo = document.createElement('span');
+    rotulo.className = 'rel-mapa-rotulo';
+    rotulo.textContent = item.numero ? `${item.numero}. ${item.rotulo}` : item.rotulo;
+    b.append(estado, rotulo);
+    b.addEventListener('click', () => document.getElementById(`rel-parte-${item.alvo}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    li.appendChild(b);
+    lista.appendChild(li);
+    return { b, estado, rotulo, item };
+  });
+  mapa.appendChild(lista);
+  atualizarMapa = () => {
+    botoes.forEach(({ b, estado, rotulo, item }) => {
+      const feito = item.feito();
+      b.classList.toggle('is-feito', feito);
+      estado.innerHTML = feito ? svg(ICONE_CHECK, 11, 3) : '';
+      estado.title = feito ? 'Com conteúdo' : 'Vazio';
+      if (item.filho) {
+        const s = rel.secoes.find((x) => `secao-${x.id}` === item.alvo);
+        if (s) rotulo.textContent = `${item.numero}. ${s.titulo.trim() || 'Sem título'}`;
+      }
+    });
+  };
+  atualizarMapa();
+  return mapa;
+}
+
+/** Marca no mapa a parte que está no topo da área de edição. */
+function acompanharRolagem(rolagem: HTMLElement): void {
+  const marcar = (): void => {
+    const topo = rolagem.getBoundingClientRect().top + 100;
+    let atual = '';
+    rolagem.querySelectorAll<HTMLElement>('[data-parte]').forEach((el) => {
+      if (el.getBoundingClientRect().top <= topo) atual = el.dataset.parte ?? atual;
+    });
+    rolagem.querySelectorAll<HTMLElement>('.rel-mapa-item').forEach((b) => b.classList.toggle('is-atual', b.dataset.alvo === (atual || 'capa')));
+  };
+  rolagem.addEventListener('scroll', marcar, { passive: true });
+  requestAnimationFrame(marcar);
 }
 
 function buildTabelaMarcacoes(item: ItemRelatorio, categorias: RelatoriosFile['categorias']): HTMLElement {
@@ -698,9 +1064,22 @@ function buildItemEditor(secao: SecaoRelatorio, item: ItemRelatorio, indice: num
   return cartao;
 }
 
+/** Um dos três passos de uma seção: rótulo, explicação e o conteúdo. */
+function buildPasso(titulo: string, dica: string, ...conteudo: HTMLElement[]): HTMLElement {
+  const passo = document.createElement('div');
+  passo.className = 'rel-passo';
+  const cab = document.createElement('div');
+  cab.className = 'rel-passo-cab';
+  cab.append(Object.assign(document.createElement('strong'), { textContent: titulo }), Object.assign(document.createElement('span'), { textContent: dica }));
+  passo.append(cab, ...conteudo);
+  return passo;
+}
+
 function buildSecaoEditor(rel: Relatorio, secao: SecaoRelatorio, indice: number, categorias: RelatoriosFile['categorias']): HTMLElement {
   const bloco = document.createElement('section');
   bloco.className = 'md-secao rel-bloco rel-secao';
+  bloco.id = `rel-parte-secao-${secao.id}`;
+  bloco.dataset.parte = `secao-${secao.id}`;
 
   const cab = document.createElement('header');
   cab.className = 'rel-secao-cab';
@@ -747,24 +1126,32 @@ function buildSecaoEditor(rel: Relatorio, secao: SecaoRelatorio, indice: number,
   cab.append(numero, titulo, acoes);
   bloco.appendChild(cab);
 
-  const texto = textarea(secao.texto, 'Introdução da seção (opcional)', 2);
+  const texto = textarea(secao.texto, 'Ex.: Nesta seção, os números de alcance e engajamento do período.', 2);
   texto.addEventListener('input', () => {
     secao.texto = texto.value;
     agendarSalvar();
   });
-  bloco.appendChild(comIaRelatorio(texto, `Introdução da seção "${secao.titulo}"`, rel));
+  bloco.appendChild(
+    buildPasso('Introdução', 'Um parágrafo que apresenta a seção. Opcional.', comIaRelatorio(texto, `Introdução da seção "${secao.titulo}"`, rel, () => resumoDaSecao(secao), ORIENTA.secao)),
+  );
 
   // Blocos livres (texto, destaque, tabela, métricas, quebra), antes das postagens.
   const ctx: ContextoBlocos = { rel, agendarSalvar, mudouEstrutura };
-  bloco.appendChild(buildBlocosEditor(secao, ctx));
-  bloco.appendChild(buildMenuNovoBloco(secao, ctx));
+  bloco.appendChild(
+    buildPasso(
+      'Conteúdo',
+      'Números, tabelas, destaques e textos — aparecem depois da introdução, nesta ordem.',
+      buildBlocosEditor(secao, ctx),
+      buildMenuNovoBloco(secao, ctx),
+    ),
+  );
 
   const itens = document.createElement('div');
   itens.className = 'rel-itens';
   secao.itens.forEach((item, i) => itens.appendChild(buildItemEditor(secao, item, i, categorias)));
-  bloco.appendChild(itens);
 
-  const adicionar = buildBotao('Adicionar postagens para analisar', { icone: ICONES_RELATORIO.adicionar, variante: 'secundario' });
+  const adicionar = buildBotao('Adicionar postagens', { icone: ICONES_RELATORIO.adicionar, variante: 'secundario' });
+  adicionar.classList.add('rel-passo-acao');
   adicionar.addEventListener('click', () =>
     abrirAdicionarPostagens(
       {
@@ -785,7 +1172,14 @@ function buildSecaoEditor(rel: Relatorio, secao: SecaoRelatorio, indice: number,
       },
     ),
   );
-  bloco.appendChild(adicionar);
+  bloco.appendChild(
+    buildPasso(
+      'Postagens analisadas',
+      'Vídeos e imagens comentados um a um. Cada um entra com uma cópia dos dados; marque momentos do vídeo ou áreas da imagem com o que observou. Opcional.',
+      itens,
+      adicionar,
+    ),
+  );
   return bloco;
 }
 
@@ -890,58 +1284,14 @@ function renderEditor(container: HTMLElement, file: RelatoriosFile): void {
     aviso.append('Prévia do documento: é exatamente este conteúdo que vai para o PDF (em A4, com número de página no rodapé).');
     rolagem.append(aviso, papel);
   } else {
+    const layout = document.createElement('div');
+    layout.className = 'rel-editor-layout';
     const corpo = document.createElement('div');
     corpo.className = 'rel-editor-corpo';
-    corpo.appendChild(buildGerais(rel));
-    rel.secoes.forEach((s, i) => corpo.appendChild(buildSecaoEditor(rel, s, i, file.categorias)));
-
-    const novaSecao = buildBotao('Nova seção', { icone: ICONES_RELATORIO.adicionar, variante: 'secundario' });
-    novaSecao.classList.add('rel-nova-secao');
-    novaSecao.addEventListener('click', () => {
-      rel.secoes.push({ id: crypto.randomUUID(), titulo: `Seção ${rel.secoes.length + 1}`, texto: '', blocos: [], itens: [] });
-      mudouEstrutura();
-    });
-    corpo.appendChild(novaSecao);
-
-    const conclusao = buildSecaoModal('Conclusão', 'Fecha o documento, antes da assinatura.');
-    conclusao.secao.classList.add('rel-bloco');
-    const dica = 'Linhas com "- " viram lista, "1. " lista numerada, e **texto** fica em negrito.';
-    const areaFinal = (valor: string, placeholder: string, aoMudar: (v: string) => void): HTMLTextAreaElement => {
-      const area = textarea(valor, placeholder, 4);
-      area.addEventListener('input', () => {
-        aoMudar(area.value);
-        agendarSalvar();
-      });
-      return area;
-    };
-    conclusao.conteudo.append(
-      campo('Conclusão', comIaRelatorio(areaFinal(rel.conclusao, 'Síntese do que a análise mostrou', (v) => (rel.conclusao = v)), 'Conclusão do relatório', rel), dica),
-      campo(
-        'Próximos passos (opcional)',
-        comIaRelatorio(
-          areaFinal(rel.recomendacoes, '- O que fazer no próximo período\n- Testes, ajustes, metas', (v) => (rel.recomendacoes = v)),
-          'Próximos passos (recomendações concretas em lista)',
-          rel,
-        ),
-        dica,
-      ),
-      campo(
-        'Observações finais (opcional)',
-        comIaRelatorio(areaFinal(rel.observacoesFinais, 'Ressalvas, fontes dos dados, combinados', (v) => (rel.observacoesFinais = v)), 'Observações finais', rel),
-        dica,
-      ),
-    );
-    if (rel.incluirAssinatura) {
-      const previa = buildAssinatura(assinatura);
-      if (previa) {
-        const wrap = document.createElement('div');
-        wrap.className = 'rel-assinatura-previa';
-        wrap.append(Object.assign(document.createElement('span'), { className: 'md-rotulo', textContent: 'Assinatura' }), previa);
-        conclusao.conteudo.appendChild(wrap);
-      }
-    }
-    corpo.appendChild(conclusao.secao);
-    rolagem.appendChild(corpo);
+    corpo.append(buildParteCapa(rel), buildParteGerais(rel), buildParteSecoes(rel, file.categorias), buildParteFechamento(rel));
+    layout.append(buildMapa(rel), corpo);
+    rolagem.appendChild(layout);
+    acompanharRolagem(rolagem);
   }
   tela.appendChild(rolagem);
   container.replaceChildren(tela);

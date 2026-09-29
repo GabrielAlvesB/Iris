@@ -19,9 +19,10 @@ import {
 import { campo, grade2, input, pilulas, textarea } from '../../ui/campos.js';
 import { openConfirmModal } from '../../ui/modal.js';
 import { buildBotao, svg } from '../../ui/pagina.js';
-import { ICONES_POSTAGEM, hojeIso, somarDias } from '../postagens/postagens.ui.js';
+import { ICONES_POSTAGEM, hojeIso, ordenarTags, somarDias } from '../postagens/postagens.ui.js';
+import { abrirMenuIa } from '../../ui/ia.js';
 import { buildBloco } from './relatorios.documento.js';
-import { comIaRelatorio, resumoDoResultado } from './relatorios.ia.js';
+import { ORIENTACOES_RELATORIO as ORIENTA, comIaRelatorio, resumoDoResultado } from './relatorios.ia.js';
 import { calcularMetricas, catalogoAtual, intervaloDoMes, mesExato, novoBlocoMetricas } from './relatorios.metricas.js';
 
 /**
@@ -44,42 +45,42 @@ export const TIPOS_BLOCO: Record<TipoBloco, { rotulo: string; icone: string; dic
   texto: {
     rotulo: 'Texto',
     icone: '<path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/>',
-    dica: 'Um texto livre, com subtítulo opcional',
+    dica: 'Parágrafos livres, com subtítulo opcional. Para explicar, contar o contexto, comentar.',
   },
   destaque: {
     rotulo: 'Destaque',
     icone: '<path d="M12 9v4"/><path d="M12 17h.01"/><rect x="3" y="3" width="18" height="18" rx="3"/>',
-    dica: 'Caixa colorida para um achado, alerta ou recado',
+    dica: 'Caixa colorida que chama a atenção: um achado importante, um alerta, um recado.',
   },
   tabela: {
     rotulo: 'Tabela',
     icone: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M10 4v16"/>',
-    dica: 'Tabela que você mesmo preenche',
+    dica: 'Linhas e colunas que você preenche — comparações, listas de valores.',
   },
   metricas: {
     rotulo: 'Métricas',
     icone: '<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
-    dica: 'Números das postagens com filtro de período, rede, tag…',
+    dica: 'Números calculados sozinhos a partir das postagens (quantas, por rede, por tag, score…), com filtro de período.',
   },
   analise: {
     rotulo: 'Texto + métrica',
     icone: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><path d="M14 4h7"/><path d="M14 8h5"/><path d="M3 14h18"/><path d="M3 18h18"/><path d="M3 22h12"/>',
-    dica: 'Números que você digita (alcance, vendas…) com a sua análise',
+    dica: 'Números que vêm de fora do Iris (alcance, vendas, cliques) que você digita, com a sua análise ao lado.',
   },
   colunas: {
     rotulo: 'Duas colunas',
     icone: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/>',
-    dica: 'Dois textos lado a lado — ex.: pontos fortes / a melhorar',
+    dica: 'Dois textos lado a lado, como pontos fortes e o que melhorar.',
   },
   citacao: {
     rotulo: 'Citação',
     icone: '<path d="M3 21c3 0 7-1 7-8V5c0-1.25-.76-2.02-2-2H4c-1.25 0-2 .75-2 1.97V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .01-1 1.03V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.76-2.02-2-2h-4c-1.25 0-2 .75-2 1.97V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/>',
-    dica: 'Uma frase em destaque — de um cliente, de um comentário, sua',
+    dica: 'Uma frase em destaque: de um cliente, de um comentário, sua.',
   },
   quebra: {
     rotulo: 'Quebra de página',
     icone: '<path d="M4 12h3"/><path d="M10 12h4"/><path d="M17 12h3"/><path d="M6 4v4h12V4"/><path d="M6 20v-4h12v4"/>',
-    dica: 'No PDF, o que vem depois começa numa página nova',
+    dica: 'No PDF, o que vem depois começa numa página nova.',
   },
 };
 
@@ -175,7 +176,13 @@ function editorTexto(bloco: Extract<BlocoRelatorio, { tipo: 'texto' | 'destaque'
     bloco.texto = area.value;
     ctx.agendarSalvar();
   });
-  wrap.appendChild(campo('Texto', comIaRelatorio(area, bloco.tipo === 'destaque' ? `Caixa de destaque "${bloco.titulo}"` : `Bloco de texto "${bloco.titulo}"`, ctx.rel), DICA_FORMATACAO));
+  wrap.appendChild(campo('Texto', comIaRelatorio(
+          area,
+          bloco.tipo === 'destaque' ? `Caixa de destaque "${bloco.titulo}"` : `Bloco de texto "${bloco.titulo}"`,
+          ctx.rel,
+          undefined,
+          bloco.tipo === 'destaque' ? ORIENTA.destaque : ORIENTA.texto,
+        ), DICA_FORMATACAO));
   return wrap;
 }
 
@@ -325,7 +332,7 @@ function editorMetricas(bloco: BlocoMetricas, ctx: ContextoBlocos): HTMLElement 
   wrap.appendChild(
     campo(
       'Texto antes dos números (opcional)',
-      comIaRelatorio(introducao, `Introdução do bloco de métricas "${bloco.titulo}"`, ctx.rel, () => resumoDoResultado(bloco.resultado)),
+      comIaRelatorio(introducao, `Introdução do bloco de métricas "${bloco.titulo}"`, ctx.rel, () => resumoDoResultado(bloco.resultado), ORIENTA.introMetricas),
       DICA_FORMATACAO,
     ),
   );
@@ -363,7 +370,7 @@ function editorMetricas(bloco: BlocoMetricas, ctx: ContextoBlocos): HTMLElement 
       campo('Redes', alternaveis(redes.map((r) => ({ id: r.id, rotulo: r.nome })), f.redeIds, (v) => aplicar({ redeIds: v })), 'Nenhuma marcada = todas.'),
     );
   }
-  const tags = catalogo?.tags ?? [];
+  const tags = ordenarTags(catalogo?.tags ?? []);
   if (tags.length) {
     wrap.appendChild(
       campo('Tags', alternaveis(tags.map((t) => ({ id: t.id, rotulo: t.nome })), f.tagIds, (v) => aplicar({ tagIds: v })), 'Nenhuma marcada = todas.'),
@@ -399,7 +406,7 @@ function editorMetricas(bloco: BlocoMetricas, ctx: ContextoBlocos): HTMLElement 
   wrap.appendChild(
     campo(
       'Leitura dos números (opcional)',
-      comIaRelatorio(comentario, `Leitura dos números do bloco "${bloco.titulo}"`, ctx.rel, () => resumoDoResultado(bloco.resultado)),
+      comIaRelatorio(comentario, `Leitura dos números do bloco "${bloco.titulo}"`, ctx.rel, () => resumoDoResultado(bloco.resultado), ORIENTA.leituraMetricas),
       DICA_FORMATACAO,
     ),
   );
@@ -497,6 +504,7 @@ function editorAnalise(bloco: BlocoAnalise, ctx: ContextoBlocos): HTMLElement {
         `Análise dos indicadores "${bloco.titulo}"`,
         ctx.rel,
         () => bloco.indicadores.map((i) => `${i.rotulo}: ${i.valor}${i.variacao ? ` (${i.variacao})` : ''}${i.nota ? ` — ${i.nota}` : ''}`).join('\n'),
+        ORIENTA.analise,
       ),
       DICA_FORMATACAO,
     ),
@@ -632,20 +640,29 @@ export function buildBlocosEditor(secao: SecaoRelatorio, ctx: ContextoBlocos): H
   return lista;
 }
 
-/** Barra "Adicionar: Texto · Destaque · Tabela · Métricas · Quebra de página". */
+/**
+ * "Adicionar bloco": um botão só, com os tipos num menu que mostra para que
+ * serve cada um. Antes eram oito botões pequenos com a explicação escondida
+ * na dica do mouse.
+ */
 export function buildMenuNovoBloco(secao: SecaoRelatorio, ctx: ContextoBlocos): HTMLElement {
-  const barra = document.createElement('div');
-  barra.className = 'rel-bl-menu';
-  barra.appendChild(Object.assign(document.createElement('span'), { className: 'md-rotulo', textContent: 'Adicionar' }));
-  (Object.keys(TIPOS_BLOCO) as TipoBloco[]).forEach((tipo) => {
-    const def = TIPOS_BLOCO[tipo];
-    const btn = buildBotao(def.rotulo, { icone: def.icone, variante: 'secundario', titulo: def.dica });
-    btn.classList.add('is-mini');
-    btn.addEventListener('click', () => {
-      secao.blocos.push(novoBloco(tipo, ctx.rel));
-      ctx.mudouEstrutura();
-    });
-    barra.appendChild(btn);
-  });
-  return barra;
+  const botao = buildBotao('Adicionar bloco', { icone: ICONES_POSTAGEM.mais, variante: 'secundario' });
+  botao.classList.add('rel-passo-acao');
+  botao.setAttribute('aria-haspopup', 'menu');
+  botao.addEventListener('click', () =>
+    abrirMenuIa(
+      botao,
+      (Object.keys(TIPOS_BLOCO) as TipoBloco[]).map((tipo) => ({
+        rotulo: TIPOS_BLOCO[tipo].rotulo,
+        dica: TIPOS_BLOCO[tipo].dica,
+        icone: TIPOS_BLOCO[tipo].icone,
+        fazer: () => {
+          secao.blocos.push(novoBloco(tipo, ctx.rel));
+          ctx.mudouEstrutura();
+        },
+      })),
+      { titulo: 'Que tipo de bloco?' },
+    ),
+  );
+  return botao;
 }

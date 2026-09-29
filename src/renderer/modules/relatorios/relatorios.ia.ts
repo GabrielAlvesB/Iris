@@ -1,4 +1,4 @@
-import type { BlocoRelatorio, Relatorio, ResultadoMetricas } from '../../../shared/types/relatorios.types.js';
+import type { BlocoRelatorio, Relatorio, ResultadoMetricas, SecaoRelatorio } from '../../../shared/types/relatorios.types.js';
 import { comAssistente } from '../../ui/ia.js';
 
 /**
@@ -52,6 +52,11 @@ function resumoDoBloco(b: BlocoRelatorio): string {
   }
 }
 
+/** Os blocos de uma seção em texto (para a introdução dela). */
+export function resumoDaSecao(s: SecaoRelatorio): string {
+  return [`Seção "${s.titulo}"`, ...s.blocos.map(resumoDoBloco).filter((t) => t.trim())].join('\n');
+}
+
 /** O relatório em texto corrido, na ordem do documento. */
 export function resumoDoRelatorio(rel: Relatorio): string {
   const partes: string[] = [
@@ -71,15 +76,21 @@ export function resumoDoRelatorio(rel: Relatorio): string {
     });
     if (s.itens.length) {
       partes.push(
-        `Postagens analisadas (${s.itens.length}): ` +
+        `Postagens analisadas (${s.itens.length}):\n` +
           s.itens
-            .slice(0, 15)
+            .slice(0, 25)
             .map((i) => {
-              const titulo = (i as { snapshot?: { titulo?: string } }).snapshot?.titulo ?? 'postagem';
+              const p = i.snapshot;
+              const dados = [
+                p.score !== undefined ? `score ${numero(p.score)}` : 'sem score',
+                p.dataAgendada ? `data ${p.dataAgendada}` : '',
+                p.redes.length ? `redes ${p.redes.join('/')}` : '',
+                p.etapa ? `etapa ${p.etapa}` : '',
+              ].filter(Boolean);
               const nota = [i.anotacoes, i.observacoes].filter((t) => t?.trim()).join(' / ');
-              return nota ? `"${titulo}" — ${nota}` : `"${titulo}"`;
+              return `- "${p.titulo}" (${dados.join(', ')})${nota ? ` — análise: ${nota}` : ''}`;
             })
-            .join('; '),
+            .join('\n'),
       );
     }
   });
@@ -93,13 +104,39 @@ export function resumoDoRelatorio(rel: Relatorio): string {
  * para aquele campo (ex.: os números do próprio bloco), que vai antes do
  * relatório inteiro.
  */
-export function comIaRelatorio(area: HTMLTextAreaElement, campo: string, rel: Relatorio, foco?: () => string): HTMLElement {
+/** O que cada campo do relatório deve conter — a IA lê isto antes do material. */
+export const ORIENTACOES_RELATORIO = {
+  resumo:
+    'Resumo executivo em 3 a 6 linhas: o que foi analisado (empresa, período, quantas postagens) e os 2 ou 3 principais achados, cada um com o número que o comprova.',
+  objetivos: 'As metas do período em lista, mensuráveis sempre que o material permitir (ex.: score médio acima de 85, X publicações).',
+  secao: 'De 1 a 3 frases apresentando o que esta seção mostra, citando os dados dela.',
+  texto: 'Texto sobre o assunto deste bloco, apoiado nos dados da seção e do relatório.',
+  destaque: 'De 1 a 2 frases com o recado mais importante para o cliente, com o número que o sustenta.',
+  introMetricas: 'De 1 a 2 frases dizendo de onde vêm os números deste bloco e o período que cobrem.',
+  leituraMetricas:
+    'Interprete os números deste bloco: o que está bom e o que está ruim (score 85 ou mais é positivo, abaixo de 85 é negativo), comparações entre meses, tipos, redes e tags, as postagens de maior e menor score, e uma recomendação que saia desses números.',
+  analise: 'Interprete os indicadores digitados: o que as variações mostram, o que provavelmente as explica e o que fazer a seguir.',
+  conclusao:
+    'Síntese do relatório inteiro em 1 ou 2 parágrafos: compare os resultados com os objetivos, cite os números principais (total de postagens, score médio, as melhores e as piores e por quê), diga claramente o que funcionou e o que não funcionou.',
+  proximosPassos:
+    'Lista de 3 a 6 ações concretas para o próximo período, cada uma ligada a um achado específico do relatório (ex.: "Repetir o formato X, que teve score 92").',
+  observacoes: 'Ressalvas curtas sobre os dados (período, postagens sem score, o que não foi medido) e combinados com o cliente.',
+} as const;
+
+export function comIaRelatorio(area: HTMLTextAreaElement, campo: string, rel: Relatorio, foco?: () => string, orientacao?: string): HTMLElement {
   return comAssistente(area, {
     area: 'Relatório de resultados de conteúdo para um cliente',
     campo,
+    orientacao,
     contexto: () => ({
       titulo: rel.titulo,
-      referencia: [foco ? `Foco deste campo:\n${foco()}` : '', resumoDoRelatorio(rel)].filter(Boolean).join('\n\n'),
+      referencia: [
+        'Regra do score (0 a 100): 85 ou mais é positivo; abaixo de 85 é negativo.',
+        foco ? `Dados mais importantes para este campo:\n${foco()}` : '',
+        `Relatório completo:\n${resumoDoRelatorio(rel)}`,
+      ]
+        .filter(Boolean)
+        .join('\n\n'),
     }),
   });
 }

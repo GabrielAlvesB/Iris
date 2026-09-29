@@ -148,6 +148,12 @@ export interface VideosFile {
   importacoes: ImportacaoRegistro[];
   mapeamentos: MapeamentoSheets[];
   preferencias: PreferenciasVideos;
+  /**
+   * A migração que transformou em empresa as tags usadas como empresa (a
+   * "Hora de Codar", as dos relatórios) já rodou. Depois dela, desmarcar uma
+   * empresa não é desfeito na abertura seguinte.
+   */
+  empresasMigradas?: boolean;
 }
 
 export type CriarVideoInput = CriarPostagemComum<VideoStatus>;
@@ -177,6 +183,8 @@ export interface SalvarTagInput {
   id?: string;
   nome: string;
   cor: string;
+  /** Ausente mantém o tipo atual (na criação, tag comum). */
+  empresa?: boolean;
 }
 
 export interface SalvarRedeInput {

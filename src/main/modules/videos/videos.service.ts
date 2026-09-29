@@ -62,14 +62,13 @@ const COR_REGEX = /^#[0-9a-f]{6}$/i;
 
 const PALETA_TAGS = ['#a78bfa', '#38bdf8', '#34d399', '#fbbf24', '#f472b6', '#fb7185', '#2dd4bf', '#c084fc'];
 
+/**
+ * Instalação nova começa sem tags nem empresas: as de exemplo antigas
+ * ("Hora de Codar", "Grupo"…) eram do contexto de um usuário e chegavam para
+ * todo mundo. Cada um cadastra as suas em Ajustes › Empresas e tags.
+ */
 function tagsPadrao(): VideoTag[] {
-  return [
-    { id: randomUUID(), nome: 'Hora de Codar', cor: '#a78bfa' },
-    { id: randomUUID(), nome: 'Grupo', cor: '#38bdf8' },
-    { id: randomUUID(), nome: 'Tutorial', cor: '#34d399' },
-    { id: randomUUID(), nome: 'Divulgação', cor: '#fbbf24' },
-    { id: randomUUID(), nome: 'Shorts', cor: '#f472b6' },
-  ];
+  return [];
 }
 
 function redeConhecida(logo: RedeSocial['logo'] & string, id: string = randomUUID()): RedeSocial {
@@ -123,6 +122,8 @@ function createDefaultFile(): VideosFile {
     importacoes: [],
     mapeamentos: [],
     preferencias: preferenciasPadrao(),
+    // Arquivo novo não tem nada antigo para migrar.
+    empresasMigradas: true,
   };
 }
 
@@ -160,6 +161,7 @@ function migrateTag(raw: unknown, indice: number): VideoTag | null {
     id: typeof c.id === 'string' ? c.id : randomUUID(),
     nome,
     cor: cor(c.cor, PALETA_TAGS[indice % PALETA_TAGS.length]!),
+    ...(c.empresa === true ? { empresa: true } : {}),
   };
 }
 
@@ -321,6 +323,7 @@ function migrateVideosFile(raw: unknown): VideosFile {
     importacoes: Array.isArray(c.importacoes) ? c.importacoes.map(migrateImportacao).filter(naoNulo) : [],
     mapeamentos: Array.isArray(c.mapeamentos) ? c.mapeamentos.map(migrateMapeamento).filter(naoNulo) : [],
     preferencias: migratePreferencias(c.preferencias),
+    ...(c.empresasMigradas === true ? { empresasMigradas: true } : {}),
   };
 }
 
@@ -474,18 +477,44 @@ export async function salvarTag(input: SalvarTagInput): Promise<VideosFile> {
   if (!nome) throw new Error('A tag precisa de um nome.');
   const file = loadFile();
   const duplicada = file.tags.find((t) => normalizar(t.nome) === normalizar(nome) && t.id !== input.id);
-  if (duplicada) throw new Error(`Já existe a tag "${duplicada.nome}".`);
+  if (duplicada) throw new Error(`Já existe ${duplicada.empresa ? 'a empresa' : 'a tag'} "${duplicada.nome}".`);
 
   const existente = input.id ? file.tags.find((t) => t.id === input.id) : undefined;
   if (existente) {
     existente.nome = nome;
     existente.cor = cor(input.cor, existente.cor);
+    if (input.empresa !== undefined) {
+      if (input.empresa) existente.empresa = true;
+      else delete existente.empresa;
+    }
   } else {
-    file.tags.push({ id: randomUUID(), nome, cor: cor(input.cor, PALETA_TAGS[file.tags.length % PALETA_TAGS.length]!) });
+    file.tags.push({
+      id: randomUUID(),
+      nome,
+      cor: cor(input.cor, PALETA_TAGS[file.tags.length % PALETA_TAGS.length]!),
+      ...(input.empresa ? { empresa: true } : {}),
+    });
   }
 
   await saveFile(file);
   return file;
+}
+
+/**
+ * Migração única para o modelo de empresas: a tag "Hora de Codar" e as tags
+ * usadas como empresa em relatórios viram empresa. Nenhuma postagem muda —
+ * elas guardam o id, que continua o mesmo. Roda antes da janela abrir e só
+ * uma vez (flag `empresasMigradas`).
+ */
+export async function migrarEmpresasUmaVez(tagIdsDeRelatorios: string[]): Promise<void> {
+  const file = loadFile();
+  if (file.empresasMigradas) return;
+  const ids = new Set(tagIdsDeRelatorios);
+  file.tags.forEach((t) => {
+    if (ids.has(t.id) || normalizar(t.nome) === 'hora de codar') t.empresa = true;
+  });
+  file.empresasMigradas = true;
+  await saveFile(file);
 }
 
 export async function excluirTag(tagId: string): Promise<VideosFile> {

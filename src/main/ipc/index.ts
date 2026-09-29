@@ -13,6 +13,7 @@ import { registerN8nIpc } from './n8n.ipc';
 import { registerGithubIpc } from './github.ipc';
 import { registerAjustesIpc } from './ajustes.ipc';
 import { registerVideosIpc } from './videos.ipc';
+import { registerAnexosIpc } from './anexos.ipc';
 import { registerImagensIpc } from './imagens.ipc';
 import { registerRelatoriosIpc } from './relatorios.ipc';
 import { registerRoteirosIpc } from './roteiros.ipc';
@@ -36,6 +37,7 @@ export function registerAllIpcHandlers(): void {
   registerAjustesIpc();
   registerVideosIpc();
   registerImagensIpc();
+  registerAnexosIpc();
   registerRelatoriosIpc();
   registerRoteirosIpc();
   registerTrafegoIpc();

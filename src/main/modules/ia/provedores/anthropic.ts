@@ -1,5 +1,5 @@
 import type { ModeloIa } from '../../../../shared/types/ia.types';
-import { TIMEOUT_LISTA_MS, TIMEOUT_TEXTO_MS, chamarJson, type Adaptador, type ContextoProvedor } from './comum';
+import { TIMEOUT_LISTA_MS, TIMEOUT_TEXTO_MS, ajustarTeto, chamarJson, enviarTolerante, type Adaptador, type ContextoProvedor } from './comum';
 
 /**
  * Anthropic (Claude) pela API REST de Messages. Fica em HTTP direto, e não no
@@ -53,26 +53,37 @@ export const anthropic: Adaptador = {
     const imagens = pedido.imagens
       .filter((img) => MIME_ACEITO.has(img.mime))
       .map((img) => ({ type: 'image', source: { type: 'base64', media_type: img.mime, data: img.dados.toString('base64') } }));
-    const r = await chamarJson<RespostaMensagem>(ROTULO, `${BASE}/messages`, {
-      method: 'POST',
-      headers: cabecalhos(ctx),
-      body: JSON.stringify({
+    const r = await enviarTolerante(
+      {
         model: pedido.modelo,
-        max_tokens: 16000,
+        // O teto da tarefa, não um fixo: modelos mais antigos aceitam menos
+        // (4.096 ou 8.192) e recusam o pedido inteiro se passar.
+        max_tokens: pedido.maxTokens,
         system: pedido.sistema,
         // Imagens antes do texto, como a documentação recomenda.
         messages: [{ role: 'user', content: [...imagens, { type: 'text', text: pedido.texto }] }],
-      }),
-      timeoutMs: TIMEOUT_TEXTO_MS,
-      signal: pedido.signal,
-    });
+      },
+      (c) =>
+        chamarJson<RespostaMensagem>(ROTULO, `${BASE}/messages`, {
+          method: 'POST',
+          headers: cabecalhos(ctx),
+          body: JSON.stringify(c),
+          timeoutMs: TIMEOUT_TEXTO_MS,
+          signal: pedido.signal,
+        }),
+      // "max_tokens: 12000 > 8192, which is the maximum…": vai de novo com o máximo dele.
+      (c, erro) => ajustarTeto(c, erro, ['max_tokens']),
+    );
     if (r.stop_reason === 'refusal') throw new Error('O Claude recusou este pedido. Reformule o texto e tente de novo.');
     // Só os blocos de texto: os de raciocínio (thinking) não vão para a tela.
     const texto = (r.content ?? [])
       .filter((b) => b.type === 'text')
       .map((b) => b.text ?? '')
       .join('');
-    if (!texto.trim()) throw new Error('O Claude devolveu uma resposta vazia.');
+    if (!texto.trim()) {
+      if (r.stop_reason === 'max_tokens') throw new Error('O Claude chegou ao limite de resposta antes de escrever. Tente de novo ou use outro modelo.');
+      throw new Error('O Claude devolveu uma resposta vazia. Tente de novo.');
+    }
     return texto;
   },
 };

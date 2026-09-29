@@ -17,6 +17,9 @@ import {
 import type { EstadoAtualizacao } from '../../../shared/types/atualizacao.types.js';
 import { buildAssinatura } from '../relatorios/relatorios.documento.js';
 import { buildSecaoIa } from './ajustes.ia.js';
+import { buildCadastroTags, contarEmpresas } from '../postagens/postagens.tags.js';
+import { ICONE_EMPRESA } from '../postagens/postagens.ui.js';
+import * as videosState from '../postagens/videos/videos.state.js';
 import { ICONE_IA } from '../../ui/ia.js';
 import {
   assinarSidebar,
@@ -29,9 +32,11 @@ import {
 } from '../../core/sidebar.js';
 import { ICONES, buildAviso, buildBotao, buildCabecalho, buildSelo, svg, type Tom } from '../../ui/pagina.js';
 
-type Secao = 'n8n' | 'github' | 'ia' | 'credenciais' | 'preferencias' | 'relatorios' | 'atualizacoes' | 'backup';
+type Secao = 'n8n' | 'github' | 'ia' | 'empresas' | 'credenciais' | 'preferencias' | 'relatorios' | 'atualizacoes' | 'backup';
 
 let secaoAtiva: Secao = 'n8n';
+/** A seção do último desenho, para saber se a rolagem deve ser mantida. */
+let secaoDesenhada: Secao | null = null;
 let containerAtual: HTMLElement | null = null;
 /** Assinatura do progresso da atualização, viva só com a seção aberta. */
 let pararAtualizacao: (() => void) | null = null;
@@ -63,6 +68,17 @@ const NAV: ItemNav[] = [
     icone: ICONE_IA,
     estado: (s) =>
       s.ia.provedores.some((p) => p.configurado) ? { texto: 'configurado', tom: 'ok' } : { texto: 'pendente', tom: 'atencao' },
+  },
+  {
+    id: 'empresas',
+    rotulo: 'Empresas e tags',
+    icone: ICONE_EMPRESA,
+    // O catálogo mora no state de Postagens; sem ele carregado, sem contagem.
+    estado: () => {
+      if (!videosState.getCurrentState()) return { texto: 'catálogo global', tom: 'neutro' };
+      const n = contarEmpresas();
+      return { texto: n === 1 ? '1 empresa' : `${n} empresas`, tom: n ? 'ok' : 'neutro' };
+    },
   },
   {
     id: 'credenciais',
@@ -198,14 +214,46 @@ function buildOpcao(titulo: string, descricao: string, inicial: boolean): { el: 
 }
 
 /** Linha de status abaixo das ações: mostra resultado de salvar/testar. */
-function buildStatus(): { el: HTMLElement; mostrar: (texto: string, tom: Tom) => void } {
-  const el = document.createElement('div');
-  el.className = 'aj-status';
+const ROTULO_DO_TOM: Record<Tom, string> = { ok: 'Tudo certo', erro: 'Não deu certo', atencao: 'Atenção', neutro: 'Aviso' };
+
+/**
+ * O selo é uma pílula de uma linha só: serve para "Salvo", mas corta uma
+ * mensagem longa (o teste de IA explica o que falhou e em qual modelo). Texto
+ * longo vira selo curto + parágrafo que quebra linha, e o que o provedor
+ * mandou (depois de " Detalhe: ") fica recolhido.
+ */
+/**
+ * Status vivos por chave. Salvar redesenha a seção inteira (o state notifica
+ * e a view refaz tudo) antes de o `.then` mostrar "Salvo" — sem a chave, o
+ * aviso ia para o elemento antigo, já fora da tela, e nada aparecia.
+ */
+const statusVivos = new Map<string, HTMLElement>();
+
+function buildStatus(chave?: string): { el: HTMLElement; mostrar: (texto: string, tom: Tom) => void } {
+  const proprio = document.createElement('div');
+  proprio.className = 'aj-status';
+  if (chave) statusVivos.set(chave, proprio);
   return {
-    el,
+    el: proprio,
     mostrar(texto, tom) {
-      el.innerHTML = '';
-      el.appendChild(buildSelo(texto, tom));
+      const vivo = chave ? statusVivos.get(chave) : undefined;
+      const el = vivo?.isConnected ? vivo : proprio;
+      el.replaceChildren();
+      el.classList.toggle('is-longo', texto.length > 80);
+      if (texto.length <= 80) {
+        el.appendChild(buildSelo(texto, tom));
+        return;
+      }
+      const corte = texto.indexOf(' Detalhe: ');
+      el.appendChild(buildSelo(ROTULO_DO_TOM[tom], tom));
+      el.appendChild(Object.assign(document.createElement('p'), { className: `aj-status-texto is-${tom}`, textContent: corte >= 0 ? texto.slice(0, corte) : texto }));
+      if (corte >= 0) {
+        const detalhes = document.createElement('details');
+        detalhes.className = 'aj-status-detalhe';
+        detalhes.appendChild(Object.assign(document.createElement('summary'), { textContent: 'Resposta do provedor' }));
+        detalhes.appendChild(Object.assign(document.createElement('pre'), { textContent: texto.slice(corte + ' Detalhe: '.length) }));
+        el.appendChild(detalhes);
+      }
     },
   };
 }
@@ -239,7 +287,7 @@ function buildSecaoN8n(state: AjustesViewState): HTMLElement {
   const tls = buildOpcao('Aceitar certificado autoassinado', 'Só para n8n próprio com HTTPS sem certificado válido.', state.n8n.permitirTlsInseguro);
   corpo.appendChild(tls.el);
 
-  const status = buildStatus();
+  const status = buildStatus('n8n');
   if (state.n8n.temApiKey) status.mostrar('API key guardada no cofre', 'ok');
 
   const dados = (apiKeyValor: string | undefined): Parameters<typeof ajustesState.salvarN8n>[0] => ({
@@ -317,7 +365,7 @@ function buildSecaoGithub(state: AjustesViewState): HTMLElement {
   const poll = buildOpcao('Atualizar em segundo plano', 'Busca repositórios e commits periodicamente, mesmo com a tela fechada.', state.github.pollAtivo);
   corpo.appendChild(poll.el);
 
-  const status = buildStatus();
+  const status = buildStatus('github');
   if (state.github.usuario) status.mostrar(`Última conexão como @${state.github.usuario}`, 'ok');
   else if (state.github.temToken) status.mostrar('Token guardado no cofre', 'ok');
 
@@ -423,6 +471,35 @@ const ICONE_ASSINATURA = '<path d="M3 17c3-3 5.5-8 7.5-8s-1 7 1 7 3-4 4.5-4 1 3 
  * texto ou formato não exige mexer no código do documento. A prévia usa o
  * mesmo buildAssinatura do PDF.
  */
+/**
+ * Cadastro global de empresas e tags (o catálogo único de videos.json). Cada
+ * ação redesenha Ajustes inteiro, para a contagem da navegação acompanhar; a
+ * rolagem é mantida pelo render.
+ */
+function buildSecaoEmpresas(): HTMLElement {
+  const painel = buildPainel(
+    'Empresas e tags',
+    'Um cadastro só para o app inteiro: Postagens, Roteiros, Tráfego e Relatórios usam as mesmas empresas e tags. Os relatórios são feitos por empresa.',
+    ICONE_EMPRESA,
+  );
+  const corpo = document.createElement('div');
+  corpo.className = 'aj-corpo aj-empresas';
+  const status = buildStatus('empresas');
+  if (!videosState.getCurrentState()) {
+    corpo.appendChild(Object.assign(document.createElement('p'), { className: 'aj-campo-dica', textContent: 'Carregando o catálogo…' }));
+    void videosState
+      .load()
+      .then(rerender)
+      .catch((erro: unknown) => status.mostrar(mensagemDe(erro), 'erro'));
+  } else {
+    const erro = (e: unknown): void => status.mostrar(mensagemDe(e), 'erro');
+    corpo.append(buildCadastroTags('empresas', rerender, erro), buildCadastroTags('tags', rerender, erro));
+  }
+  corpo.appendChild(status.el);
+  painel.appendChild(corpo);
+  return painel;
+}
+
 function buildSecaoRelatorios(state: AjustesViewState): HTMLElement {
   const painel = buildPainel(
     'Assinatura dos relatórios',
@@ -493,7 +570,7 @@ function buildSecaoRelatorios(state: AjustesViewState): HTMLElement {
   desenharPrevia();
   corpo.appendChild(buildCampo('Prévia', previa));
 
-  const status = buildStatus();
+  const status = buildStatus('assinatura');
   const acoes = document.createElement('div');
   acoes.className = 'aj-acoes';
   const salvar = buildBotao('Salvar assinatura', { variante: 'primario' });
@@ -530,7 +607,7 @@ function buildSecaoPreferencias(state: AjustesViewState): HTMLElement {
     select.appendChild(option);
   });
 
-  const status = buildStatus();
+  const status = buildStatus('inicial');
   select.addEventListener('change', () => {
     void ajustesState
       .setModuloInicial(select.value as ModuloInicial)
@@ -825,6 +902,8 @@ export function render(container: HTMLElement, state: AjustesViewState): void {
   // Outro módulo pode ter pedido uma seção (ex.: Relatórios → assinatura).
   const pedida = consumirSecaoAjustes();
   if (pedida && NAV.some((n) => n.id === pedida)) secaoAtiva = pedida as Secao;
+  // Salvar redesenha a tela; na mesma seção, a rolagem volta para onde o usuário estava.
+  const rolagemAnterior = secaoDesenhada === secaoAtiva ? container.querySelector<HTMLElement>('.aj-conteudo')?.scrollTop ?? 0 : 0;
   container.innerHTML = '';
 
   const view = document.createElement('div');
@@ -849,6 +928,7 @@ export function render(container: HTMLElement, state: AjustesViewState): void {
     n8n: () => buildSecaoN8n(state),
     github: () => buildSecaoGithub(state),
     ia: () => buildSecaoIa({ buildPainel, buildCampo, buildInput, buildStatus }, state.ia),
+    empresas: () => buildSecaoEmpresas(),
     credenciais: () => buildSecaoCredenciais(state),
     preferencias: () => buildSecaoPreferencias(state),
     relatorios: () => buildSecaoRelatorios(state),
@@ -860,9 +940,14 @@ export function render(container: HTMLElement, state: AjustesViewState): void {
   layout.appendChild(conteudo);
   view.appendChild(layout);
   container.appendChild(view);
+  conteudo.scrollTop = rolagemAnterior;
+  secaoDesenhada = secaoAtiva;
 }
 
 export function destroy(): void {
+  // Voltar a Ajustes vindo de outro módulo começa do topo.
+  secaoDesenhada = null;
+  statusVivos.clear();
   if (unsubSidebar) {
     unsubSidebar();
     unsubSidebar = null;

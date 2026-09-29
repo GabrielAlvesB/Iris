@@ -11,7 +11,7 @@ import {
 import { FAIXAS_SCORE } from '../../../shared/types/videos.conversao.js';
 import type { Catalogo, Postagem } from '../postagens/postagens.fonte.js';
 import { dataParaMetricas } from '../postagens/postagens.metricas.js';
-import { formatarData } from '../postagens/postagens.ui.js';
+import { formatarData, hojeIso } from '../postagens/postagens.ui.js';
 import * as imagensState from '../postagens/imagens/imagens.state.js';
 import * as videosState from '../postagens/videos/videos.state.js';
 
@@ -42,12 +42,13 @@ function itensDoTipo(tipo: TipoPostagem): Postagem[] {
 
 /**
  * Filtro inicial: o período do relatório (ou o mês corrente) e as tags da
- * empresa do relatório — um relatório da "Hora de Codar" já nasce contando só ela.
+ * empresa do relatório — o relatório de uma empresa já nasce contando só ela.
  */
 export function filtroPadrao(rel: Pick<Relatorio, 'periodoInicio' | 'periodoFim' | 'tagIds'>): FiltroMetricas {
   const base = { tipos: [], base: 'publicados' as const, redeIds: [], tagIds: [...rel.tagIds], prioridades: [] };
   if (rel.periodoInicio || rel.periodoFim) return { ...base, inicio: rel.periodoInicio, fim: rel.periodoFim };
-  return { ...base, ...intervaloDoMes(new Date().toISOString().slice(0, 7)) };
+  // O mês de hoje pelo relógio local (toISOString daria o mês seguinte na última noite do mês).
+  return { ...base, ...intervaloDoMes(hojeIso().slice(0, 7)) };
 }
 
 export function novoBlocoMetricas(rel: Pick<Relatorio, 'periodoInicio' | 'periodoFim' | 'tagIds'>): BlocoMetricas {

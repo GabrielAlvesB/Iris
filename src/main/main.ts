@@ -3,6 +3,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { registerAllIpcHandlers } from './ipc';
 import { startBackgroundServices, stopBackgroundServices } from './core/backgroundServices';
+import { migrarEmpresas } from './modules/relatorios/relatorios.service';
 
 // Renderer TS compiles to ES modules; ES module scripts require a CORS-capable
 // origin and are blocked when loaded from plain file:// URLs. Serving the
@@ -86,7 +87,11 @@ app.whenReady().then(() => {
   }
   registerAppProtocol();
   registerAllIpcHandlers();
-  createMainWindow();
+  // Antes da janela: a tela já nasce com as empresas migradas. Depois da
+  // primeira vez é só uma leitura do arquivo (flag), sem escrita.
+  void migrarEmpresas()
+    .catch((erro: unknown) => console.error('[iris] migração de empresas falhou', erro))
+    .finally(createMainWindow);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

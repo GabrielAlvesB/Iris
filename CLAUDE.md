@@ -166,6 +166,14 @@ não seria decifrável em outra máquina.
   (`videosService.getCatalogo()`); as imagens validam contra ele na leitura. Por isso o
   state de vídeos carrega antes dos outros tipos, e no restore do backup as imagens vão
   depois dos vídeos.
+- **Empresas são tags** com `empresa: true` no mesmo catálogo (a postagem guarda o id; pode ter
+  empresa + tags comuns). Cadastro único em [postagens.tags.ts](src/renderer/modules/postagens/postagens.tags.ts)
+  (`buildCadastroTags`), usado em Ajustes › Empresas e tags e no modal "Empresas, tags e redes".
+  O chip de empresa leva o prédio (`ICONE_EMPRESA`); todo seletor usa `ordenarTags` (empresas
+  primeiro). **Instalação nova não traz tag nenhuma** — as antigas de exemplo ("Hora de Codar",
+  "Grupo"…) eram do contexto de um usuário. A migração única `migrarEmpresasUmaVez` (chamada
+  em main.ts antes da janela, flag `empresasMigradas` em videos.json) tornou empresa a "Hora de
+  Codar" e as tags usadas em relatórios; com a flag, não roda de novo.
 - **Adicionar um tipo**: entrada em `TIPOS_POSTAGEM`; tipos/service/ipc/state próprios
   (copiar o de imagens); a Fonte e a entrada em `TIPOS` de
   [postagens.tipos.ts](src/renderer/modules/postagens/postagens.tipos.ts); o adaptador em
@@ -199,6 +207,16 @@ não seria decifrável em outra máquina.
   quebra o relatório. O editor renova a cópia ao abrir quando a postagem ainda existe.
 - O editor trabalha num rascunho e salva o relatório inteiro (`salvarRelatorio`), que o
   main valida com a mesma `migrateRelatorio` da leitura.
+- **Editor organizado pela ordem do PDF**, em quatro partes (`buildParte`: ícone, para que serve
+  e "No PDF: onde aparece"): Capa → Informações gerais → Seções → Fechamento, com o **mapa**
+  fixo à esquerda (✓ quando a parte tem conteúdo de verdade — `secaoPreenchida`/`blocoPreenchido`;
+  bloco vazio de modelo não conta). Cada seção tem três passos rotulados: Introdução → Conteúdo
+  (blocos, pelo menu "Adicionar bloco" com a explicação de cada tipo) → Postagens analisadas.
+  Parte nova ou campo novo = dizer para que serve e onde sai no PDF.
+- **Modelos** ([relatorios.modelos.ts](src/renderer/modules/relatorios/relatorios.modelos.ts)):
+  "Resultados do mês", "Análise de postagens", "Em branco" no Novo relatório, e tipos prontos em
+  "Adicionar seção". O main cria o relatório com uma seção vazia "Análise"; o modelo a substitui.
+  Modelo só cria estrutura vazia — nunca texto inventado.
 - **PDF**: o documento é um DOM só
   ([relatorios.documento.ts](src/renderer/modules/relatorios/relatorios.documento.ts)), usado
   na prévia e no PDF. Para exportar, o renderer monta-o em `#impressao` e o main chama
@@ -207,7 +225,9 @@ não seria decifrável em outra máquina.
   O `printToPDF` pinta as margens de cima/baixo com a **cor de fundo da janela** (`#0c0d12`):
   o handler troca para branco durante a impressão e restaura depois — sem isso cada página
   sai com faixas pretas no topo e no rodapé.
-- **Empresa por tags** (`relatorios.json` v3): `Relatorio.tagIds` são tags do catálogo único;
+- **Empresa por tags** (`relatorios.json` v3): `Relatorio.tagIds` são tags-empresa do catálogo
+  único (a criação e o editor listam só `empresa: true`; uma tag comum escolhida antes continua
+  visível, marcada, até ser desmarcada);
   `tagsNomes` é a cópia por extenso, renovada **no main** ao criar/salvar
   (`renovarNomesDasTags`) — apagar a tag não apaga a empresa do documento. O seletor
   "Adicionar postagens" já abre filtrado por essas tags e um bloco de métricas novo as herda
@@ -255,6 +275,11 @@ não seria decifrável em outra máquina.
   O selo lê o quadro do Kanban para mostrar a coluna e as subtarefas atuais do card.
 - Reordenar com filtro ativo: a tela manda a ordem completa, trocando só as posições das
   checklists visíveis — as escondidas não saem do lugar.
+- **Cada aba só mostra o que é dela**: Abertas (inicial) · Concluídas · Arquivadas — não há aba
+  "Todas" (misturava tudo; o usuário pediu para tirar). Concluir uma checklist (último item,
+  "marcar todos", remover o último pendente) a tira das Abertas com um aviso
+  (`acompanharConclusao` → `mostrarToast` de [ui/toast.ts](src/renderer/ui/toast.ts), com "Ver" e,
+  quando dá, "Desfazer"). Concluídas tem "Arquivar todas".
 
 ## Inteligência artificial
 
@@ -267,7 +292,18 @@ não seria decifrável em outra máquina.
   o `<datalist>` do Chromium não rola com centenas de itens. `RECOMENDACOES_OPENROUTER` traz
   id sugerido + termo de busca (se o id sumir, o seletor abre filtrado).
   Tudo em HTTP direto pelo `httpClient` (aceita `FormData` para o multipart de `/images/edits`),
-  sem SDK. Erros viram mensagens em português em `chamarJson` (401/403 chave, 402/429 crédito…).
+  sem SDK. Erros viram mensagens em português em `chamarJson` (401/403 chave, 402/429 crédito,
+  429 com `limit: 0` = modelo sem cota gratuita no Google…) como `ErroProvedor` (status + texto
+  original). 500/503/529 têm uma segunda tentativa automática.
+- **Modelos novos sem tabela por modelo**: todo pedido passa por `enviarTolerante` (comum.ts) —
+  se o provedor recusar apontando um parâmetro, ele é tirado ou trocado e o pedido vai de novo
+  (até 3×; `model`/`messages`/`contents`… nunca saem). Ajustes específicos no adaptador:
+  `max_tokens`↔`max_completion_tokens` e fallback para `/v1/responses` (OpenAI), `imageConfig` e
+  `responseModalities` (Gemini), instrução de sistema no texto (Gemma), `modalities` só `image`
+  para modelos só-imagem e teto pelo saldo ("can only afford N") no OpenRouter, teto máximo
+  do modelo no Claude. Imagen vai por `:predict`. As listagens tiram modelos que não conversam
+  (voz, embeddings, computer use, vídeo). "Testar" em Ajustes manda um pedido mínimo ao modelo
+  de texto salvo e confere o de imagem na lista.
 - **Chaves** no secretStore como `ia.<provedor>.apiKey`; a tela recebe só `temChave`/`configurado`
   e `finalChave` (os 4 últimos caracteres, para reconhecer qual está salva — a chave inteira nunca
   sai do main). O campo tem o olho só para o que está sendo digitado.
@@ -275,6 +311,15 @@ não seria decifrável em outra máquina.
   pedido explícito → padrão → primeiro configurado com a capacidade.
 - **Prompts moram no main** ([ia.prompts.ts](src/main/modules/ia/ia.prompts.ts)): a tela manda
   `TarefaTexto` + `ContextoTexto`. Tarefas com opções pedem JSON (`lerVariantes` é tolerante).
+  Todo pedido de texto tem `<tarefa>`, `<campo>` (com a `orientacao` do que o campo deve conter),
+  `<material>` e `<regras>` (`REGRAS_TEXTO`: só o material, citar números, nunca inventar, dizer o
+  que falta em vez de encher de generalidade). Campo novo com IA = passar uma `orientacao`
+  específica (ex.: `ORIENTACOES_RELATORIO` em relatorios.ia.ts) — sem ela o texto sai genérico.
+- **Prompt de imagem**: o pedido do usuário vai dentro de `montarPromptDeImagem` (uma imagem
+  profissional, fiel ao pedido, texto em português legível, e o formato certo — repetido porque
+  ideias/prompt podem citar outro formato). `modo: 'modificar'` manda só a instrução; o main
+  monta o pedido de edição. Os prompts de apoio (melhorar/ideias/thumbnail) usam
+  `PAPEL_DIRETOR_DE_ARTE`: ficar no tema e não citar formato nem proporção.
 - **Imagens**: `gerarImagem` (ia.tarefas.ts) devolve a tarefa na hora e empurra `ia:tarefa`;
   o resultado é recortado/redimensionado com `nativeImage` para o formato exato
   (`FORMATOS_IMAGEM_IA`, ex. thumb 1280×720). Tudo vai para a **galeria interna**
@@ -289,6 +334,10 @@ não seria decifrável em outra máquina.
   (`postagens.ia.ts` — preenche disparando `input`, o mesmo caminho da digitação); "Thumbnail com
   IA" na seção Materiais (`ia.thumbnail.ts`); botão "IA" na barra dos Roteiros (`roteiros.ia.ts`).
   Sem IA configurada, `exigirIa()` explica e leva a Ajustes › Inteligência artificial / Tutorial.
+- **Qual IA escreve**: com 2+ IAs de texto configuradas, o usuário escolhe na hora. Menus de IA
+  (`abrirMenuIa(…, { escolherIa: true })`) têm a fileira "Gerar com" (padrão marcada) e passam a
+  escolha ao `fazer(ia)`; botões diretos passam por `comGeracao`, que abre `escolherIaDeTexto`
+  se não recebeu `ia`. `PedidoTexto.provedor` vazio = padrão de Ajustes. Com uma IA só, nada aparece.
 - **Assistente de texto genérico** (ui/ia.ts): `comAssistente(textarea, {area, campo, contexto})`
   envolve qualquer campo com o botão "IA" (Escrever / Melhorar / Resumir ou Desenvolver);
   `sugerirItensComIa` + `escolherItens` para checklists e subtarefas (tarefa `lista-itens`). Usado
@@ -298,6 +347,8 @@ não seria decifrável em outra máquina.
 - **Estúdio**: o criador aceita vários formatos marcados — cada um vira uma tarefa própria;
   "Pedir ideias" (`ideias-imagem`, 4 conceitos → prompt); "Modificar" (`abrirModificacao` em
   ia.acoes.ts) manda a imagem da galeria como referência com o pedido do que mudar.
+  A visualização grande (`abrirVisualizacao`) navega pelas imagens visíveis (setas e ←/→), com
+  ações em grupos e "Apagar imagem" no rodapé; o cartão da galeria também tem a lixeira.
 - Config e tarefas compartilhadas no renderer: [core/ia.ts](src/renderer/core/ia.ts). Guia do
   Tutorial: `GUIA_IA` (GuiaId `'ia'`).
 
@@ -358,6 +409,13 @@ não seria decifrável em outra máquina.
   importado é o dia da importação).
 - O painel do vídeo abre na posição de `preferencias.posicaoPainel` (centro = modal com
   fundo e seções em duas colunas; esquerda/direita = lateral sem fundo).
+- **Anexos do computador** (Materiais › "Do computador"): arquivo de qualquer pasta, sem pasta
+  monitorada. O main copia para `userData/anexos/<id><ext>` na escolha (regra do Sheets: a
+  postagem nunca depende do original); a postagem guarda só `anexos: AnexoPostagem[]` (nome,
+  extensão, tamanho). Tela fala por id — `aplicarEdicaoComum` só aceita anexo cuja cópia existe.
+  Binários fora do backup (como a galeria da IA). Órfãos vão para `anexos/orfaos/` na abertura
+  (`limparOrfaos` em backgroundServices, que lê vídeos + imagens — **tipo novo entra lá**) e só
+  somem após 30 dias; voltam sozinhos se uma postagem os usar de novo.
 - **Biblioteca** guarda curadoria (coleção, tags, nota) sobre caminhos dentro das pastas
   monitoradas, nunca cópias de arquivo. Situação `ausente`/`fora` é derivada na leitura.
   Vídeos referenciam recursos por id em `recursoIds`; órfãos são ignorados na tela.
@@ -479,6 +537,10 @@ Quando a configuração muda na UI, chamar `reaplicarAgendamentos()` em vez de e
 
 ## Armadilhas
 
+- **Datas "AAAA-MM-DD" são sempre locais.** Nunca `toISOString().slice(0, 10)` para "hoje"
+  (é a data UTC: no Brasil vira amanhã a partir das 21h) nem `new Date('2026-10-03')` para ler
+  (é meia-noite UTC: vira o dia anterior). Use `hojeIso`/`somarDias` de `postagens.ui.ts`, ou
+  monte com `getFullYear/getMonth/getDate`; "amanhã" é `setDate(+1)`, não `+86400000`.
 - **Testar sem mexer nos dados do usuário**: rode o Electron com `--user-data-dir=<pasta>`.
   Trocar a variável `APPDATA` **não** isola no Windows (o Electron consulta a pasta pelo SO) e
   grava direto em `%APPDATA%/iris/data`.

@@ -33,7 +33,7 @@ import {
   type Tom,
 } from '../../ui/pagina.js';
 import { COR_SERIE, buildCartaoGrafico, buildColunas, esconderTooltip, formatarNumero } from '../postagens/postagens.graficos.js';
-import { formatarData, hojeIso, somarDias } from '../postagens/postagens.ui.js';
+import { formatarData, hojeIso, ordenarTags, somarDias } from '../postagens/postagens.ui.js';
 import * as videosState from '../postagens/videos/videos.state.js';
 import * as trafegoState from './trafego.state.js';
 
@@ -136,8 +136,9 @@ function rotulo<T extends string>(lista: ReadonlyArray<{ id: T; rotulo: string }
   return lista.find((x) => x.id === id)?.rotulo ?? id;
 }
 
+/** Empresas primeiro, depois as tags. */
 function catalogoTags(): TagPostagem[] {
-  return videosState.getCurrentState()?.tags ?? [];
+  return ordenarTags(videosState.getCurrentState()?.tags ?? []);
 }
 
 function nomeConta(file: TrafegoFile, contaId?: string): string {
@@ -775,7 +776,7 @@ function abrirConta(conta: ContaTrafego | null): void {
   void openCustomModal(
     conta ? 'Editar conta' : 'Nova conta',
     ({ corpo, rodape, fechar }) => {
-      const nome = input('text', conta?.nome ?? '', 'Ex.: Hora de Codar');
+      const nome = input('text', conta?.nome ?? '', 'Ex.: Minha Empresa');
       const verba = input('number', conta?.orcamentoMensal ? String(conta.orcamentoMensal) : '', 'Ex.: 3000');
       verba.step = '0.01';
       verba.min = '0';

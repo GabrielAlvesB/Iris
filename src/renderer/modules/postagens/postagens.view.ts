@@ -26,6 +26,7 @@ import {
   buildScore,
   buildSeloAgenda,
   buildTagChip,
+  ordenarTags,
   encerrado,
   formatarDataCurta,
   formatarDataLonga,
@@ -266,7 +267,7 @@ function buildBarra(fonte: Fonte): HTMLElement {
 
   const { tags, redes } = fonte.catalogo;
   barra.appendChild(
-    buildSelect(filtros.tagId, [{ value: '', label: 'Todas as tags' }, ...tags.map((t) => ({ value: t.id, label: t.nome }))], 'Filtrar por tag', (v) => {
+    buildSelect(filtros.tagId, [{ value: '', label: 'Todas as tags' }, ...ordenarTags(tags).map((t) => ({ value: t.id, label: t.empresa ? `${t.nome} (empresa)` : t.nome }))], 'Filtrar por empresa ou tag', (v) => {
       filtros.tagId = v;
       redesenhar();
     }),
@@ -797,7 +798,7 @@ export function render(container: HTMLElement): void {
 
   const novo = buildBotao(fonte.novoRotulo, { icone: ICONES_POSTAGEM.mais, variante: 'primario' });
   novo.addEventListener('click', () => fonte.abrirNovo({}));
-  const configurar = buildBotao('Tags e redes', { icone: ICONES_POSTAGEM.tag, variante: 'secundario' });
+  const configurar = buildBotao('Empresas e tags', { icone: ICONES_POSTAGEM.tag, variante: 'secundario', titulo: 'Empresas, tags e redes sociais' });
   configurar.addEventListener('click', () => abrirTagsERedes());
   const exibicao = buildBotao('', {
     icone: ICONES_POSTAGEM.exibicao,

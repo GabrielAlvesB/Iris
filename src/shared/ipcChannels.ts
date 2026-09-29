@@ -168,6 +168,7 @@ export const IA_CHANNELS = {
   gerarImagem: 'ia:gerarImagem',
   cancelarTarefa: 'ia:cancelarTarefa',
   listarTarefas: 'ia:listarTarefas',
+  dispensarTarefa: 'ia:dispensarTarefa',
   limparTarefas: 'ia:limparTarefas',
   listarGaleria: 'ia:listarGaleria',
   abrirImagem: 'ia:abrirImagem',
@@ -220,6 +221,14 @@ export const VIDEOS_CHANNELS = {
   importarDeSheets: 'videos:importarDeSheets',
   listarLinhasImportadas: 'videos:listarLinhasImportadas',
   salvarPreferencias: 'videos:salvarPreferencias',
+} as const;
+
+export const ANEXOS_CHANNELS = {
+  escolher: 'anexos:escolher',
+  info: 'anexos:info',
+  abrir: 'anexos:abrir',
+  revelar: 'anexos:revelar',
+  exportar: 'anexos:exportar',
 } as const;
 
 export const IMAGENS_CHANNELS = {

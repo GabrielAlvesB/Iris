@@ -1,7 +1,17 @@
 {
   "name": "iris",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Iris — assistente pessoal de tarefas e organização de conteúdo (100% local)",
+  "author": "Gabriel Alves Tech",
+  "license": "GPL-3.0-only",
+  "homepage": "https://github.com/GabrielAlvesB/Iris#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GabrielAlvesB/Iris.git"
+  },
+  "bugs": {
+    "url": "https://github.com/GabrielAlvesB/Iris/issues"
+  },
   "private": true,
   "main": "dist/main/main.js",
   "scripts": {

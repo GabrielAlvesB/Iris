@@ -24,6 +24,7 @@ import {
   tempoRelativo,
   type Tom,
 } from '../../ui/pagina.js';
+import { ordenarTags } from '../postagens/postagens.ui.js';
 import * as videosState from '../postagens/videos/videos.state.js';
 import { paragrafos } from '../relatorios/relatorios.documento.js';
 import { duracaoDoTexto, renderMarkdown, secoesDoRoteiro, textoFalado, tituloDoTexto } from './roteiros.markdown.js';
@@ -124,8 +125,9 @@ function redesenhar(): void {
   renderLista(containerAtual, file);
 }
 
+/** Empresas primeiro, depois as tags. */
 function catalogoTags(): TagPostagem[] {
-  return videosState.getCurrentState()?.tags ?? [];
+  return ordenarTags(videosState.getCurrentState()?.tags ?? []);
 }
 
 function rotuloStatus(status: StatusRoteiro): string {

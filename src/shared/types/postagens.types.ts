@@ -73,6 +73,12 @@ export interface TagPostagem {
   nome: string;
   /** Cor em hex (#rrggbb). A tag sempre aparece com o nome, nunca só a cor. */
   cor: string;
+  /**
+   * Tag de empresa (cliente, marca): é a que os Relatórios usam como "Empresa".
+   * Continua sendo tag — a postagem guarda o mesmo id, e pode ter empresa e
+   * tags comuns juntas.
+   */
+  empresa?: boolean;
 }
 
 /**
@@ -163,6 +169,8 @@ export interface PostagemBase<S extends string> extends BaseEntity {
   camposExtras: CampoExtra[];
   /** Ids de recursos da Biblioteca (explorador.json). Órfãos são ignorados na tela. */
   recursoIds: string[];
+  /** Arquivos anexados do computador (cópia guardada pelo Iris, fora das pastas monitoradas). */
+  anexos: AnexoPostagem[];
   publicadoEm?: string;
   statusAntesDeArquivar?: S;
   motivoArquivamento?: MotivoArquivamento;
@@ -188,6 +196,40 @@ export interface AtualizarPostagemComum<S extends string> {
   notas?: string;
   camposExtras?: CampoExtra[];
   recursoIds?: string[];
+  /** A lista inteira; o main só aceita anexos cujo arquivo ele mesmo copiou. */
+  anexos?: AnexoPostagem[];
+}
+
+/**
+ * Arquivo anexado do computador (banner, thumbnail…) sem precisar de pasta
+ * monitorada. O Iris guarda uma cópia em userData/anexos — a mesma regra do
+ * Sheets: a postagem nunca depende do original, e apagar ou mover o arquivo
+ * de origem não a afeta. A tela só conhece o id; o caminho fica no main.
+ */
+export interface AnexoPostagem {
+  id: string;
+  /** Nome do arquivo de origem, para mostrar e para "Salvar uma cópia…". */
+  nome: string;
+  /** Com ponto e minúscula (".png"). */
+  extensao: string;
+  /** Bytes. */
+  tamanho: number;
+  adicionadoEm: string;
+}
+
+/** Situação viva de um anexo, lida no main na hora de mostrar. */
+export interface InfoAnexo {
+  id: string;
+  /** false se a cópia sumiu (ex.: backup restaurado em outro computador — os arquivos não vão no backup). */
+  existe: boolean;
+  /** Data URL pequena, só para imagens. */
+  miniatura?: string;
+}
+
+export interface EscolhaDeAnexos {
+  anexos: AnexoPostagem[];
+  /** Arquivos que não entraram, com o motivo. */
+  recusados: string[];
 }
 
 export interface CriarPostagemComum<S extends string> {

@@ -12,7 +12,7 @@ import { buildBotao, buildSelo, svg, tempoRelativo } from '../../ui/pagina.js';
 import type { PainelHandle } from '../../ui/painel.js';
 import type { Catalogo, Postagem } from './postagens.fonte.js';
 import * as videosState from './videos/videos.state.js';
-import { ICONES_POSTAGEM, buildRedeBadge, buildTagChip, formatarDataHora, rotuloStatus } from './postagens.ui.js';
+import { ICONES_POSTAGEM, buildRedeBadge, buildTagChip, formatarDataHora, ordenarTags, rotuloStatus } from './postagens.ui.js';
 
 /**
  * Seções do painel que toda postagem tem (etapa, prioridade, score, agenda,
@@ -304,7 +304,7 @@ export function buildRedes(catalogo: Catalogo, redeIds: string[], aoMudar: (ids:
 export function buildTags(catalogo: Catalogo, tagIds: string[], aoMudar: (ids: string[]) => void, aoErro: (e: unknown) => void): HTMLElement {
   const grupo = document.createElement('div');
   grupo.className = 'vd-escolhas';
-  catalogo.tags.forEach((tag) => {
+  ordenarTags(catalogo.tags).forEach((tag) => {
     const ativo = tagIds.includes(tag.id);
     const btn = document.createElement('button');
     btn.type = 'button';

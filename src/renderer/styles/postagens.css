@@ -435,6 +435,16 @@
   background: var(--cor);
 }
 
+/* Empresa: o prédio no lugar da bolinha. */
+.vd-tag.is-empresa::before {
+  display: none;
+}
+
+.vd-tag.is-empresa svg {
+  flex-shrink: 0;
+  color: var(--cor);
+}
+
 .vd-tag.is-compacto {
   padding: 1px 7px 1px 6px;
   font-size: 10.5px;
@@ -1070,6 +1080,11 @@
 
 .md-item.is-rede {
   grid-template-columns: auto minmax(0, 1fr) 62px 120px 64px auto;
+}
+
+/* Tag e empresa: a coluna a mais é o "Tornar empresa / Tornar tag". */
+.md-item.is-tag {
+  grid-template-columns: auto minmax(0, 1fr) 150px 76px auto auto;
 }
 
 .md-item .md-input {

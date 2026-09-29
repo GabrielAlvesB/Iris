@@ -66,8 +66,20 @@ function formatDueDate(dueDate?: string): string {
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '');
 }
 
+/**
+ * YYYY-MM-DD pelo relógio local. Não usar toISOString(): ele dá a data em UTC,
+ * que no Brasil (UTC−3) já é o dia seguinte a partir das 21h — "Hoje" virava
+ * amanhã e "Amanhã" virava depois de amanhã, nos selos e nos atalhos de prazo.
+ */
 function isoDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+/** Hoje + n dias no calendário (não em blocos de 24 h, que erram em mudança de horário). */
+function diaDaqui(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return isoDate(d);
 }
 
 function startOfWeek(date: Date): Date {
@@ -746,13 +758,11 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
       ['Sexta', ((5 - new Date().getDay() + 7) % 7) || 7],
     ] as const
   ).forEach(([label, offset]) => {
-    const d = new Date();
-    d.setDate(d.getDate() + offset);
     const quickBtn = document.createElement('button');
     quickBtn.type = 'button';
     quickBtn.className = 'kanban-cp-atalho';
     quickBtn.textContent = label;
-    quickBtn.dataset.data = isoDate(d);
+    quickBtn.dataset.data = diaDaqui(offset);
     quickBtn.addEventListener('click', () => {
       // Clicar no atalho já marcado limpa o prazo.
       dueInput.value = dueInput.value === quickBtn.dataset.data ? '' : (quickBtn.dataset.data ?? '');
@@ -784,7 +794,14 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
     const draft = panelDraft;
     void sugerirItensComIa(
       sugerirSub,
-      { area: 'Kanban', campo: 'Subtarefas do card', titulo: draft.title, descricao: draft.description, itens: draft.subtasks.map((s) => s.title) },
+      {
+        area: 'Kanban',
+        campo: 'Subtarefas do card',
+        orientacao: 'Os passos concretos para entregar exatamente o que o título e a descrição pedem.',
+        titulo: draft.title,
+        descricao: draft.description,
+        itens: draft.subtasks.map((s) => s.title),
+      },
       'Subtarefas sugeridas',
     ).then((itens) => {
       if (!itens.length || panelDraft !== draft) return;
@@ -820,7 +837,8 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
   descricao.conteudo.appendChild(
     comAssistente(descTextarea, {
       area: 'Kanban',
-      campo: 'Descrição do card (contexto e critério de pronto)',
+      campo: 'Descrição do card',
+      orientacao: 'Contexto do trabalho em 1 a 3 linhas e o critério de pronto (como saber que terminou), específicos para o título do card.',
       contexto: () => ({ titulo: panelDraft?.title, itens: panelDraft?.subtasks.map((s) => s.title) }),
     }),
   );
@@ -910,8 +928,8 @@ function dueBadge(dueDate?: string): HTMLElement {
     span.textContent = 'Sem data';
     return span;
   }
-  const today = isoDate(new Date());
-  const tomorrow = isoDate(new Date(Date.now() + 86400000));
+  const today = diaDaqui(0);
+  const tomorrow = diaDaqui(1);
   if (dueDate < today) {
     span.className = 'kanban-due-badge kanban-due-badge--overdue';
     span.textContent = `⚠ ${formatDueDate(dueDate)}`;

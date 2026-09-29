@@ -367,14 +367,24 @@ function tituloDoPensamento(texto: string): string {
 }
 
 function abrirIaDoPostit(btn: HTMLButtonElement, pensamento: Pensamento): void {
-  const opcoes = { area: 'Pensamentos (post-its de ideias)', campo: 'Pensamento', desenvolver: true };
+  const opcoes = {
+    area: 'Pensamentos (post-its de ideias soltas)',
+    campo: 'Pensamento',
+    orientacao: 'O texto do post-it: a mesma ideia, dita com clareza. Mantenha as #tags que existirem.',
+    desenvolver: true,
+  };
   abrirMenuIa(btn, [
     ...acoesDeTexto(btn, () => pensamento.texto, opcoes, (texto) => void pensamentosState.updatePensamento({ pensamentoId: pensamento.id, texto })),
     {
       rotulo: 'Virar checklist no To-do',
       dica: 'A IA quebra a ideia em passos e cria a checklist',
-      fazer: () => {
-        void sugerirItensComIa(btn, { area: 'Pensamentos → To-do', campo: 'Passos para tirar a ideia do papel', texto: pensamento.texto }, 'Passos da checklist').then(
+      fazer: (ia) => {
+        void sugerirItensComIa(btn, {
+            area: 'Pensamentos → To-do',
+            campo: 'Passos para tirar a ideia do papel',
+            orientacao: 'Os primeiros passos concretos para executar esta ideia específica.',
+            texto: pensamento.texto,
+          }, 'Passos da checklist', ia).then(
           async (itens) => {
             if (!itens.length) return;
             const r = await window.irisAPI.todo.criarChecklist({ titulo: tituloDoPensamento(pensamento.texto), descricao: pensamento.texto, itens });
@@ -394,7 +404,7 @@ function abrirIaDoPostit(btn: HTMLButtonElement, pensamento: Pensamento): void {
         );
       },
     },
-  ]);
+  ], { escolherIa: true });
 }
 
 function buildPostit(pensamento: Pensamento): HTMLElement {

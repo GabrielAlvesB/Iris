@@ -62,7 +62,8 @@ export function registerIaIpc(): void {
   ipcMain.handle(IA_CHANNELS.gerarImagem, (_event, input: GerarImagemInput) => tentar<TarefaIa>(() => tarefas.gerarImagem(input)));
   ipcMain.handle(IA_CHANNELS.cancelarTarefa, (_event, tarefaId: string) => tentar<TarefaIa[]>(() => tarefas.cancelar(tarefaId)));
   ipcMain.handle(IA_CHANNELS.listarTarefas, () => tentar<TarefaIa[]>(() => tarefas.listarTarefas()));
-  ipcMain.handle(IA_CHANNELS.limparTarefas, () => tentar<TarefaIa[]>(() => tarefas.limparTarefas()));
+  ipcMain.handle(IA_CHANNELS.dispensarTarefa, (_event, tarefaId: string) => tentar<TarefaIa[]>(() => tarefas.dispensarTarefa(tarefaId)));
+  ipcMain.handle(IA_CHANNELS.limparTarefas,() => tentar<TarefaIa[]>(() => tarefas.limparTarefas()));
 
   ipcMain.handle(IA_CHANNELS.listarGaleria, () => toResult<ItemGaleriaComMiniatura[]>(galeria.listar()));
   ipcMain.handle(IA_CHANNELS.abrirImagem, (_event, id: string) => toResult<string>(galeria.original(id)));

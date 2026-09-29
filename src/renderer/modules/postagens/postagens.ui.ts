@@ -95,12 +95,25 @@ export function alertaDeAgenda(item: Pick<Postagem, 'status' | 'dataAgendada' | 
   return null;
 }
 
+/** Prédio: marca a tag de empresa no chip (o tipo nunca é dito só pela cor). */
+export const ICONE_EMPRESA =
+  '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>';
+
 export function buildTagChip(tag: TagPostagem, opcoes: { ativo?: boolean; compacto?: boolean } = {}): HTMLElement {
   const chip = document.createElement('span');
-  chip.className = `vd-tag${opcoes.compacto ? ' is-compacto' : ''}${opcoes.ativo === false ? ' is-inativo' : ''}`;
+  chip.className = `vd-tag${tag.empresa ? ' is-empresa' : ''}${opcoes.compacto ? ' is-compacto' : ''}${opcoes.ativo === false ? ' is-inativo' : ''}`;
   chip.style.setProperty('--cor', tag.cor);
-  chip.textContent = tag.nome;
+  if (tag.empresa) {
+    chip.innerHTML = svg(ICONE_EMPRESA, opcoes.compacto ? 10 : 11, 2.2);
+    chip.title = `Empresa: ${tag.nome}`;
+  }
+  chip.append(tag.nome);
   return chip;
+}
+
+/** Empresas primeiro, depois as tags; cada grupo em ordem alfabética. Para todo seletor de tags. */
+export function ordenarTags<T extends TagPostagem>(tags: readonly T[]): T[] {
+  return [...tags].sort((a, b) => Number(Boolean(b.empresa)) - Number(Boolean(a.empresa)) || a.nome.localeCompare(b.nome, 'pt-BR'));
 }
 
 /**

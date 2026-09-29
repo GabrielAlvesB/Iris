@@ -32,6 +32,7 @@ import {
   type Tom,
 } from '../../ui/pagina.js';
 import { buildBotaoIa, sugerirItensComIa } from '../../ui/ia.js';
+import { mostrarToast } from '../../ui/toast.js';
 import * as kanbanState from '../kanban/kanban.state.js';
 import * as todoState from './todo.state.js';
 
@@ -45,7 +46,11 @@ import * as todoState from './todo.state.js';
  * devolvidos depois do redesenho.
  */
 
-type Filtro = 'abertas' | 'concluidas' | 'arquivadas' | 'todas';
+/**
+ * Cada aba mostra só o que é dela: Abertas (a tela inicial) sem as concluídas,
+ * que vão sozinhas para Concluídas. Não há aba que misture tudo — era poluição.
+ */
+type Filtro = 'abertas' | 'concluidas' | 'arquivadas';
 type Ordenacao = 'manual' | 'prazo' | 'prioridade';
 
 const ICONES = {
@@ -110,6 +115,55 @@ function falhou(erro: unknown): void {
 /** Roda a ação do state e mostra o erro num aviso, sem deixar a promessa solta. */
 function executar(acao: Promise<unknown>): void {
   void acao.catch(falhou);
+}
+
+function checklistAtual(id: string): Checklist | undefined {
+  return todoState.getCurrentState()?.checklists.find((c) => c.id === id);
+}
+
+/**
+ * Roda a ação e, se ela concluiu a checklist, avisa: na aba Abertas ela some
+ * da tela (vai para Concluídas), e sumir sem explicação parece erro. O aviso
+ * leva até lá e, quando dá, desfaz.
+ */
+function acompanharConclusao(checklistId: string, acao: Promise<unknown>, desfazer?: () => void): void {
+  const antes = checklistAtual(checklistId);
+  const jaEstava = antes ? concluida(antes) : true;
+  void acao
+    .then(() => {
+      const depois = checklistAtual(checklistId);
+      if (jaEstava || !depois || depois.arquivada || !concluida(depois)) return;
+      mostrarToast(`"${depois.titulo}" concluída — foi para Concluídas.`, [
+        {
+          rotulo: 'Ver',
+          fazer: () => {
+            filtro = 'concluidas';
+            redesenhar();
+          },
+        },
+        ...(desfazer ? [{ rotulo: 'Desfazer', fazer: desfazer }] : []),
+      ]);
+    })
+    .catch(falhou);
+}
+
+/** Topo da aba Concluídas: quantas são e arquivar todas de uma vez. */
+function buildAvisoConcluidas(concluidas: Checklist[]): HTMLElement {
+  const barra = document.createElement('div');
+  barra.className = 'td-concluidas-barra';
+  barra.appendChild(
+    Object.assign(document.createElement('span'), {
+      textContent: `${concluidas.length === 1 ? '1 checklist concluída' : `${concluidas.length} checklists concluídas`}. Desmarcar um item a devolve para Abertas.`,
+    }),
+  );
+  const arquivar = buildBotao('Arquivar todas', { icone: ICONES.arquivo, variante: 'fantasma', titulo: 'Tira as concluídas daqui; ficam em Arquivadas' });
+  arquivar.addEventListener('click', () => {
+    void Promise.all(concluidas.map((l) => todoState.arquivarChecklist({ checklistId: l.id, arquivada: true })))
+      .then(() => mostrarToast(`${concluidas.length === 1 ? '1 checklist arquivada' : `${concluidas.length} checklists arquivadas`}.`))
+      .catch(falhou);
+  });
+  barra.appendChild(arquivar);
+  return barra;
 }
 
 function onAtalho(e: KeyboardEvent): void {
@@ -187,8 +241,7 @@ function passaNoFiltro(l: Checklist, f: Filtro): boolean {
   if (f === 'arquivadas') return l.arquivada;
   if (l.arquivada) return false;
   if (f === 'abertas') return !concluida(l);
-  if (f === 'concluidas') return concluida(l);
-  return true;
+  return concluida(l);
 }
 
 function casaComBusca(l: Checklist): boolean {
@@ -256,7 +309,8 @@ function render(container: HTMLElement, file: TodoFile): void {
   rolagem.className = 'pg-rolagem td-rolagem';
   const grade = document.createElement('div');
   grade.className = 'td-grade';
-  if (filtro === 'abertas' || filtro === 'todas') grade.appendChild(buildCriacaoRapida());
+  if (filtro === 'abertas') grade.appendChild(buildCriacaoRapida());
+  if (filtro === 'concluidas' && visiveis.length) rolagem.appendChild(buildAvisoConcluidas(visiveis));
   visiveis.forEach((l) => grade.appendChild(buildCartao(l)));
   rolagem.appendChild(grade);
   if (!visiveis.length) {
@@ -266,7 +320,6 @@ function render(container: HTMLElement, file: TodoFile): void {
           abertas: 'Nada pendente. Crie uma checklist acima ou veja as concluídas.',
           concluidas: 'Nenhuma checklist com todos os itens marcados.',
           arquivadas: 'Nenhuma checklist arquivada.',
-          todas: 'Nenhuma checklist.',
         }[filtro];
     rolagem.appendChild(Object.assign(document.createElement('p'), { className: 'md-vazio td-vazio', textContent: vazio }));
   }
@@ -309,7 +362,6 @@ function buildBarra(file: TodoFile): HTMLElement {
       [
         { value: 'abertas', label: `Abertas · ${conta('abertas')}` },
         { value: 'concluidas', label: `Concluídas · ${conta('concluidas')}` },
-        { value: 'todas', label: 'Todas' },
         { value: 'arquivadas', label: `Arquivadas · ${conta('arquivadas')}` },
       ],
       filtro,
@@ -384,6 +436,8 @@ function buildCartao(l: Checklist): HTMLElement {
   cartao.dataset.id = l.id;
   cartao.style.setProperty('--td-cor', l.cor);
 
+  // O progresso é a faixa do topo, na cor da checklist: identifica e mede ao mesmo tempo.
+  cartao.appendChild(buildProgresso(l));
   cartao.appendChild(buildCabecaCartao(l));
 
   const selos = buildSelosCartao(l);
@@ -392,8 +446,6 @@ function buildCartao(l: Checklist): HTMLElement {
   if (l.descricao) {
     cartao.appendChild(Object.assign(document.createElement('p'), { className: 'td-descricao', textContent: l.descricao }));
   }
-
-  if (l.itens.length) cartao.appendChild(buildProgresso(l));
 
   const pendentes = l.itens.filter((i) => !i.feito);
   const feitos = l.itens.filter((i) => i.feito);
@@ -407,33 +459,36 @@ function buildCartao(l: Checklist): HTMLElement {
 
   if (!l.arquivada) cartao.appendChild(buildAdicionarItem(l));
 
-  if (feitos.length) {
-    const aberto = feitosAbertos.has(l.id);
-    const alternar = document.createElement('button');
-    alternar.type = 'button';
-    alternar.className = 'td-feitos-toggle';
-    alternar.classList.toggle('is-aberto', aberto);
-    alternar.setAttribute('aria-expanded', String(aberto));
-    alternar.innerHTML = svg(ICONES.seta, 13, 2.2);
-    alternar.append(`Concluídos · ${feitos.length}`);
-    alternar.addEventListener('click', () => {
-      if (aberto) feitosAbertos.delete(l.id);
-      else feitosAbertos.add(l.id);
-      salvarFeitosAbertos();
-      redesenhar();
-    });
-    cartao.appendChild(alternar);
-    if (aberto) {
-      const listaFeitos = document.createElement('ul');
-      listaFeitos.className = 'td-itens is-feitos';
-      listaFeitos.setAttribute('aria-label', `Itens concluídos de ${l.titulo}`);
-      feitos.forEach((i) => listaFeitos.appendChild(buildItem(l, i)));
-      cartao.appendChild(listaFeitos);
-    }
+  if (feitos.length && feitosAbertos.has(l.id)) {
+    const listaFeitos = document.createElement('ul');
+    listaFeitos.className = 'td-itens is-feitos';
+    listaFeitos.setAttribute('aria-label', `Itens concluídos de ${l.titulo}`);
+    feitos.forEach((i) => listaFeitos.appendChild(buildItem(l, i)));
+    cartao.appendChild(listaFeitos);
   }
 
-  cartao.appendChild(buildRodapeCartao(l));
+  cartao.appendChild(buildRodapeCartao(l, feitos.length));
   return cartao;
+}
+
+/** "Feitos · N" no rodapé: abre e fecha a lista de feitos logo acima. */
+function buildAlternarFeitos(l: Checklist, quantos: number): HTMLElement {
+  const aberto = feitosAbertos.has(l.id);
+  const alternar = document.createElement('button');
+  alternar.type = 'button';
+  alternar.className = 'td-feitos-toggle';
+  alternar.classList.toggle('is-aberto', aberto);
+  alternar.setAttribute('aria-expanded', String(aberto));
+  alternar.innerHTML = svg(ICONES.seta, 13, 2.2);
+  alternar.append(`Feitos · ${quantos}`);
+  alternar.title = aberto ? 'Esconder os itens feitos' : 'Mostrar os itens feitos';
+  alternar.addEventListener('click', () => {
+    if (aberto) feitosAbertos.delete(l.id);
+    else feitosAbertos.add(l.id);
+    salvarFeitosAbertos();
+    redesenhar();
+  });
+  return alternar;
 }
 
 function buildCabecaCartao(l: Checklist): HTMLElement {
@@ -460,6 +515,18 @@ function buildCabecaCartao(l: Checklist): HTMLElement {
   });
   titulo.appendChild(botaoTitulo);
   cab.appendChild(titulo);
+
+  // Contagem ao lado do título; completa ganha o ✓ (estado nunca só pela cor).
+  if (l.itens.length) {
+    const feitos = l.itens.filter((i) => i.feito).length;
+    const contagem = document.createElement('span');
+    contagem.className = 'td-contagem';
+    contagem.classList.toggle('is-completa', feitos === l.itens.length);
+    contagem.title = `${feitos} de ${l.itens.length} itens feitos`;
+    if (feitos === l.itens.length) contagem.innerHTML = svg('<polyline points="20 6 9 17 4 12"/>', 11, 3);
+    contagem.append(`${feitos}/${l.itens.length}`);
+    cab.appendChild(contagem);
+  }
 
   const menu = document.createElement('button');
   menu.type = 'button';
@@ -528,27 +595,22 @@ function buildSeloEnvio(l: Checklist): HTMLElement | null {
   return botao;
 }
 
+/** Faixa no topo do cartão: trilho vazio sem itens, cor da checklist enchendo, verde quando completa. */
 function buildProgresso(l: Checklist): HTMLElement {
   const feitos = l.itens.filter((i) => i.feito).length;
   const total = l.itens.length;
-  const wrap = document.createElement('div');
-  wrap.className = 'td-progresso';
   const barra = document.createElement('div');
-  barra.className = 'td-progresso-trilho';
+  barra.className = 'td-faixa';
   barra.setAttribute('role', 'progressbar');
   barra.setAttribute('aria-valuemin', '0');
   barra.setAttribute('aria-valuemax', String(total));
   barra.setAttribute('aria-valuenow', String(feitos));
-  barra.setAttribute('aria-label', `${feitos} de ${total} itens feitos`);
+  barra.setAttribute('aria-label', total ? `${feitos} de ${total} itens feitos` : 'Sem itens');
   const cheio = document.createElement('i');
-  cheio.style.width = `${Math.round((feitos / total) * 100)}%`;
-  cheio.classList.toggle('is-completo', feitos === total);
+  cheio.style.width = total ? `${Math.round((feitos / total) * 100)}%` : '0%';
+  cheio.classList.toggle('is-completo', total > 0 && feitos === total);
   barra.appendChild(cheio);
-  const numero = document.createElement('span');
-  numero.className = 'td-progresso-num';
-  numero.textContent = `${feitos}/${total}`;
-  wrap.append(barra, numero);
-  return wrap;
+  return barra;
 }
 
 function buildItem(l: Checklist, item: ItemTodo): HTMLElement {
@@ -572,7 +634,10 @@ function buildItem(l: Checklist, item: ItemTodo): HTMLElement {
   caixa.disabled = l.arquivada;
   caixa.setAttribute('aria-label', `${item.feito ? 'Desmarcar' : 'Marcar'} "${item.texto}"`);
   caixa.addEventListener('change', () => {
-    executar(todoState.atualizarItem({ checklistId: l.id, itemId: item.id, feito: caixa.checked }));
+    const feito = caixa.checked;
+    acompanharConclusao(l.id, todoState.atualizarItem({ checklistId: l.id, itemId: item.id, feito }), () =>
+      executar(todoState.atualizarItem({ checklistId: l.id, itemId: item.id, feito: false })),
+    );
   });
   li.appendChild(caixa);
 
@@ -597,7 +662,8 @@ function buildItem(l: Checklist, item: ItemTodo): HTMLElement {
     remover.title = 'Remover item';
     remover.setAttribute('aria-label', `Remover "${item.texto}"`);
     remover.innerHTML = svg(ICONES.xis, 13, 2.2);
-    remover.addEventListener('click', () => executar(todoState.removerItem({ checklistId: l.id, itemId: item.id })));
+    // Tirar o último item pendente também conclui a checklist.
+    remover.addEventListener('click', () => acompanharConclusao(l.id, todoState.removerItem({ checklistId: l.id, itemId: item.id })));
     li.appendChild(remover);
   }
   return li;
@@ -643,37 +709,52 @@ function buildAdicionarItem(l: Checklist): HTMLElement {
   return form;
 }
 
-function buildRodapeCartao(l: Checklist): HTMLElement {
+/**
+ * Rodapé: "Feitos" à esquerda, ações compactas à direita. Antes as ações
+ * vinham em texto cheio e eram a coisa mais chamativa de cada cartão.
+ */
+function buildRodapeCartao(l: Checklist, feitos: number): HTMLElement {
   const rodape = document.createElement('footer');
   rodape.className = 'td-cartao-rodape';
+  if (feitos) rodape.appendChild(buildAlternarFeitos(l, feitos));
+  const acoes = document.createElement('div');
+  acoes.className = 'td-rodape-acoes';
+  rodape.appendChild(acoes);
   if (l.arquivada) {
     const restaurar = buildBotao('Restaurar', { icone: ICONES.restaurar, variante: 'fantasma' });
     restaurar.addEventListener('click', () => executar(todoState.arquivarChecklist({ checklistId: l.id, arquivada: false })));
-    rodape.appendChild(restaurar);
+    acoes.appendChild(restaurar);
     return rodape;
   }
-  const sugerir = buildBotaoIa('Sugerir itens', 'A IA sugere itens a partir do título, da descrição e do que já existe');
+  const sugerir = buildBotaoIa('IA', 'Sugerir itens com IA, a partir do título, da descrição e do que já existe');
   sugerir.addEventListener('click', () => {
     void sugerirItensComIa(
       sugerir,
-      { area: 'To-do', campo: 'Itens da checklist', titulo: l.titulo, descricao: l.descricao, itens: l.itens.map((i) => i.texto) },
+      {
+        area: 'To-do',
+        campo: 'Itens da checklist',
+        orientacao: 'Os passos que faltam para concluir esta checklist, a partir do título, da descrição e do que já está na lista.',
+        titulo: l.titulo,
+        descricao: l.descricao,
+        itens: l.itens.map((i) => i.texto),
+      },
       `Itens para "${l.titulo}"`,
     ).then((textos) => {
       if (textos.length) executar(todoState.adicionarItens({ checklistId: l.id, textos }));
     });
   });
-  rodape.appendChild(sugerir);
-  const kanban = buildBotao(l.envio ? 'Enviar de novo' : 'Enviar ao Kanban', {
+  acoes.appendChild(sugerir);
+  const kanban = buildBotao('Kanban', {
     icone: ICONES.kanban,
     variante: 'fantasma',
-    titulo: 'Cria um card no Kanban com os itens como subtarefas',
+    titulo: l.envio ? 'Enviar de novo ao Kanban' : 'Enviar ao Kanban: cria um card com os itens como subtarefas',
   });
   kanban.addEventListener('click', () => abrirEnvio(l));
-  rodape.appendChild(kanban);
+  acoes.appendChild(kanban);
   if (concluida(l)) {
     const arquivar = buildBotao('Arquivar', { icone: ICONES.arquivo, variante: 'fantasma', titulo: 'Tudo feito: tire da frente' });
     arquivar.addEventListener('click', () => executar(todoState.arquivarChecklist({ checklistId: l.id, arquivada: true })));
-    rodape.appendChild(arquivar);
+    acoes.appendChild(arquivar);
   }
   return rodape;
 }
@@ -779,7 +860,7 @@ function abrirMenu(ancora: HTMLElement, l: Checklist): void {
     { rotulo: 'Editar detalhes', icone: ICONES.editar, fazer: () => abrirDetalhes(l) },
     ...(l.arquivada ? [] : [{ rotulo: l.envio ? 'Enviar ao Kanban de novo' : 'Enviar ao Kanban', icone: ICONES.enviar, fazer: () => abrirEnvio(l) }]),
     ...(pendentes
-      ? [{ rotulo: 'Marcar todos como feitos', icone: ICONES.checkTodos, fazer: () => executar(todoState.marcarTodos({ checklistId: l.id, feito: true })) }]
+      ? [{ rotulo: 'Marcar todos como feitos', icone: ICONES.checkTodos, fazer: () => acompanharConclusao(l.id, todoState.marcarTodos({ checklistId: l.id, feito: true })) }]
       : []),
     ...(feitos
       ? [

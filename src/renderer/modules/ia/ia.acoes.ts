@@ -1,9 +1,17 @@
-import type { ItemGaleria, SalvarNaBibliotecaResult, TarefaIa, VinculoPostagem } from '../../../shared/types/ia.types.js';
+import {
+  descritorDe,
+  formatoIaDe,
+  type ItemGaleria,
+  type ItemGaleriaComMiniatura,
+  type SalvarNaBibliotecaResult,
+  type TarefaIa,
+  type VinculoPostagem,
+} from '../../../shared/types/ia.types.js';
 import { abrirPostagem } from '../../core/navegacao.js';
 import { ICONE_IA, exigirIa } from '../../ui/ia.js';
 import { erroInline, pilulas, textarea } from '../../ui/campos.js';
 import { mensagemDeErro, openAvisoModal, openCustomModal } from '../../ui/modal.js';
-import { ICONES, buildBotao, buildBusca } from '../../ui/pagina.js';
+import { ICONES, buildBotao, buildBusca, buildSelo, svg } from '../../ui/pagina.js';
 import * as imagensState from '../postagens/imagens/imagens.state.js';
 import * as videosState from '../postagens/videos/videos.state.js';
 
@@ -131,33 +139,165 @@ export async function anexarComEscolha(item: ItemGaleria): Promise<void> {
   }
 }
 
-/** Visualização grande de um item da galeria. */
-export function abrirVisualizacao(item: ItemGaleria, acoes: HTMLElement[]): void {
+export interface AcoesDaVisualizacao {
+  /** Modificar, ideias, variação, referência — o primeiro é o destaque. */
+  criar: HTMLButtonElement[];
+  /** Anexar, salvar, exportar. */
+  usar: HTMLButtonElement[];
+  excluir: HTMLButtonElement;
+}
+
+function formatarData(iso: string): string {
+  return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+/**
+ * Visualização grande de um item da galeria: a imagem à esquerda (com setas
+ * para passar pelas outras), e à direita o prompt, os detalhes e as ações em
+ * grupos. As ações são montadas por quem abre (o Estúdio), porque dependem
+ * do criador e da galeria dele.
+ */
+export function abrirVisualizacao(
+  itens: ItemGaleriaComMiniatura[],
+  indiceInicial: number,
+  montarAcoes: (item: ItemGaleriaComMiniatura, fechar: () => void, removido: () => void) => AcoesDaVisualizacao,
+): void {
+  let lista = [...itens];
+  let indice = Math.max(0, Math.min(indiceInicial, lista.length - 1));
+
   void openCustomModal(
     'Imagem gerada',
-    ({ corpo, rodape, fechar }) => {
-      const moldura = document.createElement('div');
-      moldura.className = 'ia-visualizacao';
-      moldura.appendChild(Object.assign(document.createElement('p'), { className: 'md-dica', textContent: 'Carregando…' }));
-      corpo.appendChild(moldura);
-      void window.irisAPI.ia.abrirImagem(item.id).then((r) => {
-        if (!r.ok) {
-          moldura.replaceChildren(Object.assign(document.createElement('p'), { className: 'md-erro', textContent: r.error }));
+    ({ modal, corpo, rodape, fechar }) => {
+      modal.classList.add('ia-vis-modal');
+      const cabecalhoSub = modal.querySelector<HTMLElement>('.modal-custom-textos p');
+      const fecharBtn = buildBotao('Fechar', { variante: 'fantasma' });
+      fecharBtn.addEventListener('click', fechar);
+      rodape.appendChild(fecharBtn);
+
+      const onTecla = (e: KeyboardEvent): void => {
+        if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
+        if (e.key === 'ArrowRight') ir(1);
+        else if (e.key === 'ArrowLeft') ir(-1);
+      };
+      document.addEventListener('keydown', onTecla);
+      const observador = new MutationObserver(() => {
+        if (!modal.isConnected) {
+          document.removeEventListener('keydown', onTecla);
+          observador.disconnect();
+        }
+      });
+      observador.observe(document.body, { childList: true, subtree: true });
+
+      const ir = (passo: number): void => {
+        if (lista.length < 2) return;
+        indice = (indice + passo + lista.length) % lista.length;
+        desenhar();
+      };
+
+      const desenhar = (): void => {
+        const item = lista[indice];
+        if (!item) {
+          fechar();
           return;
         }
+        if (cabecalhoSub) cabecalhoSub.textContent = lista.length > 1 ? `${indice + 1} de ${lista.length}` : formatoIaDe(item.formato).rotulo;
+        const grade = document.createElement('div');
+        grade.className = 'ia-vis';
+
+        // ---- Palco ----
+        const palco = document.createElement('div');
+        palco.className = 'ia-vis-palco';
         const img = document.createElement('img');
-        img.src = r.data;
-        img.alt = item.prompt.slice(0, 120);
-        moldura.replaceChildren(img);
-      });
-      const prompt = document.createElement('p');
-      prompt.className = 'ia-visualizacao-prompt';
-      prompt.textContent = item.prompt;
-      corpo.appendChild(prompt);
-      acoes.forEach((a) => a.addEventListener('click', () => fechar()));
-      rodape.append(...acoes);
+        img.alt = item.prompt.slice(0, 160);
+        // A miniatura aparece na hora; a imagem em tamanho real troca quando chega.
+        if (item.miniatura) img.src = item.miniatura;
+        palco.appendChild(img);
+        void window.irisAPI.ia.abrirImagem(item.id).then((r) => {
+          if (r.ok && lista[indice]?.id === item.id) img.src = r.data;
+        });
+        if (lista.length > 1) {
+          const seta = (passo: number, rotulo: string, icone: string): HTMLButtonElement => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = `ia-vis-seta ${passo < 0 ? 'is-esq' : 'is-dir'}`;
+            b.title = rotulo;
+            b.setAttribute('aria-label', rotulo);
+            b.innerHTML = svg(icone, 20, 2.2);
+            b.addEventListener('click', () => ir(passo));
+            return b;
+          };
+          palco.append(seta(-1, 'Imagem anterior (←)', '<path d="m15 18-6-6 6-6"/>'), seta(1, 'Próxima imagem (→)', '<path d="m9 18 6-6-6-6"/>'));
+        }
+
+        // ---- Lado ----
+        const lado = document.createElement('aside');
+        lado.className = 'ia-vis-lado';
+
+        const selos = document.createElement('div');
+        selos.className = 'ia-vis-selos';
+        selos.appendChild(buildSelo(`${formatoIaDe(item.formato).rotulo} · ${formatoIaDe(item.formato).proporcao}`, 'neutro'));
+        if (item.biblioteca) selos.appendChild(buildSelo('Na Biblioteca', 'ok'));
+        if (item.postagem) selos.appendChild(buildSelo(`Em "${item.postagem.titulo}"`, 'ok'));
+        lado.appendChild(selos);
+
+        const blocoPrompt = document.createElement('section');
+        blocoPrompt.className = 'ia-vis-bloco';
+        const cabPrompt = document.createElement('div');
+        cabPrompt.className = 'ia-vis-bloco-cab';
+        cabPrompt.appendChild(Object.assign(document.createElement('h4'), { textContent: 'Prompt' }));
+        const copiar = buildBotao('Copiar', { variante: 'fantasma', icone: ICONES.copiar });
+        copiar.addEventListener('click', () => {
+          void navigator.clipboard.writeText(item.prompt).then(() => {
+            copiar.querySelector('span')!.textContent = 'Copiado';
+          });
+        });
+        cabPrompt.appendChild(copiar);
+        blocoPrompt.append(cabPrompt, Object.assign(document.createElement('p'), { className: 'ia-vis-prompt', textContent: item.prompt }));
+        lado.appendChild(blocoPrompt);
+
+        const detalhes = document.createElement('dl');
+        detalhes.className = 'ia-vis-detalhes';
+        const linhas: Array<[string, string]> = [
+          ['Tamanho', `${item.largura} × ${item.altura}`],
+          ['Modelo', item.modelo],
+          ['Provedor', descritorDe(item.provedor).rotulo],
+          ['Criada', formatarData(item.criadoEm)],
+        ];
+        if (item.referencias.length) linhas.push(['Referências', item.referencias.join(', ')]);
+        if (item.biblioteca) linhas.push(['Arquivo', item.biblioteca.caminho]);
+        linhas.forEach(([k, v]) => {
+          detalhes.append(Object.assign(document.createElement('dt'), { textContent: k }), Object.assign(document.createElement('dd'), { textContent: v, title: v }));
+        });
+        lado.appendChild(detalhes);
+
+        const removido = (): void => {
+          lista = lista.filter((x) => x.id !== item.id);
+          indice = Math.min(indice, lista.length - 1);
+          if (!lista.length) fechar();
+          else desenhar();
+        };
+        const acoes = montarAcoes(item, fechar, removido);
+        const grupo = (titulo: string, botoes: HTMLButtonElement[], classe: string): HTMLElement => {
+          const g = document.createElement('section');
+          g.className = `ia-vis-grupo ${classe}`;
+          g.appendChild(Object.assign(document.createElement('h4'), { textContent: titulo }));
+          const wrap = document.createElement('div');
+          wrap.className = 'ia-vis-botoes';
+          wrap.append(...botoes);
+          g.appendChild(wrap);
+          return g;
+        };
+        lado.append(grupo('Continuar criando', acoes.criar, 'is-criar'), grupo('Usar esta imagem', acoes.usar, 'is-usar'));
+        // No rodapé, sempre à vista — dentro da coluna ele ficava escondido abaixo da rolagem.
+        const espaco = Object.assign(document.createElement('span'), { className: 'pg-espaco' });
+        rodape.replaceChildren(acoes.excluir, espaco, fecharBtn);
+
+        grade.append(palco, lado);
+        corpo.replaceChildren(grade);
+      };
+      desenhar();
     },
-    { largura: 980, icone: ICONE_IA, subtitulo: `${item.largura}×${item.altura} · ${item.modelo}` },
+    { largura: 1180, icone: ICONE_IA, subtitulo: ' ' },
   );
 }
 
@@ -231,9 +371,8 @@ export async function abrirModificacao(item: ItemGaleria & { miniatura?: string 
         modificar.disabled = true;
         void window.irisAPI.ia
           .gerarImagem({
-            prompt:
-              `Edite a imagem de referência: ${pedido.value.trim()}. ` +
-              'Mantenha todo o resto igual — pessoas, rostos, composição, estilo e cores — mudando só o que foi pedido.',
+            prompt: pedido.value.trim(),
+            modo: 'modificar',
             formato: item.formato,
             referencias: [{ origem: 'galeria', id: item.id }],
             quantidade: Number(quantidade),

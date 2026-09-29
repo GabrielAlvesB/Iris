@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { anexosValidosParaSalvar, migrarAnexos } from '../anexos/anexos.service';
 import {
   isPrioridade,
   type AtualizarPostagemComum,
@@ -111,6 +112,7 @@ export function migrarBase<S extends string>(
     notas: texto(c.notas),
     camposExtras: limparExtras(c.camposExtras),
     recursoIds: listaDeStrings(c.recursoIds),
+    anexos: migrarAnexos(c.anexos),
     publicadoEm: typeof c.publicadoEm === 'string' ? c.publicadoEm : undefined,
     statusAntesDeArquivar: isStatus(c.statusAntesDeArquivar) ? c.statusAntesDeArquivar : undefined,
     motivoArquivamento:
@@ -302,6 +304,7 @@ export function criarEtapas<S extends string, P extends PostagemBase<S>>(etapas:
       notas: '',
       camposExtras: [],
       recursoIds: [],
+      anexos: [],
       publicadoEm: (status as Status) === 'publicado' ? timestamp : undefined,
       historico: [],
       createdAt: timestamp,
@@ -371,6 +374,11 @@ export function aplicarEdicaoComum<S extends string>(
     item.camposExtras = extras;
   }
   if (input.recursoIds !== undefined) item.recursoIds = [...new Set(input.recursoIds)];
+  if (input.anexos !== undefined) {
+    const anexos = anexosValidosParaSalvar(input.anexos);
+    if (anexos.length !== item.anexos.length) alterados.push('anexos');
+    item.anexos = anexos;
+  }
   return alterados;
 }
 

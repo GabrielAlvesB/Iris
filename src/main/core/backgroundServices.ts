@@ -5,6 +5,9 @@ import * as githubService from '../modules/github/github.service';
 import * as exploradorService from '../modules/explorador/explorador.service';
 import * as postagensAgenda from '../modules/postagens/postagens.agenda';
 import * as atualizacaoService from '../modules/atualizacao/atualizacao.service';
+import * as anexosService from '../modules/anexos/anexos.service';
+import * as imagensService from '../modules/imagens/imagens.service';
+import * as videosService from '../modules/videos/videos.service';
 
 /**
  * Raiz de composição das tarefas de fundo — mantém o main.ts sem precisar
@@ -47,6 +50,16 @@ export async function startBackgroundServices(): Promise<void> {
     await atualizacaoService.verificar(signal);
   });
   startTask(TAREFA_ATUALIZACAO, 12_000);
+
+  // Cópias de anexos que nenhuma postagem usa mais. Tipo de postagem novo
+  // precisa entrar aqui, senão os anexos dele seriam apagados na abertura.
+  setTimeout(() => {
+    void (async () => {
+      const [videos, imagens] = await Promise.all([videosService.getFile(), imagensService.getFile()]);
+      const emUso = new Set([...videos.videos, ...imagens.imagens].flatMap((p) => p.anexos.map((a) => a.id)));
+      await anexosService.limparOrfaos(emUso);
+    })().catch(() => undefined);
+  }, 20_000);
 
   exploradorService.iniciarWatchers();
 }

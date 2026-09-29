@@ -1,4 +1,14 @@
-import { descritorDe, type Capacidade, type ContextoTexto, type ModeloIa, type ProvedorId, type TarefaTexto, type VarianteTexto } from '../../shared/types/ia.types.js';
+import {
+  descritorDe,
+  type Capacidade,
+  type ConfigProvedor,
+  type ContextoTexto,
+  type IaConfig,
+  type ModeloIa,
+  type ProvedorId,
+  type TarefaTexto,
+  type VarianteTexto,
+} from '../../shared/types/ia.types.js';
 import { carregarConfigIa, gerarTextoIa, iaPode } from '../core/ia.js';
 import { abrirAjustes, abrirTutorial } from '../core/navegacao.js';
 import { empilharCamada, mensagemDeErro, openAvisoModal, openCustomModal } from './modal.js';
@@ -67,11 +77,77 @@ export async function exigirIa(capacidade: Capacidade): Promise<boolean> {
   return false;
 }
 
+// ---------- Qual IA escreve ----------
+
+/** A IA de um pedido de texto: `provedor` ausente = a padrão de Ajustes. */
+export interface EscolhaTexto {
+  provedor?: ProvedorId;
+}
+
+interface OpcaoDeTexto extends EscolhaTexto {
+  rotulo: string;
+  curto: string;
+  modelo: string;
+}
+
+/**
+ * As IAs de texto configuradas, com a padrão primeiro. Vazia quando há uma só:
+ * aí não há o que escolher e nada aparece. A padrão sem nada marcado em
+ * Ajustes é a primeira configurada — a mesma que o `resolver` do main usa.
+ */
+function opcoesDeTexto(c: IaConfig): OpcaoDeTexto[] {
+  const prontos = c.provedores.filter((p) => p.configurado && descritorDe(p.id).capacidades.includes('texto'));
+  if (prontos.length < 2) return [];
+  const padrao = prontos.find((p) => p.id === c.texto) ?? prontos[0]!;
+  const modelo = (p: ConfigProvedor): string => p.modeloTexto || descritorDe(p.id).modeloTextoSugerido || 'modelo padrão do provedor';
+  return [
+    { rotulo: `Padrão · ${descritorDe(padrao.id).rotulo}`, curto: `Padrão (${descritorDe(padrao.id).rotulo})`, modelo: modelo(padrao) },
+    ...prontos
+      .filter((p) => p !== padrao)
+      .map((p) => ({ provedor: p.id, rotulo: descritorDe(p.id).rotulo, curto: descritorDe(p.id).rotulo, modelo: modelo(p) })),
+  ];
+}
+
+async function lerOpcoesDeTexto(): Promise<OpcaoDeTexto[]> {
+  try {
+    return opcoesDeTexto(await carregarConfigIa());
+  } catch {
+    // Sem a config, segue com a padrão; o main explica se nada estiver configurado.
+    return [];
+  }
+}
+
+/**
+ * Pergunta qual IA escreve, num menu ancorado no botão, com a padrão primeiro.
+ * Resolve na hora com a padrão quando só há uma IA; null se fechou sem escolher.
+ */
+export async function escolherIaDeTexto(ancora: HTMLElement): Promise<EscolhaTexto | null> {
+  const opcoes = await lerOpcoesDeTexto();
+  if (!opcoes.length) return {};
+  return new Promise((resolve) => {
+    let escolha: EscolhaTexto | null = null;
+    abrirMenuIa(
+      ancora,
+      opcoes.map((o) => ({
+        rotulo: o.rotulo,
+        dica: o.modelo,
+        fazer: () => {
+          escolha = { provedor: o.provedor };
+        },
+      })),
+      { titulo: 'Gerar com qual IA?', aoFechar: () => resolve(escolha) },
+    );
+  });
+}
+
 /**
  * Roda uma ação de IA com o botão em "Gerando…" e mostra o erro num aviso.
- * Devolve undefined se falhou.
+ * Sem `ia` (botão direto, sem menu), pergunta antes qual IA usar — se houver
+ * mais de uma. Devolve undefined se falhou ou se fechou a escolha.
  */
-export async function comGeracao<T>(botao: HTMLButtonElement, acao: () => Promise<T>): Promise<T | undefined> {
+export async function comGeracao<T>(botao: HTMLButtonElement, acao: (ia: EscolhaTexto) => Promise<T>, ia?: EscolhaTexto): Promise<T | undefined> {
+  const escolha = ia ?? (await escolherIaDeTexto(botao));
+  if (!escolha) return undefined;
   const conteudo = Array.from(botao.childNodes);
   botao.disabled = true;
   botao.classList.add('is-gerando');
@@ -79,7 +155,7 @@ export async function comGeracao<T>(botao: HTMLButtonElement, acao: () => Promis
   texto.textContent = 'Gerando…';
   botao.replaceChildren(document.createRange().createContextualFragment(svg(ICONE_IA, 13, 2)), texto);
   try {
-    return await acao();
+    return await acao(escolha);
   } catch (erro) {
     await openAvisoModal('A IA não conseguiu', mensagemDeErro(erro), { erro: true });
     return undefined;
@@ -308,15 +384,39 @@ export function abrirSeletorModelo(
 export interface AcaoMenuIa {
   rotulo: string;
   dica: string;
-  fazer: () => void;
+  /** Ícone SVG do item; sem ele, a faísca da IA. */
+  icone?: string;
+  /** Recebe a IA marcada na fileira "Gerar com" (vazia = a padrão). */
+  fazer: (ia: EscolhaTexto) => void;
 }
 
-/** Menu flutuante ancorado num botão (o mesmo desenho do menu dos Roteiros). */
-export function abrirMenuIa(ancora: HTMLElement, acoes: AcaoMenuIa[]): void {
+export interface OpcoesMenuIa {
+  /** Linha de título acima dos itens. */
+  titulo?: string;
+  /** Mostra a fileira "Gerar com" quando há mais de uma IA de texto. */
+  escolherIa?: boolean;
+  /** Depois de fechar, por item ou por fora/Esc. */
+  aoFechar?: () => void;
+}
+
+/** O menu aberto de cada botão: clicar de novo no botão fecha em vez de abrir outro. */
+const menusAbertos = new WeakMap<HTMLElement, () => void>();
+
+/** Menu flutuante ancorado num botão. Devolve o fechamento. */
+export function abrirMenuIa(ancora: HTMLElement, acoes: AcaoMenuIa[], opcoes: OpcoesMenuIa = {}): () => void {
+  const aberto = menusAbertos.get(ancora);
+  if (aberto) {
+    aberto();
+    // Quem esperava por este menu (a escolha de IA) recebe "fechou sem escolher".
+    if (opcoes.aoFechar) queueMicrotask(opcoes.aoFechar);
+    return () => undefined;
+  }
   const menu = document.createElement('div');
   menu.className = 'ia-menu';
   menu.setAttribute('role', 'menu');
   let fechar = (): void => undefined;
+  let escolha: EscolhaTexto = {};
+  if (opcoes.titulo) menu.appendChild(Object.assign(document.createElement('p'), { className: 'ia-menu-titulo', textContent: opcoes.titulo }));
   acoes.forEach((a) => {
     const item = document.createElement('button');
     item.type = 'button';
@@ -326,31 +426,75 @@ export function abrirMenuIa(ancora: HTMLElement, acoes: AcaoMenuIa[]): void {
     item.addEventListener('mousedown', (e) => e.preventDefault());
     const icone = document.createElement('span');
     icone.className = 'ia-menu-icone';
-    icone.innerHTML = svg(ICONE_IA, 13, 2);
+    icone.innerHTML = svg(a.icone ?? ICONE_IA, 13, 2);
     const textos = document.createElement('span');
     textos.className = 'ia-menu-textos';
     textos.append(Object.assign(document.createElement('strong'), { textContent: a.rotulo }), Object.assign(document.createElement('small'), { textContent: a.dica }));
     item.append(icone, textos);
     item.addEventListener('click', () => {
       fechar();
-      a.fazer();
+      a.fazer(escolha);
     });
     menu.appendChild(item);
   });
   document.body.appendChild(menu);
-  const r = ancora.getBoundingClientRect();
-  menu.style.left = `${Math.max(8, Math.min(window.innerWidth - menu.offsetWidth - 8, r.right - menu.offsetWidth))}px`;
-  menu.style.top = `${r.bottom + 6 + menu.offsetHeight > window.innerHeight ? Math.max(8, r.top - menu.offsetHeight - 6) : r.bottom + 6}px`;
+  const posicionar = (): void => {
+    const r = ancora.getBoundingClientRect();
+    menu.style.left = `${Math.max(8, Math.min(window.innerWidth - menu.offsetWidth - 8, r.right - menu.offsetWidth))}px`;
+    menu.style.top = `${r.bottom + 6 + menu.offsetHeight > window.innerHeight ? Math.max(8, r.top - menu.offsetHeight - 6) : r.bottom + 6}px`;
+  };
+  posicionar();
+  // O menu de escolha é navegável pelo teclado desde o início.
+  if (opcoes.titulo) menu.querySelector<HTMLButtonElement>('.ia-menu-item')?.focus();
+
+  if (opcoes.escolherIa) {
+    // A config quase sempre já está em cache; a fileira entra assim que chega.
+    void lerOpcoesDeTexto().then((lista) => {
+      if (!lista.length || !menu.isConnected) return;
+      const fileira = document.createElement('div');
+      fileira.className = 'ia-menu-escolha';
+      fileira.appendChild(Object.assign(document.createElement('span'), { className: 'ia-menu-escolha-rotulo', textContent: 'Gerar com' }));
+      const pilulas = lista.map((o) => {
+        const p = document.createElement('button');
+        p.type = 'button';
+        p.className = 'ia-menu-pilula';
+        p.textContent = o.curto;
+        p.title = o.modelo;
+        p.setAttribute('aria-pressed', String(!o.provedor));
+        p.classList.toggle('is-marcada', !o.provedor);
+        p.addEventListener('mousedown', (e) => e.preventDefault());
+        p.addEventListener('click', () => {
+          escolha = { provedor: o.provedor };
+          pilulas.forEach((x) => {
+            x.classList.toggle('is-marcada', x === p);
+            x.setAttribute('aria-pressed', String(x === p));
+          });
+        });
+        return p;
+      });
+      fileira.append(...pilulas);
+      menu.prepend(fileira);
+      posicionar();
+    });
+  }
+
   const fora = (e: MouseEvent): void => {
     if (!menu.contains(e.target as Node) && !ancora.contains(e.target as Node)) fechar();
   };
   const desempilhar = empilharCamada(menu, () => fechar());
   fechar = () => {
+    fechar = () => undefined;
+    menusAbertos.delete(ancora);
     desempilhar();
     document.removeEventListener('mousedown', fora, true);
     menu.remove();
+    // Depois do `fazer` do item, que roda logo em seguida no mesmo clique:
+    // quem espera a escolha (escolherIaDeTexto) já a encontra marcada.
+    if (opcoes.aoFechar) queueMicrotask(opcoes.aoFechar);
   };
+  menusAbertos.set(ancora, () => fechar());
   document.addEventListener('mousedown', fora, true);
+  return () => fechar();
 }
 
 // ---------- Assistente de campo de texto ----------
@@ -360,6 +504,8 @@ export interface OpcoesAssistente {
   area: string;
   /** O campo ("Próximos passos", "Descrição do card"). */
   campo: string;
+  /** O que o campo deve conter e como analisar o material — é o que evita texto genérico. */
+  orientacao?: string;
   /** Contexto extra, lido na hora do clique (o resto do documento, o título…). */
   contexto?: () => ContextoTexto;
   /** "Desenvolver" no lugar de "Resumir" (post-its, ideias curtas). */
@@ -390,13 +536,18 @@ export async function textoComIa(
   tarefa: TarefaDeCampo,
   o: OpcoesAssistente,
   aplicar: (valor: string) => void,
+  ia?: EscolhaTexto,
 ): Promise<void> {
   if (tarefa !== 'texto-escrever' && !atual.trim()) {
     await openAvisoModal('Campo vazio', 'Escreva algo primeiro, ou use "Escrever com IA".');
     return;
   }
   if (!(await exigirIa('texto'))) return;
-  const r = await comGeracao(botao, () => gerarTextoIa({ tarefa, contexto: { area: o.area, campo: o.campo, ...(o.contexto?.() ?? {}), texto: atual } }));
+  const r = await comGeracao(
+    botao,
+    (escolha) => gerarTextoIa({ tarefa, contexto: { area: o.area, campo: o.campo, orientacao: o.orientacao, ...(o.contexto?.() ?? {}), texto: atual }, ...escolha }),
+    ia,
+  );
   if (!r?.texto) return;
   const temTexto = Boolean(atual.trim());
   const escolha = await confirmarTextoGerado(
@@ -417,11 +568,11 @@ export async function textoComIa(
 /** As três ações do assistente, para montar em qualquer botão. */
 export function acoesDeTexto(botao: HTMLButtonElement, atual: () => string, o: OpcoesAssistente, aplicar: (valor: string) => void): AcaoMenuIa[] {
   return [
-    { rotulo: 'Escrever com IA', dica: 'Um texto para este campo, a partir do contexto', fazer: () => void textoComIa(botao, atual(), 'texto-escrever', o, aplicar) },
-    { rotulo: 'Melhorar o texto', dica: 'Português, clareza e ritmo, sem mudar o sentido', fazer: () => void textoComIa(botao, atual(), 'texto-melhorar', o, aplicar) },
+    { rotulo: 'Escrever com IA', dica: 'Um texto para este campo, a partir do contexto', fazer: (ia) => void textoComIa(botao, atual(), 'texto-escrever', o, aplicar, ia) },
+    { rotulo: 'Melhorar o texto', dica: 'Português, clareza e ritmo, sem mudar o sentido', fazer: (ia) => void textoComIa(botao, atual(), 'texto-melhorar', o, aplicar, ia) },
     o.desenvolver
-      ? { rotulo: 'Desenvolver a ideia', dica: 'Transforma uma nota curta em algo completo', fazer: () => void textoComIa(botao, atual(), 'texto-desenvolver', o, aplicar) }
-      : { rotulo: 'Resumir', dica: 'O essencial em poucas linhas', fazer: () => void textoComIa(botao, atual(), 'texto-resumir', o, aplicar) },
+      ? { rotulo: 'Desenvolver a ideia', dica: 'Transforma uma nota curta em algo completo', fazer: (ia) => void textoComIa(botao, atual(), 'texto-desenvolver', o, aplicar, ia) }
+      : { rotulo: 'Resumir', dica: 'O essencial em poucas linhas', fazer: (ia) => void textoComIa(botao, atual(), 'texto-resumir', o, aplicar, ia) },
   ];
 }
 
@@ -436,17 +587,17 @@ export function comAssistente(campo: HTMLTextAreaElement, o: OpcoesAssistente): 
   const botao = buildBotaoIa('IA', `Escrever, melhorar ou ${o.desenvolver ? 'desenvolver' : 'resumir'} com IA`);
   botao.classList.add('ia-campo-botao');
   botao.addEventListener('mousedown', (e) => e.preventDefault());
-  botao.addEventListener('click', () => abrirMenuIa(botao, acoesDeTexto(botao, () => campo.value, o, (valor) => aplicarNoCampo(campo, valor))));
+  botao.addEventListener('click', () => abrirMenuIa(botao, acoesDeTexto(botao, () => campo.value, o, (valor) => aplicarNoCampo(campo, valor)), { escolherIa: true }));
   wrap.append(campo, botao);
   return wrap;
 }
 
 // ---------- Itens sugeridos (checklist, subtarefas) ----------
 
-/** Pede itens à IA (lista-itens) e deixa escolher quais entram. */
-export async function sugerirItensComIa(botao: HTMLButtonElement, contexto: ContextoTexto, titulo: string): Promise<string[]> {
+/** Pede itens à IA (lista-itens) e deixa escolher quais entram. Sem `ia`, pergunta qual IA usar. */
+export async function sugerirItensComIa(botao: HTMLButtonElement, contexto: ContextoTexto, titulo: string, ia?: EscolhaTexto): Promise<string[]> {
   if (!(await exigirIa('texto'))) return [];
-  const r = await comGeracao(botao, () => gerarTextoIa({ tarefa: 'lista-itens', contexto }));
+  const r = await comGeracao(botao, (escolha) => gerarTextoIa({ tarefa: 'lista-itens', contexto, ...escolha }), ia);
   if (!r?.itens?.length) return [];
   return escolherItens(titulo, r.itens, `Gerado por ${r.modelo} — desmarque o que não quiser`);
 }

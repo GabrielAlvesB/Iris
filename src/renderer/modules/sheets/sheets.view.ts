@@ -48,7 +48,10 @@ const COLUMN_TYPE_LABELS: Record<SheetColumnType, string> = {
 function formatCellDisplay(column: SheetColumn, raw: string): string {
   if (!raw) return '';
   if (column.type === 'date') {
-    const date = new Date(raw);
+    // "2026-10-03" direto no new Date é meia-noite UTC — no Brasil, 21h do dia
+    // anterior, e a célula mostrava um dia a menos. Só a data vira local.
+    const soData = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+    const date = soData ? new Date(Number(soData[1]), Number(soData[2]) - 1, Number(soData[3])) : new Date(raw);
     if (!Number.isNaN(date.getTime())) {
       return date.toLocaleDateString('pt-BR');
     }

@@ -509,6 +509,24 @@
   color: var(--accent);
 }
 
+/* Anexo do computador: a miniatura da arte no lugar do ícone do tipo. */
+.vd-material-mini {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 7px;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-elevated-3);
+}
+
+.vd-material-meta {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
 .vd-seletor {
   display: flex;
   flex-direction: column;

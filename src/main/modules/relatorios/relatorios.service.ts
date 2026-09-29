@@ -358,6 +358,12 @@ function renovarNomesDasTags(relatorio: Relatorio, anterior?: Relatorio): Relato
 
 // ---------- API do service ----------
 
+/** As empresas dos relatórios existentes entram na migração de empresas do catálogo. */
+export async function migrarEmpresas(): Promise<void> {
+  const tagIds = loadFile().relatorios.flatMap((r) => r.tagIds);
+  await videosService.migrarEmpresasUmaVez(tagIds);
+}
+
 export async function getFile(): Promise<RelatoriosFile> {
   return loadFile();
 }

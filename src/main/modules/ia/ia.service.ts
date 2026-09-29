@@ -277,8 +277,51 @@ export async function listarModelos(id: ProvedorId, forcar = false): Promise<Mod
   return modelos;
 }
 
+/**
+ * Confere a chave, a lista e os modelos escolhidos: o de texto recebe um
+ * pedido mínimo (custa uma fração de centavo); o de imagem só é conferido na
+ * lista, porque gerar uma imagem de teste custaria de verdade. Assim o modelo
+ * que não funciona aparece aqui, e não no meio do trabalho.
+ */
 export async function testarProvedor(id: ProvedorId): Promise<string> {
   const modelos = await listarModelos(id, true);
-  const imagem = modelos.filter((m) => m.geraImagem).length;
-  return `Conectado — ${modelos.length} modelo${modelos.length === 1 ? '' : 's'} disponíve${modelos.length === 1 ? 'l' : 'is'}${imagem ? `, ${imagem} de imagem` : ''}.`;
+  const nImagem = modelos.filter((m) => m.geraImagem).length;
+  const conectado = `Conectado — ${modelos.length} modelo${modelos.length === 1 ? '' : 's'} disponíve${modelos.length === 1 ? 'l' : 'is'}${nImagem ? `, ${nImagem} de imagem` : ''}`;
+
+  const file = loadFile();
+  const salvo = file.provedores[id];
+  const descritor = descritorDe(id);
+  const problemas: string[] = [];
+  let detalhe = '';
+
+  const modeloTexto = salvo.modeloTexto || descritor.modeloTextoSugerido || '';
+  if (modeloTexto) {
+    try {
+      await ADAPTADORES[id].gerarTexto(contexto(id, file), {
+        modelo: modeloTexto,
+        sistema: 'Responda apenas com a palavra: ok',
+        texto: 'Teste de conexão.',
+        imagens: [],
+        // Folga para modelos que raciocinam antes de responder.
+        maxTokens: 2_048,
+      });
+    } catch (erro) {
+      // O texto do provedor vai para o fim: a tela recolhe o que vem depois de " Detalhe: ".
+      const mensagem = erro instanceof Error ? erro.message : String(erro);
+      const corte = mensagem.indexOf(' Detalhe: ');
+      if (corte >= 0) detalhe = mensagem.slice(corte);
+      problemas.push(`O modelo de texto "${modeloTexto}" falhou: ${corte >= 0 ? mensagem.slice(0, corte) : mensagem}`);
+    }
+  }
+
+  const modeloImagem = descritor.capacidades.includes('imagem') ? salvo.modeloImagem || descritor.modeloImagemSugerido || '' : '';
+  if (modeloImagem && modelos.length) {
+    const m = modelos.find((x) => x.id === modeloImagem);
+    if (!m) problemas.push(`O modelo de imagem "${modeloImagem}" não está na lista da sua chave — escolha outro em "Escolher"`);
+    else if (!m.geraImagem) problemas.push(`"${modeloImagem}" não parece gerar imagem — escolha um marcado como "Gera imagem"`);
+  }
+
+  // Um problema por linha; a tela quebra linha no status longo.
+  if (problemas.length) throw new Error(`${conectado}, mas:\n• ${problemas.join('\n• ')}${detalhe}`);
+  return `${conectado}.${modeloTexto ? ` "${modeloTexto}" respondeu.` : ''}${modeloImagem ? ` "${modeloImagem}" está disponível (a cota de imagem só é conferida ao gerar).` : ''}`;
 }

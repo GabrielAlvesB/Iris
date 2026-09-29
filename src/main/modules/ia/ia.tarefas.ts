@@ -4,13 +4,14 @@ import { broadcast } from '../../core/broadcast';
 import {
   FORMATOS_IMAGEM_IA,
   formatoIaDe,
+  isProvedorId,
   type GerarImagemInput,
   type PedidoTexto,
   type RespostaTexto,
   type TarefaIa,
 } from '../../../shared/types/ia.types';
 import * as galeria from './ia.galeria';
-import { lerCard, lerItens, lerVariantes, limparTexto, montarPrompt } from './ia.prompts';
+import { lerCard, lerItens, lerVariantes, limparTexto, montarPrompt, montarPromptDeImagem } from './ia.prompts';
 import { carregar } from './ia.referencias';
 import { resolver } from './ia.service';
 
@@ -36,7 +37,7 @@ function tetoDe(tarefa: PedidoTexto['tarefa']): number {
 export async function gerarTexto(pedido: PedidoTexto): Promise<RespostaTexto> {
   const refs = pedido.contexto.referencias ?? [];
   // Com imagem junto, o provedor de texto precisa ler imagem (todos os nossos leem).
-  const provedor = resolver(refs.length ? 'visao' : 'texto');
+  const provedor = resolver(refs.length ? 'visao' : 'texto', { provedor: isProvedorId(pedido.provedor) ? pedido.provedor : undefined });
   const prompt = montarPrompt(pedido.tarefa, pedido.contexto);
   const imagens = refs.length ? await carregar(refs) : [];
   const bruto = await provedor.adaptador.gerarTexto(provedor.ctx, {
@@ -102,6 +103,8 @@ export function gerarImagem(input: GerarImagemInput): TarefaIa {
   if (!prompt) throw new Error('Descreva a imagem que você quer.');
   if (!FORMATOS_IMAGEM_IA.some((f) => f.id === input.formato)) throw new Error('Formato inválido.');
   const refs = Array.isArray(input.referencias) ? input.referencias : [];
+  const modo = input.modo === 'modificar' ? 'modificar' : 'criar';
+  if (modo === 'modificar' && refs.length !== 1) throw new Error('Para modificar, escolha uma imagem.');
   const quantidade = Math.min(4, Math.max(1, Math.round(Number(input.quantidade) || 1)));
   const provedor = resolver(refs.length ? 'imagemComReferencia' : 'imagem', { provedor: input.provedor, modelo: input.modelo });
   if (!provedor.adaptador.gerarImagem) throw new Error(`${provedor.rotulo} não gera imagens.`);
@@ -111,7 +114,7 @@ export function gerarImagem(input: GerarImagemInput): TarefaIa {
     tarefa: {
       id: randomUUID(),
       situacao: 'gerando',
-      prompt,
+      prompt: modo === 'modificar' ? `Modificação: ${prompt}` : prompt,
       formato: input.formato,
       quantidade,
       provedor: provedor.id,
@@ -130,7 +133,8 @@ export function gerarImagem(input: GerarImagemInput): TarefaIa {
       const referencias = await carregar(refs);
       const imagens = await provedor.adaptador.gerarImagem!(provedor.ctx, {
         modelo: provedor.modelo,
-        prompt,
+        // O pedido do usuário vai dentro do envelope de qualidade e formato.
+        prompt: montarPromptDeImagem(prompt, input.formato, referencias.length > 0, modo),
         referencias,
         largura: formato.largura,
         altura: formato.altura,
@@ -144,7 +148,7 @@ export function gerarImagem(input: GerarImagemInput): TarefaIa {
       for (const dados of imagens.slice(0, quantidade)) {
         itens.push(
           await galeria.adicionar(ajustarAoFormato(dados, input.formato), {
-            prompt,
+            prompt: modo === 'modificar' ? `Modificação: ${prompt}` : prompt,
             provedor: provedor.id,
             modelo: provedor.modelo,
             formato: input.formato,
@@ -173,6 +177,16 @@ export function cancelar(tarefaId: string): TarefaIa[] {
     e.controle.abort();
     publicar(e, { situacao: 'cancelado', terminadaEm: new Date().toISOString() });
   }
+  return listarTarefas();
+}
+
+/**
+ * Dispensar vale aqui, não só na tela: o Estúdio relê a lista ao ser montado,
+ * e um erro dispensado só no renderer voltava a cada visita.
+ */
+export function dispensarTarefa(tarefaId: string): TarefaIa[] {
+  const i = execucoes.findIndex((x) => x.tarefa.id === tarefaId);
+  if (i >= 0 && execucoes[i]!.tarefa.situacao !== 'gerando') execucoes.splice(i, 1);
   return listarTarefas();
 }
 

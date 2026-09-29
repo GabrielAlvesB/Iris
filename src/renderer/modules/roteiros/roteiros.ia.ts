@@ -1,8 +1,7 @@
 import type { ContextoTexto, TarefaTexto } from '../../../shared/types/ia.types.js';
 import { gerarTextoIa } from '../../core/ia.js';
-import { ICONE_IA, abrirVariantes, buildBotaoIa, comGeracao, confirmarTextoGerado, exigirIa } from '../../ui/ia.js';
-import { empilharCamada, openAvisoModal } from '../../ui/modal.js';
-import { svg } from '../../ui/pagina.js';
+import { abrirMenuIa, abrirVariantes, buildBotaoIa, comGeracao, confirmarTextoGerado, exigirIa, type EscolhaTexto } from '../../ui/ia.js';
+import { openAvisoModal } from '../../ui/modal.js';
 import { renderMarkdown } from './roteiros.markdown.js';
 
 /**
@@ -33,9 +32,9 @@ function previaMarkdown(texto: string): (alvo: HTMLElement) => void {
   };
 }
 
-async function pedir(botao: HTMLButtonElement, tarefa: TarefaTexto, contexto: ContextoTexto): Promise<string | undefined> {
+async function pedir(botao: HTMLButtonElement, tarefa: TarefaTexto, contexto: ContextoTexto, ia: EscolhaTexto): Promise<string | undefined> {
   if (!(await exigirIa('texto'))) return undefined;
-  const r = await comGeracao(botao, () => gerarTextoIa({ tarefa, contexto }));
+  const r = await comGeracao(botao, (escolha) => gerarTextoIa({ tarefa, contexto, ...escolha }), ia);
   return r?.texto;
 }
 
@@ -45,14 +44,12 @@ export function buildBotaoIaRoteiro(o: OpcoesIaRoteiro): HTMLButtonElement {
   // mousedown sem foco: a seleção do textarea precisa sobreviver ao clique.
   botao.addEventListener('mousedown', (e) => e.preventDefault());
 
-  let fechar: (() => void) | null = null;
-
-  const acoes: Array<{ rotulo: string; dica: string; fazer: (sel: { ini: number; fim: number }) => Promise<void> }> = [
+  const acoes: Array<{ rotulo: string; dica: string; fazer: (sel: { ini: number; fim: number }, ia: EscolhaTexto) => Promise<void> }> = [
     {
       rotulo: 'Gerar rascunho',
       dica: 'Roteiro completo a partir do título, formato, duração e gancho',
-      fazer: async () => {
-        const texto = await pedir(botao, 'roteiro-rascunho', o.contexto());
+      fazer: async (_sel, ia) => {
+        const texto = await pedir(botao, 'roteiro-rascunho', o.contexto(), ia);
         if (!texto) return;
         const vazio = !o.area.value.trim();
         const escolha = await confirmarTextoGerado(
@@ -73,13 +70,13 @@ export function buildBotaoIaRoteiro(o: OpcoesIaRoteiro): HTMLButtonElement {
     {
       rotulo: 'Melhorar seleção',
       dica: 'Reescreve só o trecho selecionado no editor',
-      fazer: async ({ ini, fim }) => {
+      fazer: async ({ ini, fim }, ia) => {
         const selecao = o.area.value.slice(ini, fim);
         if (!selecao.trim()) {
           await openAvisoModal('Selecione um trecho', 'Marque no editor o trecho que a IA deve reescrever e clique de novo.');
           return;
         }
-        const texto = await pedir(botao, 'roteiro-melhorar', { ...o.contexto(), selecao });
+        const texto = await pedir(botao, 'roteiro-melhorar', { ...o.contexto(), selecao }, ia);
         if (!texto) return;
         const escolha = await confirmarTextoGerado('Trecho melhorado', 'Substitui só o que estava selecionado', previaMarkdown(texto), [
           { id: 'usar', rotulo: 'Substituir o trecho', primario: true },
@@ -90,12 +87,12 @@ export function buildBotaoIaRoteiro(o: OpcoesIaRoteiro): HTMLButtonElement {
     {
       rotulo: 'Revisar roteiro',
       dica: 'Português, ritmo e falas mais naturais, sem mudar a estrutura',
-      fazer: async () => {
+      fazer: async (_sel, ia) => {
         if (!o.area.value.trim()) {
           await openAvisoModal('Nada para revisar', 'Escreva ou gere um rascunho primeiro.');
           return;
         }
-        const texto = await pedir(botao, 'roteiro-revisar', { ...o.contexto(), texto: o.area.value });
+        const texto = await pedir(botao, 'roteiro-revisar', { ...o.contexto(), texto: o.area.value }, ia);
         if (!texto) return;
         const escolha = await confirmarTextoGerado('Roteiro revisado', 'Aplicar substitui o texto inteiro (Ctrl+Z desfaz)', previaMarkdown(texto), [
           { id: 'usar', rotulo: 'Aplicar revisão', primario: true },
@@ -106,9 +103,9 @@ export function buildBotaoIaRoteiro(o: OpcoesIaRoteiro): HTMLButtonElement {
     {
       rotulo: 'Sugerir gancho e CTA',
       dica: 'Três pares de gancho e chamada final',
-      fazer: async () => {
+      fazer: async (_sel, ia) => {
         if (!(await exigirIa('texto'))) return;
-        const r = await comGeracao(botao, () => gerarTextoIa({ tarefa: 'roteiro-gancho-cta', contexto: { ...o.contexto(), texto: o.area.value } }));
+        const r = await comGeracao(botao, (escolha) => gerarTextoIa({ tarefa: 'roteiro-gancho-cta', contexto: { ...o.contexto(), texto: o.area.value }, ...escolha }), ia);
         if (!r?.variantes?.length) return;
         abrirVariantes({
           titulo: 'Gancho e CTA',
@@ -138,50 +135,13 @@ export function buildBotaoIaRoteiro(o: OpcoesIaRoteiro): HTMLButtonElement {
   ];
 
   botao.addEventListener('click', () => {
-    if (fechar) {
-      fechar();
-      return;
-    }
     // A seleção é lida agora: depois do menu e do modal, o textarea já perdeu o foco.
     const sel = { ini: o.area.selectionStart, fim: o.area.selectionEnd };
-    const menu = document.createElement('div');
-    menu.className = 'ia-menu';
-    menu.setAttribute('role', 'menu');
-    acoes.forEach((a) => {
-      const item = document.createElement('button');
-      item.type = 'button';
-      item.className = 'ia-menu-item';
-      item.setAttribute('role', 'menuitem');
-      item.addEventListener('mousedown', (e) => e.preventDefault());
-      const icone = document.createElement('span');
-      icone.className = 'ia-menu-icone';
-      icone.innerHTML = svg(ICONE_IA, 13, 2);
-      const textos = document.createElement('span');
-      textos.className = 'ia-menu-textos';
-      textos.append(Object.assign(document.createElement('strong'), { textContent: a.rotulo }), Object.assign(document.createElement('small'), { textContent: a.dica }));
-      item.append(icone, textos);
-      item.addEventListener('click', () => {
-        fechar?.();
-        void a.fazer(sel);
-      });
-      menu.appendChild(item);
-    });
-    document.body.appendChild(menu);
-    const r = botao.getBoundingClientRect();
-    menu.style.left = `${Math.max(8, Math.min(window.innerWidth - menu.offsetWidth - 8, r.right - menu.offsetWidth))}px`;
-    menu.style.top = `${r.bottom + 6 + menu.offsetHeight > window.innerHeight ? Math.max(8, r.top - menu.offsetHeight - 6) : r.bottom + 6}px`;
-
-    const fora = (e: MouseEvent): void => {
-      if (!menu.contains(e.target as Node) && !botao.contains(e.target as Node)) fechar?.();
-    };
-    const desempilhar = empilharCamada(menu, () => fechar?.());
-    fechar = () => {
-      fechar = null;
-      desempilhar();
-      document.removeEventListener('mousedown', fora, true);
-      menu.remove();
-    };
-    document.addEventListener('mousedown', fora, true);
+    abrirMenuIa(
+      botao,
+      acoes.map((a) => ({ rotulo: a.rotulo, dica: a.dica, fazer: (ia) => void a.fazer(sel, ia) })),
+      { escolherIa: true },
+    );
   });
   return botao;
 }

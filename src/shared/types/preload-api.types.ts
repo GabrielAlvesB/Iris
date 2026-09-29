@@ -1,4 +1,5 @@
 import type { IpcResult } from './common.types';
+import type { AnexoPostagem, EscolhaDeAnexos, InfoAnexo } from './postagens.types';
 import type { EstadoAtualizacao, InstaladorLocal, VersaoPublicada } from './atualizacao.types';
 import type {
   CreateCardInput,
@@ -368,6 +369,8 @@ export interface IaApi {
   gerarImagem(input: GerarImagemInput): Promise<IpcResult<TarefaIa>>;
   cancelarTarefa(tarefaId: string): Promise<IpcResult<TarefaIa[]>>;
   listarTarefas(): Promise<IpcResult<TarefaIa[]>>;
+  /** Tira da lista uma tarefa terminada (erro ou cancelada). */
+  dispensarTarefa(tarefaId: string): Promise<IpcResult<TarefaIa[]>>;
   limparTarefas(): Promise<IpcResult<TarefaIa[]>>;
   listarGaleria(): Promise<IpcResult<ItemGaleriaComMiniatura[]>>;
   /** data URL da imagem em tamanho real. */
@@ -433,6 +436,17 @@ export interface ImagensApi {
   excluirImagem(imagemId: string): Promise<IpcResult<ImagensFile>>;
 }
 
+/** Arquivos anexados às postagens a partir de qualquer pasta (cópia guardada pelo Iris). */
+export interface AnexosApi {
+  /** Abre o diálogo do sistema e copia os arquivos escolhidos. */
+  escolher(): Promise<IpcResult<EscolhaDeAnexos>>;
+  info(anexos: AnexoPostagem[]): Promise<IpcResult<InfoAnexo[]>>;
+  abrir(anexo: AnexoPostagem): Promise<IpcResult<void>>;
+  revelar(anexo: AnexoPostagem): Promise<IpcResult<void>>;
+  /** Destino da cópia salva, ou null se cancelou. */
+  exportar(anexo: AnexoPostagem): Promise<IpcResult<string | null>>;
+}
+
 export interface RelatoriosApi {
   getFile(): Promise<IpcResult<RelatoriosFile>>;
   criarRelatorio(input: CriarRelatorioInput): Promise<IpcResult<RelatoriosFile>>;
@@ -465,6 +479,7 @@ export interface IrisApi {
   ajustes: AjustesApi;
   videos: VideosApi;
   imagens: ImagensApi;
+  anexos: AnexosApi;
   relatorios: RelatoriosApi;
   atualizacao: AtualizacaoApi;
   events: EventsApi;

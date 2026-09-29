@@ -120,11 +120,11 @@ export function buildCriador(o: OpcoesCriador): Criador {
     void (async () => {
       if (!(await exigirIa('texto'))) return;
       const refs = referencias.map(({ origem, id }) => ({ origem, id }));
-      const resposta = await comGeracao(melhorar, () =>
+      const resposta = await comGeracao(melhorar, (ia) =>
         gerarTextoIa(
           o.contextoThumbnail
-            ? { tarefa: 'prompt-thumbnail', contexto: { ...o.contextoThumbnail(), prompt: prompt.value, formato: rotulosFormatos(), referencias: refs } }
-            : { tarefa: 'prompt-imagem', contexto: { prompt: prompt.value, formato: rotulosFormatos(), referencias: refs } },
+            ? { tarefa: 'prompt-thumbnail', contexto: { ...o.contextoThumbnail(), prompt: prompt.value, formato: rotulosFormatos(), referencias: refs }, ...ia }
+            : { tarefa: 'prompt-imagem', contexto: { prompt: prompt.value, formato: rotulosFormatos(), referencias: refs }, ...ia },
         ),
       );
       if (resposta?.texto) prompt.value = resposta.texto;
@@ -135,10 +135,11 @@ export function buildCriador(o: OpcoesCriador): Criador {
     void (async () => {
       if (!(await exigirIa('texto'))) return;
       const refs = referencias.map(({ origem, id }) => ({ origem, id }));
-      const resposta = await comGeracao(ideias, () =>
+      const resposta = await comGeracao(ideias, (ia) =>
         gerarTextoIa({
           tarefa: 'ideias-imagem',
           contexto: { ...(o.contextoThumbnail?.() ?? {}), prompt: prompt.value, formato: rotulosFormatos(), referencias: refs },
+          ...ia,
         }),
       );
       if (!resposta?.variantes?.length) return;

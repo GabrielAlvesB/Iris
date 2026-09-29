@@ -25,7 +25,7 @@ import { abrirPostagem } from '../../core/navegacao.js';
 import { buildSecaoModal, openConfirmModal, openCustomModal } from '../../ui/modal.js';
 import { buildAviso, buildBotao } from '../../ui/pagina.js';
 import * as videosState from '../postagens/videos/videos.state.js';
-import { buildRedeBadge, buildTagChip, formatarDataCurta, rotuloStatus } from '../postagens/postagens.ui.js';
+import { buildRedeBadge, buildTagChip, formatarDataCurta, ordenarTags, rotuloStatus } from '../postagens/postagens.ui.js';
 
 /**
  * Envio de linhas do Sheets para Postagens › Vídeos. A tela só escolhe o
@@ -382,7 +382,7 @@ export async function enviarParaVideos(tabela: SheetTable, linhaIds: string[], j
         };
         marcacoes.conteudo.append(
           linha('Etapa inicial', etapas),
-          linha('Tags', buildEscolhas(file.tags, tagsExtras, (t, ativo) => buildTagChip(t, { ativo }), desenhar)),
+          linha('Tags', buildEscolhas(ordenarTags(file.tags), tagsExtras, (t, ativo) => buildTagChip(t, { ativo }), desenhar)),
           linha('Redes', buildEscolhas(file.redes, redesExtras, (r, ativo) => buildRedeBadge(r, { comNome: true, ativo }), desenhar)),
         );
         corpo.appendChild(marcacoes.secao);

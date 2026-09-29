@@ -1,6 +1,7 @@
 import { clipboard, contextBridge, ipcRenderer, shell, type IpcRendererEvent } from 'electron';
 import {
   AJUSTES_CHANNELS,
+  ANEXOS_CHANNELS,
   ATUALIZACAO_CHANNELS,
   COPY_CHANNELS,
   EXPLORADOR_CHANNELS,
@@ -166,6 +167,7 @@ const irisAPI: IrisApi = {
     gerarImagem: (input) => ipcRenderer.invoke(IA_CHANNELS.gerarImagem, input),
     cancelarTarefa: (tarefaId) => ipcRenderer.invoke(IA_CHANNELS.cancelarTarefa, tarefaId),
     listarTarefas: () => ipcRenderer.invoke(IA_CHANNELS.listarTarefas),
+    dispensarTarefa: (tarefaId) => ipcRenderer.invoke(IA_CHANNELS.dispensarTarefa, tarefaId),
     limparTarefas: () => ipcRenderer.invoke(IA_CHANNELS.limparTarefas),
     listarGaleria: () => ipcRenderer.invoke(IA_CHANNELS.listarGaleria),
     abrirImagem: (id) => ipcRenderer.invoke(IA_CHANNELS.abrirImagem, id),
@@ -277,6 +279,13 @@ const irisAPI: IrisApi = {
     importarDeSheets: (input) => ipcRenderer.invoke(VIDEOS_CHANNELS.importarDeSheets, input),
     listarLinhasImportadas: (tabelaId) => ipcRenderer.invoke(VIDEOS_CHANNELS.listarLinhasImportadas, tabelaId),
     salvarPreferencias: (preferencias) => ipcRenderer.invoke(VIDEOS_CHANNELS.salvarPreferencias, preferencias),
+  },
+  anexos: {
+    escolher: () => ipcRenderer.invoke(ANEXOS_CHANNELS.escolher),
+    info: (anexos) => ipcRenderer.invoke(ANEXOS_CHANNELS.info, anexos),
+    abrir: (anexo) => ipcRenderer.invoke(ANEXOS_CHANNELS.abrir, anexo),
+    revelar: (anexo) => ipcRenderer.invoke(ANEXOS_CHANNELS.revelar, anexo),
+    exportar: (anexo) => ipcRenderer.invoke(ANEXOS_CHANNELS.exportar, anexo),
   },
   imagens: {
     getFile: () => ipcRenderer.invoke(IMAGENS_CHANNELS.getFile),

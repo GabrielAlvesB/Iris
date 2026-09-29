@@ -46,7 +46,7 @@ export function buildSugerirLegenda(o: OpcoesBotao): HTMLButtonElement {
   botao.addEventListener('click', () => {
     void (async () => {
       if (!(await exigirIa('texto'))) return;
-      const resposta = await comGeracao(botao, () => gerarTextoIa({ tarefa: o.tarefa, contexto: o.contexto() }));
+      const resposta = await comGeracao(botao, (ia) => gerarTextoIa({ tarefa: o.tarefa, contexto: o.contexto(), ...ia }));
       if (!resposta?.variantes?.length) return;
       abrirVariantes({
         titulo: video ? 'Sugestões de descrição' : 'Sugestões de legenda',

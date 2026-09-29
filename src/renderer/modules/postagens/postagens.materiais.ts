@@ -1,18 +1,23 @@
 import type { BibliotecaInfo, RecursoDetalhado } from '../../../shared/types/explorador.types';
+import type { AnexoPostagem, InfoAnexo } from '../../../shared/types/postagens.types';
 import { normalizar } from '../../../shared/types/videos.conversao.js';
 import { abrirModulo } from '../../core/navegacao.js';
-import { openCustomModal } from '../../ui/modal.js';
+import { abrirMenuIa } from '../../ui/ia.js';
+import { openAvisoModal, openCustomModal } from '../../ui/modal.js';
 import { buildBotao, buildBusca, buildSelo, buildVazio, svg } from '../../ui/pagina.js';
 import { buildIconeArquivo } from '../explorador/explorador.icones.js';
 import { ICONES_POSTAGEM as ICONES_VIDEO } from './postagens.ui.js';
 
 /** O que a seção precisa de uma postagem de qualquer tipo. */
-type ComMateriais = { titulo: string; recursoIds: string[] };
-type SalvarRecursos = (input: { recursoIds: string[] }) => void;
+type ComMateriais = { titulo: string; recursoIds: string[]; anexos: AnexoPostagem[] };
+type SalvarRecursos = (input: { recursoIds?: string[]; anexos?: AnexoPostagem[] }) => void;
 
 /**
- * Seção "Materiais" do painel de uma postagem: recursos da Biblioteca anexados
- * por id (nunca cópia de arquivo — a arte de uma imagem, o bruto de um vídeo).
+ * Seção "Materiais" do painel de uma postagem, com duas origens:
+ * - anexos do computador: o Iris guarda uma cópia (a regra do Sheets), então
+ *   serve qualquer pasta e apagar o original não afeta a postagem;
+ * - recursos da Biblioteca, por id (nunca cópia — o arquivo continua na pasta
+ *   monitorada, bom para o bruto pesado de um vídeo).
  * A Biblioteca é lida direto pela API (não pelo state do Explorador) para os
  * dois módulos não disputarem o mesmo listener.
  */
@@ -86,6 +91,74 @@ function buildLinha(recurso: RecursoDetalhado, remover: () => void, aviso: (e: u
   }
   linha.appendChild(botao('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>', 'Desanexar desta postagem', remover));
   return linha;
+}
+
+const ICONE_MAIS = '<path d="M12 5v14"/><path d="M5 12h14"/>';
+const ICONE_UPLOAD = '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>';
+const ICONE_PASTA = '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>';
+const ICONE_BAIXAR = '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>';
+const ICONE_XIS = '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>';
+
+function tamanhoLegivel(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} MB`;
+}
+
+async function acaoDeAnexo(pedido: Promise<{ ok: true } | { ok: false; error: string }>): Promise<void> {
+  const r = await pedido;
+  if (!r.ok) mensagemErro(r);
+}
+
+function buildLinhaAnexo(anexo: AnexoPostagem, info: InfoAnexo | undefined, remover: () => void, aviso: (e: unknown) => void): HTMLElement {
+  const linha = document.createElement('div');
+  linha.className = 'vd-material is-anexo';
+  // Sem info ainda (carregando), trata como presente; a falta só aparece quando o main confirma.
+  const existe = info?.existe !== false;
+  linha.classList.toggle('is-indisponivel', !existe);
+
+  if (info?.miniatura) {
+    const mini = document.createElement('img');
+    mini.className = 'vd-material-mini';
+    mini.src = info.miniatura;
+    mini.alt = '';
+    linha.appendChild(mini);
+  } else {
+    linha.appendChild(buildIconeArquivo(anexo.nome, 'arquivo', 15));
+  }
+
+  const nome = document.createElement('button');
+  nome.type = 'button';
+  nome.className = 'vd-material-nome';
+  nome.textContent = anexo.nome;
+  nome.title = existe ? `Abrir ${anexo.nome} (cópia guardada no Iris)` : anexo.nome;
+  nome.addEventListener('click', () => {
+    if (existe) void acaoDeAnexo(window.irisAPI.anexos.abrir(anexo)).catch(aviso);
+  });
+  linha.appendChild(nome);
+  linha.appendChild(Object.assign(document.createElement('span'), { className: 'vd-material-meta', textContent: tamanhoLegivel(anexo.tamanho) }));
+
+  if (!existe) {
+    linha.appendChild(buildSelo('cópia não encontrada', 'erro'));
+  } else {
+    linha.appendChild(botao(ICONE_PASTA, 'Mostrar na pasta', () => void acaoDeAnexo(window.irisAPI.anexos.revelar(anexo)).catch(aviso)));
+    linha.appendChild(botao(ICONE_BAIXAR, 'Salvar uma cópia…', () => void acaoDeAnexo(window.irisAPI.anexos.exportar(anexo)).catch(aviso)));
+  }
+  linha.appendChild(botao(ICONE_XIS, 'Desanexar desta postagem', remover));
+  return linha;
+}
+
+/** Diálogo do sistema → cópias → entram na postagem. Avisa o que ficou de fora. */
+async function anexarDoComputador(video: ComMateriais, salvar: SalvarRecursos): Promise<void> {
+  const r = await window.irisAPI.anexos.escolher();
+  if (!r.ok) {
+    await openAvisoModal('Não deu para anexar', r.error, { erro: true });
+    return;
+  }
+  if (r.data.anexos.length) salvar({ anexos: [...video.anexos, ...r.data.anexos] });
+  if (r.data.recusados.length) {
+    await openAvisoModal(r.data.anexos.length ? 'Alguns arquivos não entraram' : 'Nenhum arquivo entrou', r.data.recusados.join('\n'), { erro: true });
+  }
 }
 
 function abrirSeletor(video: ComMateriais, salvar: SalvarRecursos): void {
@@ -211,9 +284,27 @@ export function buildMateriais(video: ComMateriais, salvar: SalvarRecursos, extr
   const rotulo = document.createElement('h3');
   rotulo.textContent = 'Materiais';
   cabeca.appendChild(marca);
-  const anexar = buildBotao('Anexar', { icone: ICONES_VIDEO.clipe, variante: 'fantasma', titulo: 'Anexar arquivos da Biblioteca' });
-  anexar.classList.add('is-mini');
-  anexar.addEventListener('click', () => abrirSeletor(video, salvar));
+  // Um botão só com as duas origens num menu: dois botões lado a lado não
+  // cabiam no painel lateral junto do "Thumbnail com IA".
+  const anexar = buildBotao('Anexar', { icone: ICONE_MAIS, variante: 'fantasma', titulo: 'Anexar do computador ou da Biblioteca' });
+  anexar.classList.add('is-mini', 'vd-materiais-anexar');
+  anexar.setAttribute('aria-haspopup', 'menu');
+  anexar.addEventListener('click', () =>
+    abrirMenuIa(anexar, [
+      {
+        rotulo: 'Do computador',
+        dica: 'Qualquer pasta. O Iris guarda uma cópia: apagar o original não afeta a postagem.',
+        icone: ICONE_UPLOAD,
+        fazer: () => void anexarDoComputador(video, salvar),
+      },
+      {
+        rotulo: 'Da Biblioteca',
+        dica: 'Arquivos das pastas monitoradas, sem cópia.',
+        icone: ICONES_VIDEO.clipe,
+        fazer: () => abrirSeletor(video, salvar),
+      },
+    ]),
+  );
   // extra: ação de quem monta o painel (ex.: "Thumbnail com IA").
   cabeca.append(rotulo, ...(extra ? [extra] : []), anexar);
   campo.appendChild(cabeca);
@@ -226,18 +317,24 @@ export function buildMateriais(video: ComMateriais, salvar: SalvarRecursos, extr
     lista.prepend(buildSelo(erro instanceof Error ? erro.message : String(erro), 'erro'));
   };
 
-  const desenhar = (bib: BibliotecaInfo | null): void => {
+  let bibAtual: BibliotecaInfo | null = cache;
+  let infos = new Map<string, InfoAnexo>();
+
+  const desenhar = (): void => {
     lista.innerHTML = '';
     const recursos = video.recursoIds
-      .map((id) => bib?.recursos.find((r) => r.id === id))
+      .map((id) => bibAtual?.recursos.find((r) => r.id === id))
       .filter((r): r is RecursoDetalhado => Boolean(r));
-    if (recursos.length === 0) {
+    if (recursos.length === 0 && video.anexos.length === 0) {
       const vazio = document.createElement('span');
       vazio.className = 'vd-vazio-inline';
-      vazio.textContent = 'Roteiro, thumbnail, arquivos de edição… anexe da Biblioteca.';
+      vazio.textContent = 'Banner, thumbnail, roteiro, arquivos de edição… anexe do computador ou da Biblioteca.';
       lista.appendChild(vazio);
       return;
     }
+    video.anexos.forEach((a) =>
+      lista.appendChild(buildLinhaAnexo(a, infos.get(a.id), () => salvar({ anexos: video.anexos.filter((x) => x.id !== a.id) }), aviso)),
+    );
     recursos.forEach((r) =>
       lista.appendChild(
         buildLinha(r, () => salvar({ recursoIds: video.recursoIds.filter((id) => id !== r.id) }), aviso),
@@ -246,8 +343,21 @@ export function buildMateriais(video: ComMateriais, salvar: SalvarRecursos, extr
   };
 
   // Desenha com o cache na hora; se ainda não há cache ou falta algum id, lê de novo.
-  desenhar(cache);
+  desenhar();
   const faltando = video.recursoIds.some((id) => !cache?.recursos.some((r) => r.id === id));
-  if (!cache || faltando) void carregar(true).then(desenhar);
+  if (!cache || faltando) {
+    void carregar(true).then((bib) => {
+      bibAtual = bib;
+      desenhar();
+    });
+  }
+  // Miniaturas e "a cópia ainda existe?" vêm do main.
+  if (video.anexos.length) {
+    void window.irisAPI.anexos.info(video.anexos).then((r) => {
+      if (!r.ok) return;
+      infos = new Map(r.data.map((i) => [i.id, i]));
+      desenhar();
+    });
+  }
   return campo;
 }

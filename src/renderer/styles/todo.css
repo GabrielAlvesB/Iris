@@ -24,6 +24,16 @@
   padding: 18px 2px;
 }
 
+.td-concluidas-barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
 /* Colunas de largura fixa-mínima; cada cartão cresce com os próprios itens. */
 .td-grade {
   display: grid;
@@ -82,7 +92,7 @@
   display: flex;
   flex-direction: column;
   gap: 9px;
-  padding: 12px 12px 8px 15px;
+  padding: 15px 14px 8px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-soft);
   border-radius: 14px;
@@ -90,13 +100,26 @@
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
-/* Faixa de cor à esquerda: identifica a checklist sem pintar o cartão todo. */
-.td-cartao::before {
-  content: '';
+/*
+ * Faixa do topo: a cor da checklist enchendo conforme os itens são feitos.
+ * Identifica a checklist e mostra o progresso sem gastar uma linha do cartão.
+ */
+.td-faixa {
   position: absolute;
-  inset: 0 auto 0 0;
-  width: 3px;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: color-mix(in oklch, var(--td-cor) 22%, transparent);
+}
+
+.td-faixa i {
+  display: block;
+  height: 100%;
   background: var(--td-cor);
+  transition: width 0.25s ease;
+}
+
+.td-faixa i.is-completo {
+  background: var(--success);
 }
 
 .td-cartao:hover,
@@ -112,7 +135,29 @@
 .td-cartao-cab {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: 8px;
+}
+
+/* "2/5" ao lado do título; completa fica verde e ganha o ✓. */
+.td-contagem {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  height: 22px;
+  margin-top: 1px;
+  padding: 0 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  background: var(--bg-elevated-2);
+  border-radius: 999px;
+}
+
+.td-contagem.is-completa {
+  color: var(--success);
+  background: var(--success-soft);
 }
 
 .td-titulo {
@@ -231,41 +276,6 @@
   overflow-wrap: anywhere;
 }
 
-/* ---------- Progresso ---------- */
-
-.td-progresso {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.td-progresso-trilho {
-  flex: 1;
-  height: 6px;
-  background: var(--bg-elevated-3);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.td-progresso-trilho i {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-  border-radius: 3px;
-  transition: width 0.2s ease;
-}
-
-.td-progresso-trilho i.is-completo {
-  background: var(--success);
-}
-
-.td-progresso-num {
-  font-size: 11.5px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
-}
-
 /* ---------- Itens ---------- */
 
 .td-itens {
@@ -309,14 +319,51 @@
   padding-left: 20px;
 }
 
+/* Caixa redonda própria: a nativa (quadrada, cinza) destoava do app. */
 .td-caixa {
+  appearance: none;
   flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  margin: 4px 2px 0;
-  accent-color: var(--success);
-  color-scheme: dark;
+  display: grid;
+  place-content: center;
+  width: 17px;
+  height: 17px;
+  margin: 4px 3px 0;
+  border: 1.5px solid var(--text-faint);
+  border-radius: 50%;
+  background: transparent;
   cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.td-caixa::before {
+  content: '';
+  width: 9px;
+  height: 9px;
+  background: var(--bg);
+  /* O ✓ desenhado por recorte, sem imagem. */
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  transform: scale(0);
+  transition: transform 0.12s ease;
+}
+
+.td-caixa:hover:not(:disabled),
+.td-caixa:focus-visible {
+  border-color: var(--td-cor);
+  outline: none;
+}
+
+.td-caixa:checked {
+  border-color: var(--success);
+  background: var(--success);
+}
+
+.td-caixa:checked::before {
+  transform: scale(1);
+}
+
+.td-caixa:disabled {
+  cursor: default;
+  opacity: 0.6;
 }
 
 .td-item-texto {
@@ -415,9 +462,9 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  align-self: flex-start;
-  padding: 3px 6px;
-  margin-left: -6px;
+  height: 28px;
+  padding: 0 8px;
+  white-space: nowrap;
   font: inherit;
   font-size: 12px;
   font-weight: 600;
@@ -444,17 +491,27 @@
 
 /* ---------- Rodapé ---------- */
 
+/* Em cartão estreito as ações descem de linha, alinhadas à direita, em vez de cortar. */
 .td-cartao-rodape {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 4px;
-  margin: 0 -6px;
+  margin: 2px -6px 0;
   padding-top: 6px;
   border-top: 1px solid var(--border-soft);
 }
 
+.td-rodape-acoes {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
 .td-cartao-rodape .pg-botao {
   height: 28px;
+  padding: 0 9px;
   font-size: 12px;
 }
 

@@ -16,7 +16,9 @@ import {
 import { buildSecaoModal, openCustomModal } from '../../ui/modal.js';
 import { campo, erroInline, grade2, input, pilulas, select, textarea } from '../../ui/campos.js';
 import { buildBotao, buildBusca, buildSegmentado, buildVazio } from '../../ui/pagina.js';
-import { formatarData, ICONES_POSTAGEM } from '../postagens/postagens.ui.js';
+import { abrirAjustes } from '../../core/navegacao.js';
+import { MODELOS, type ModeloRelatorio } from './relatorios.modelos.js';
+import { formatarData, ICONE_EMPRESA, ICONES_POSTAGEM, ordenarTags } from '../postagens/postagens.ui.js';
 import { alternaveis } from './relatorios.blocos.js';
 import { catalogoAtual } from './relatorios.metricas.js';
 import { ADAPTADORES, type OpcaoPostagem } from './relatorios.tipos.js';
@@ -35,36 +37,88 @@ function novoId(): string {
 
 // ---------- Novo relatório ----------
 
-export function abrirNovoRelatorio(aoCriar: (relatorioId: string) => void): void {
+/** Cartões de escolha do modelo: um marcado por vez, com o que cada um cria. */
+function buildEscolhaModelo(atual: () => ModeloRelatorio, aoEscolher: (m: ModeloRelatorio) => void): HTMLElement {
+  const grupo = document.createElement('div');
+  grupo.className = 'rel-modelos';
+  grupo.setAttribute('role', 'radiogroup');
+  grupo.setAttribute('aria-label', 'Modelo do relatório');
+  const desenhar = (): void => {
+    grupo.replaceChildren(
+      ...MODELOS.map((m) => {
+        const cartao = document.createElement('button');
+        cartao.type = 'button';
+        cartao.className = 'rel-modelo';
+        cartao.setAttribute('role', 'radio');
+        const marcado = atual() === m.id;
+        cartao.setAttribute('aria-checked', String(marcado));
+        cartao.classList.toggle('is-marcado', marcado);
+        cartao.append(
+          Object.assign(document.createElement('strong'), { textContent: m.titulo }),
+          Object.assign(document.createElement('span'), { className: 'rel-modelo-desc', textContent: m.descricao }),
+          Object.assign(document.createElement('span'), { className: 'rel-modelo-cria', textContent: m.cria }),
+        );
+        cartao.addEventListener('click', () => {
+          aoEscolher(m.id);
+          desenhar();
+        });
+        return cartao;
+      }),
+    );
+  };
+  desenhar();
+  return grupo;
+}
+
+export function abrirNovoRelatorio(aoCriar: (relatorioId: string, modelo: ModeloRelatorio) => void): void {
   void openCustomModal(
     'Novo relatório',
     ({ corpo, rodape, fechar }) => {
-      const titulo = input('text', '', 'Ex.: Análise de outubro — Hora de Codar');
+      const titulo = input('text', '', 'Ex.: Análise de outubro — Minha Empresa');
       titulo.classList.add('is-grande');
-      corpo.appendChild(campo('Título', titulo));
+      corpo.appendChild(campo('Título', titulo, 'Aparece em destaque na capa do PDF.'));
+
+      let modelo: ModeloRelatorio = 'mensal';
+      const comecar = buildSecaoModal('Como começar', 'Um modelo já cria as seções; dá para mudar tudo depois.');
+      comecar.conteudo.appendChild(buildEscolhaModelo(() => modelo, (m) => (modelo = m)));
+      corpo.appendChild(comecar.secao);
 
       let tagIds: string[] = [];
-      const tags = catalogoAtual()?.tags ?? [];
-      if (tags.length) {
-        const empresa = buildSecaoModal('Empresa', 'As tags da empresa. As postagens e as métricas do relatório já vêm filtradas por elas.');
+      // Só as tags-empresa: "Tutorial" ou "Shorts" não são empresa de ninguém.
+      const empresas = ordenarTags((catalogoAtual()?.tags ?? []).filter((t) => t.empresa));
+      const empresa = buildSecaoModal('Empresa', 'As postagens e as métricas do relatório já vêm filtradas por ela.');
+      if (empresas.length) {
         const desenharTags = (): void => {
           empresa.conteudo.replaceChildren(
-            alternaveis(tags.map((t) => ({ id: t.id, rotulo: t.nome })), tagIds, (v) => {
+            alternaveis(empresas.map((t) => ({ id: t.id, rotulo: t.nome })), tagIds, (v) => {
               tagIds = v;
               desenharTags();
             }),
           );
         };
         desenharTags();
-        corpo.appendChild(empresa.secao);
+      } else {
+        const cadastrar = buildBotao('Cadastrar empresa', { icone: ICONE_EMPRESA, variante: 'secundario' });
+        cadastrar.addEventListener('click', () => {
+          fechar();
+          abrirAjustes('empresas');
+        });
+        empresa.conteudo.append(
+          Object.assign(document.createElement('p'), {
+            className: 'md-dica',
+            textContent: 'Nenhuma empresa cadastrada. Cadastre em Ajustes › Empresas e tags — ou crie o relatório sem empresa e escolha depois.',
+          }),
+          cadastrar,
+        );
       }
+      corpo.appendChild(empresa.secao);
 
-      const contexto = buildSecaoModal('Contexto', 'Para quem e por quê: cliente, campanha, objetivo. Opcional.');
+      const contexto = buildSecaoModal('Contexto', 'Para quem e por quê: cliente, campanha, objetivo. Aparece na capa, embaixo do título. Opcional.');
       const textoContexto = textarea('', 'Ex.: Revisão mensal dos vídeos curtos para o cliente X', 3);
       contexto.conteudo.appendChild(textoContexto);
       corpo.appendChild(contexto.secao);
 
-      const periodo = buildSecaoModal('Período', 'Opcional. Ajuda a achar as postagens na hora de adicionar.');
+      const periodo = buildSecaoModal('Período', 'As datas analisadas. Filtram as postagens e as métricas, e aparecem na capa. Opcional.');
       const inicio = input('date', '');
       const fim = input('date', '');
       periodo.conteudo.appendChild(grade2(campo('De', inicio), campo('Até', fim)));
@@ -87,7 +141,7 @@ export function abrirNovoRelatorio(aoCriar: (relatorioId: string) => void): void
           });
           fechar();
           const novo = file.relatorios.find((r) => !antes.has(r.id));
-          if (novo) aoCriar(novo.id);
+          if (novo) aoCriar(novo.id, modelo);
         } catch (erro) {
           erroInline(corpo, erro);
         }
