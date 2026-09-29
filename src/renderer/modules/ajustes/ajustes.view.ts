@@ -726,7 +726,9 @@ function desenharAtualizacao(corpo: HTMLElement, e: EstadoAtualizacao | null): v
   const situacao = descreverSituacao(e);
   const status = document.createElement('div');
   status.className = 'aj-status';
-  status.appendChild(buildSelo(situacao.texto, situacao.tom));
+  // Erro longo (ex.: instalador bloqueado pelo Windows) não cabe no selo de uma linha.
+  const erroLongo = e.situacao === 'erro' && situacao.texto.length > 60;
+  status.appendChild(buildSelo(erroLongo ? 'Não deu certo' : situacao.texto, situacao.tom));
   if (e.verificadoEm && e.situacao !== 'verificando') {
     const quando = document.createElement('span');
     quando.className = 'aj-campo-dica';
@@ -734,6 +736,7 @@ function desenharAtualizacao(corpo: HTMLElement, e: EstadoAtualizacao | null): v
     status.appendChild(quando);
   }
   corpo.appendChild(status);
+  if (erroLongo) corpo.appendChild(Object.assign(document.createElement('p'), { className: 'aj-status-texto is-erro', textContent: situacao.texto }));
 
   if (e.situacao === 'baixando') {
     const pct = Math.round((e.progresso ?? 0) * 100);

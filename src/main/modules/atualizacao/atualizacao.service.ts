@@ -215,11 +215,45 @@ async function rodarInstalador(caminho: string, versao: string | undefined): Pro
     if (erro) return falhar(`Não deu para abrir o instalador: ${erro}`);
     return publicar({ situacao: estado.nova ? 'disponivel' : 'em-dia', progresso: undefined, versaoAlvo: undefined });
   }
-  const instalador = spawn(caminho, ['--updated', '/S', '--force-run'], { detached: true, stdio: 'ignore' });
-  instalador.unref();
-  // Um respiro para o push chegar à tela antes da janela fechar.
-  setTimeout(() => app.quit(), 600);
-  return estado;
+  // Só fecha o app depois que o Windows de fato iniciou o instalador: antes o
+  // quit era agendado às cegas, e um erro assíncrono fechava o Iris sem instalar.
+  return new Promise((resolve) => {
+    const bloqueado = (erro: unknown): void => {
+      const codigo = (erro as NodeJS.ErrnoException | undefined)?.code ?? '';
+      resolve(falhar(mensagemDeBloqueio(codigo, erro)));
+    };
+    try {
+      const instalador = spawn(caminho, ['--updated', '/S', '--force-run'], { detached: true, stdio: 'ignore' });
+      instalador.once('error', bloqueado);
+      instalador.once('spawn', () => {
+        instalador.unref();
+        // Um respiro para o push chegar à tela antes da janela fechar.
+        setTimeout(() => app.quit(), 600);
+        resolve(estado);
+      });
+    } catch (erro) {
+      // No Windows, um CreateProcess recusado (UNKNOWN) é lançado na hora, não emitido.
+      bloqueado(erro);
+    }
+  });
+}
+
+/**
+ * "spawn UNKNOWN" não diz nada a ninguém. No Windows 11, o caso comum é o
+ * Controle Inteligente de Aplicativos (ou o antivírus) barrar o instalador
+ * porque ele não tem assinatura digital — o log CodeIntegrity registra
+ * "did not meet the signing level requirements". Nada no app contorna isso.
+ */
+function mensagemDeBloqueio(codigo: string, erro: unknown): string {
+  if (codigo === 'UNKNOWN' || codigo === 'EPERM' || codigo === 'EACCES') {
+    return (
+      'O Windows impediu o instalador de abrir. Isso acontece quando o Controle Inteligente de Aplicativos ' +
+      '(Segurança do Windows › Controle de aplicativos e navegador) ou o antivírus bloqueia programas sem ' +
+      'assinatura digital, como o instalador do Iris. O arquivo foi baixado e conferido; instale pela página ' +
+      'da release ou libere o instalador e tente de novo.'
+    );
+  }
+  return `Não deu para abrir o instalador (${codigo || (erro instanceof Error ? erro.message : String(erro))}).`;
 }
 
 /** Baixa o instalador de uma release, confere com o latest.yml dela e instala. */

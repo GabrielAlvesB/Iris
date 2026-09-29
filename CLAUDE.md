@@ -430,6 +430,11 @@ não seria decifrável em outra máquina.
   `Iris-Setup-<versão>.exe`, confere o SHA-512 do `latest.yml` e roda o instalador com
   `--updated /S --force-run` (as flags do NSIS do electron-builder: instala por cima e reabre).
   Antes de fechar, `aguardarEscritas()` do jsonStore.
+- **O app não é assinado.** Com o Controle Inteligente de Aplicativos do Windows 11 ligado, o
+  `spawn` do instalador baixado falha com `UNKNOWN` (o log `CodeIntegrity/Operational` registra
+  "did not meet the signing level requirements"). Nada no código contorna isso — só assinatura
+  digital. `rodarInstalador` só fecha o app no evento `spawn` (antes fechava às cegas) e traduz
+  o erro em `mensagemDeBloqueio`.
 - Só a instalação NSIS se atualiza (detectada pelo `Uninstall Iris.exe` ao lado do exe); o .zip
   portátil e o `npm run dev` só avisam e abrem a página da release.
 - **Troca manual** (Ajustes › Atualizações): "Escolher versão…" lista todas as releases
