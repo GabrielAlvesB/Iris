@@ -19,7 +19,7 @@ export interface PromptMontado {
    * 'variantes' pede JSON e a resposta é lida por lerVariantes; 'itens' e
    * 'card' também são JSON ({itens} / {descricao, itens}).
    */
-  saida: 'texto' | 'variantes' | 'itens' | 'card';
+  saida: 'texto' | 'variantes' | 'itens' | 'card' | 'json';
 }
 
 const BASE_SISTEMA =
@@ -81,6 +81,19 @@ function blocoMaterial(c: ContextoTexto): string {
 
 function blocoCampo(c: ContextoTexto): string {
   return `<campo>\n${c.campo ?? 'Campo de texto'}${c.orientacao ? `\nO que este campo deve conter: ${c.orientacao}` : ''}\n</campo>`;
+}
+
+const PAPEL_ROTEIRISTA =
+  'Você é roteirista de vídeos para redes sociais e YouTube: escreve falas naturais para serem ditas em voz alta, ' +
+  'com gancho forte, ritmo e uma ideia por cena.';
+
+/** O material de um pedido do Estúdio de roteiro: ficha, briefing, pesquisa e o roteiro atual. */
+function blocoRoteiro(c: ContextoTexto): string {
+  const partes = [
+    blocoContexto(c),
+    c.referencia?.trim() ? c.referencia.trim().slice(0, 24000) : '',
+  ].filter(Boolean);
+  return `<material>\n${partes.join('\n\n') || '(só o título)'}\n</material>`;
 }
 
 function blocoItensExistentes(c: ContextoTexto, rotulo: string): string {
@@ -218,6 +231,91 @@ export function montarPrompt(tarefa: TarefaTexto, c: ContextoTexto): PromptMonta
           regras() +
           `\nFormato: {"variantes":[{"titulo":"nome curto","gancho":"...","cta":"..."}]}`,
       };
+    // ---------- Estúdio de roteiro ----------
+    // A tela manda: briefing (texto), referencia (pesquisa, fontes e o roteiro
+    // atual em markdown), orientacao (o pedido específico: ângulo escolhido,
+    // objetivo da cena, ação) e texto (a cena ou o trecho em foco).
+    case 'roteiro-angulos':
+      return {
+        saida: 'variantes',
+        sistema: `${BASE_SISTEMA}\n${PAPEL_ROTEIRISTA} ${INSTRUCAO_JSON}`,
+        texto:
+          `<tarefa>Proponha 3 ângulos BEM diferentes para este vídeo — cada um é uma forma de contar o mesmo tema ` +
+          `(ex.: investigação, opinião forte, guia prático, história pessoal, lista). Para cada ângulo: um nome curto, ` +
+          `o gancho exato dos primeiros 3 segundos (frase falada, que faça parar de rolar) e a abordagem em 2 ou 3 frases ` +
+          `(o que o vídeo promete e como desenvolve).</tarefa>\n` +
+          `${blocoRoteiro(c)}\n` +
+          regras(['Os três ângulos tratam do MESMO tema do briefing; mude a abordagem, não o assunto.']) +
+          `\nFormato: {"variantes":[{"titulo":"nome do ângulo","gancho":"frase falada","texto":"abordagem"}]}`,
+      };
+    case 'roteiro-estrutura':
+      return {
+        saida: 'json',
+        sistema: `${BASE_SISTEMA}\n${PAPEL_ROTEIRISTA} ${INSTRUCAO_JSON}`,
+        texto:
+          `<tarefa>Monte a estrutura do roteiro: a lista de cenas, na ordem, com tipo, título curto, duração em segundos e o ` +
+          `objetivo de cada uma (o que a cena precisa dizer ou mostrar). Comece com um gancho, termine com CTA ou encerramento. ` +
+          `As durações somam a duração alvo${c.duracao ? ` (${c.duracao})` : ' (ou algo realista para o formato)'}.</tarefa>\n` +
+          `${blocoRoteiro(c)}\n` +
+          regras(['Tipos permitidos: gancho, abertura, secao, demonstracao, cta, encerramento.', 'Cada cena com um objetivo concreto ligado ao tema — nada de "falar sobre o assunto".']) +
+          `\nFormato: {"cenas":[{"tipo":"gancho","titulo":"...","duracaoSeg":5,"objetivo":"..."}]}`,
+      };
+    case 'roteiro-cena':
+      return {
+        saida: 'json',
+        sistema: `${BASE_SISTEMA}\n${PAPEL_ROTEIRISTA} ${INSTRUCAO_JSON}`,
+        texto:
+          `<tarefa>Escreva UMA cena do roteiro: a fala (o que é dito em voz alta, natural, com o tamanho certo para a duração da cena ` +
+          `— cerca de ${c.duracao ? `${c.duracao} de fala` : 'o tempo indicado'}), o visual (cena, B-roll, enquadramento) e o texto na tela ` +
+          `(curto, opcional). Continue de onde as cenas anteriores pararam, sem repetir o que já foi dito.</tarefa>\n` +
+          `<cena>\n${c.orientacao ?? ''}\n</cena>\n` +
+          `${blocoRoteiro(c)}\n` +
+          regras(['A fala é para ser dita: frases curtas, sem marcação de cena dentro dela.', 'Se precisar de um dado que não está no material, escreva [dado a confirmar].']) +
+          `\nFormato: {"fala":"...","visual":"...","textoTela":"..."}`,
+      };
+    case 'roteiro-acao-cena':
+      return {
+        saida: 'texto',
+        sistema: `${BASE_SISTEMA}\n${PAPEL_ROTEIRISTA} Responda só com o texto pronto para entrar no lugar, sem comentários, aspas extras ou rótulos.`,
+        texto:
+          `<tarefa>${c.orientacao ?? 'Melhore o trecho.'}</tarefa>\n<trecho>\n${c.texto ?? ''}\n</trecho>\n` +
+          `${blocoRoteiro(c)}\n` +
+          regras(['Mantenha os fatos do trecho; não invente dados.']),
+      };
+    case 'roteiro-variacoes':
+      return {
+        saida: 'variantes',
+        sistema: `${BASE_SISTEMA}\n${PAPEL_ROTEIRISTA} ${INSTRUCAO_JSON}`,
+        texto:
+          `<tarefa>Escreva 3 variações BEM diferentes deste trecho (${c.campo ?? 'trecho do roteiro'}), cada uma com uma estratégia diferente ` +
+          `(ex.: pergunta, número forte, conflito, promessa). Mesmo assunto e tamanho parecido.</tarefa>\n<trecho>\n${c.texto ?? ''}\n</trecho>\n` +
+          `${blocoRoteiro(c)}\n${regras()}` +
+          `\nFormato: {"variantes":[{"titulo":"estratégia","texto":"..."}]}`,
+      };
+    case 'roteiro-critica':
+      return {
+        saida: 'json',
+        sistema: `${BASE_SISTEMA}\nVocê é um editor exigente de roteiros de vídeo: aponta o que derruba a retenção e diz como corrigir. ${INSTRUCAO_JSON}`,
+        texto:
+          `<tarefa>Avalie o roteiro. Dê nota de 0 a 10 para cada critério — Gancho (prende nos 3 primeiros segundos?), Clareza, ` +
+          `Ritmo (trechos arrastados, repetição), Duração (cabe no alvo?), CTA (claro e ligado ao conteúdo?), Fontes (afirmações sustentadas?) — ` +
+          `com um comentário curto e específico. Depois liste de 3 a 10 apontamentos concretos: a cena (número, começando em 1), o trecho exato, ` +
+          `o problema e a sugestão de correção. Termine com nota geral e um resumo de 1 a 2 frases.</tarefa>\n` +
+          `${blocoRoteiro(c)}\n` +
+          regras(['Cite trechos reais do roteiro nos apontamentos.', 'Nada de elogio genérico: se está bom, diga por quê em poucas palavras.']) +
+          `\nFormato: {"notaGeral":7.5,"resumo":"...","criterios":[{"nome":"Gancho","nota":8,"comentario":"..."}],"apontamentos":[{"cena":1,"trecho":"...","problema":"...","sugestao":"..."}]}`,
+      };
+    case 'roteiro-adaptar':
+      return {
+        saida: 'json',
+        sistema: `${BASE_SISTEMA}\n${PAPEL_ROTEIRISTA} ${INSTRUCAO_JSON}`,
+        texto:
+          `<tarefa>Adapte o roteiro para outro formato: ${c.orientacao ?? 'outro formato'}. Reescreva cena a cena para o novo formato ` +
+          `(corte, reordene, junte ou divida cenas; ajuste a linguagem e o tamanho). Mantenha os fatos e as fontes do original.</tarefa>\n` +
+          `${blocoRoteiro(c)}\n` +
+          regras(['Tipos de cena permitidos: gancho, abertura, secao, demonstracao, cta, encerramento.', 'Não acrescente informações que não estão no original.']) +
+          `\nFormato: {"titulo":"...","cenas":[{"tipo":"gancho","titulo":"...","duracaoSeg":5,"fala":"...","visual":"...","textoTela":"..."}]}`,
+      };
     case 'prompt-imagem':
       return {
         saida: 'texto',
@@ -314,7 +412,7 @@ export function montarPrompt(tarefa: TarefaTexto, c: ContextoTexto): PromptMonta
 }
 
 /** Tira cercas de código e acha o primeiro objeto JSON da resposta. */
-function extrairJson(texto: string): unknown {
+export function extrairJson(texto: string): unknown {
   const limpo = texto.replace(/```(?:json)?/gi, '').trim();
   const inicio = limpo.indexOf('{');
   const fim = limpo.lastIndexOf('}');

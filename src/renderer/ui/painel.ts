@@ -44,8 +44,14 @@ export interface PainelHandle {
   /** Texto "Salvo / Salvando…". */
   salvo: HTMLElement;
   corpo: HTMLElement;
-  /** Seções: uma coluna nas laterais, duas no centro. */
+  /** Seções de conteúdo: a coluna principal. */
   grade: HTMLElement;
+  /**
+   * Seções de propriedades (etapa, datas, tags…): uma coluna estreita à direita
+   * no centro; nas laterais, empilhada antes do conteúdo. Vazia, some — e a
+   * grade volta às duas colunas de antes.
+   */
+  lateral: HTMLElement;
   rodape: HTMLElement;
   fechar(): void;
   marcarSalvando(): void;
@@ -94,6 +100,8 @@ export function abrirPainel(opcoes: PainelOpcoes): PainelHandle {
   corpo.className = 'painel-corpo';
   const grade = document.createElement('div');
   grade.className = 'painel-grade';
+  const lateral = document.createElement('div');
+  lateral.className = 'painel-lateral';
   const rodape = document.createElement('footer');
   rodape.className = 'painel-rodape modal-custom-rodape';
 
@@ -143,7 +151,7 @@ export function abrirPainel(opcoes: PainelOpcoes): PainelHandle {
 
   fecharBtn.addEventListener('click', fechar);
   cabecalho.append(icone, identidade, salvo, seletor, fecharBtn);
-  corpo.appendChild(grade);
+  corpo.append(grade, lateral);
   painel.append(cabecalho, corpo, rodape);
   document.body.appendChild(painel);
   aplicarPosicao(opcoes.posicao);
@@ -155,18 +163,22 @@ export function abrirPainel(opcoes: PainelOpcoes): PainelHandle {
     salvo,
     corpo,
     grade,
+    lateral,
     rodape,
     fechar,
     marcarSalvando: () => {
       salvo.textContent = 'Salvando…';
-      salvo.classList.remove('is-erro');
+      salvo.classList.remove('is-erro', 'is-salvo');
+      salvo.classList.add('is-salvando');
     },
     marcarSalvo: () => {
       salvo.textContent = 'Salvo';
-      salvo.classList.remove('is-erro');
+      salvo.classList.remove('is-erro', 'is-salvando');
+      salvo.classList.add('is-salvo');
     },
     marcarErro: (erro) => {
       salvo.textContent = erro instanceof Error ? erro.message : String(erro);
+      salvo.classList.remove('is-salvando', 'is-salvo');
       salvo.classList.add('is-erro');
     },
   };

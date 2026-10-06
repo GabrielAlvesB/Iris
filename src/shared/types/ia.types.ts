@@ -4,7 +4,16 @@
  * tela só recebe `temChave`.
  */
 
-export type ProvedorId = 'openrouter' | 'openai' | 'anthropic' | 'google' | 'compativel';
+export type ProvedorId = 'openrouter' | 'openai' | 'anthropic' | 'google' | 'groq' | 'deepseek' | 'mistral' | 'ollama' | 'lmstudio' | 'compativel';
+
+/** Como Ajustes agrupa os provedores: na nuvem (com chave), no próprio PC (sem chave) e o genérico. */
+export type GrupoProvedor = 'nuvem' | 'local' | 'avancado';
+
+export const GRUPOS_PROVEDOR: ReadonlyArray<{ id: GrupoProvedor; rotulo: string; descricao: string }> = [
+  { id: 'nuvem', rotulo: 'Na nuvem', descricao: 'Você cria uma chave no site do provedor; o uso é cobrado por ele, na sua conta.' },
+  { id: 'local', rotulo: 'No seu computador', descricao: 'Grátis, sem chave e sem internet: o modelo roda aqui. Precisa do app aberto e de um computador com memória folgada.' },
+  { id: 'avancado', rotulo: 'Avançado', descricao: 'Qualquer outro serviço que fale a API da OpenAI.' },
+];
 
 /**
  * - texto: escreve (legendas, roteiros, prompts).
@@ -18,6 +27,7 @@ export interface DescritorProvedor {
   id: ProvedorId;
   rotulo: string;
   descricao: string;
+  grupo: GrupoProvedor;
   capacidades: Capacidade[];
   /** Página onde se cria a chave. */
   urlChave: string;
@@ -26,6 +36,17 @@ export interface DescritorProvedor {
   modeloImagemSugerido?: string;
   /** O "compatível" precisa do endereço do servidor. */
   exigeBaseUrl?: boolean;
+  /** Endereço usado quando o usuário não troca (os locais deixam trocar a porta). */
+  basePadrao?: string;
+  /**
+   * Roda no computador do usuário e não pede chave: fica pronto quando é
+   * ativado em Ajustes. O endereço é editável, com o padrão já preenchido.
+   */
+  semChave?: boolean;
+  /** Onde baixar o app (provedores locais). */
+  urlBaixar?: string;
+  /** Exemplo de comando para baixar um modelo (Ollama). */
+  comandoModelo?: string;
 }
 
 /** Catálogo único dos provedores: Ajustes, Tutorial e seletores derivam daqui. */
@@ -34,6 +55,7 @@ export const PROVEDORES: readonly DescritorProvedor[] = [
     id: 'openrouter',
     rotulo: 'OpenRouter',
     descricao: 'Uma chave só para centenas de modelos (GPT, Claude, Gemini, Llama…), inclusive os que geram imagem.',
+    grupo: 'nuvem',
     capacidades: ['texto', 'visao', 'imagem', 'imagemComReferencia'],
     urlChave: 'https://openrouter.ai/settings/keys',
     modeloTextoSugerido: 'google/gemini-2.5-flash',
@@ -43,6 +65,7 @@ export const PROVEDORES: readonly DescritorProvedor[] = [
     id: 'openai',
     rotulo: 'OpenAI (ChatGPT)',
     descricao: 'Modelos GPT para texto e gpt-image para imagens, com edição a partir de imagens de referência.',
+    grupo: 'nuvem',
     capacidades: ['texto', 'visao', 'imagem', 'imagemComReferencia'],
     urlChave: 'https://platform.openai.com/api-keys',
     modeloTextoSugerido: 'gpt-4.1-mini',
@@ -52,6 +75,7 @@ export const PROVEDORES: readonly DescritorProvedor[] = [
     id: 'anthropic',
     rotulo: 'Anthropic (Claude)',
     descricao: 'Claude escreve e lê imagens muito bem, mas não gera imagens — use-o para textos e roteiros.',
+    grupo: 'nuvem',
     capacidades: ['texto', 'visao'],
     urlChave: 'https://console.anthropic.com/settings/keys',
     modeloTextoSugerido: 'claude-sonnet-5',
@@ -60,15 +84,71 @@ export const PROVEDORES: readonly DescritorProvedor[] = [
     id: 'google',
     rotulo: 'Google (Gemini)',
     descricao: 'Gemini para texto e Gemini Image (ou Imagen) para gerar e editar imagens. Texto tem uso gratuito; imagem, em geral, só com faturamento ativo na chave.',
+    grupo: 'nuvem',
     capacidades: ['texto', 'visao', 'imagem', 'imagemComReferencia'],
     urlChave: 'https://aistudio.google.com/apikey',
     modeloTextoSugerido: 'gemini-2.5-flash',
     modeloImagemSugerido: 'gemini-2.5-flash-image',
   },
   {
+    id: 'groq',
+    rotulo: 'Groq',
+    descricao: 'Llama e outros modelos abertos na nuvem, com respostas muito rápidas e cota gratuita para começar. Não gera imagens.',
+    grupo: 'nuvem',
+    capacidades: ['texto', 'visao'],
+    urlChave: 'https://console.groq.com/keys',
+    basePadrao: 'https://api.groq.com/openai/v1',
+    modeloTextoSugerido: 'llama-3.3-70b-versatile',
+  },
+  {
+    id: 'deepseek',
+    rotulo: 'DeepSeek',
+    descricao: 'Modelos de texto baratos e bons de raciocínio. Só escreve: não lê nem gera imagens.',
+    grupo: 'nuvem',
+    capacidades: ['texto'],
+    urlChave: 'https://platform.deepseek.com/api_keys',
+    basePadrao: 'https://api.deepseek.com/v1',
+    modeloTextoSugerido: 'deepseek-chat',
+  },
+  {
+    id: 'mistral',
+    rotulo: 'Mistral',
+    descricao: 'Modelos europeus, bons em português, que também leem imagens. Não gera imagens.',
+    grupo: 'nuvem',
+    capacidades: ['texto', 'visao'],
+    urlChave: 'https://console.mistral.ai/api-keys',
+    basePadrao: 'https://api.mistral.ai/v1',
+    modeloTextoSugerido: 'mistral-small-latest',
+  },
+  {
+    id: 'ollama',
+    rotulo: 'Ollama',
+    descricao: 'Roda Llama, Gemma, Qwen, DeepSeek e outros no seu computador — grátis, sem chave e sem mandar nada para fora. Não gera imagens.',
+    grupo: 'local',
+    capacidades: ['texto', 'visao'],
+    urlChave: 'https://ollama.com/search',
+    urlBaixar: 'https://ollama.com/download',
+    basePadrao: 'http://localhost:11434/v1',
+    semChave: true,
+    modeloTextoSugerido: 'llama3.2',
+    comandoModelo: 'ollama pull llama3.2',
+  },
+  {
+    id: 'lmstudio',
+    rotulo: 'LM Studio',
+    descricao: 'App com tela para baixar e rodar modelos abertos no seu computador. Ligue o servidor local (aba Developer) e use o modelo carregado lá.',
+    grupo: 'local',
+    capacidades: ['texto', 'visao'],
+    urlChave: 'https://lmstudio.ai/models',
+    urlBaixar: 'https://lmstudio.ai/download',
+    basePadrao: 'http://localhost:1234/v1',
+    semChave: true,
+  },
+  {
     id: 'compativel',
     rotulo: 'Compatível com OpenAI',
-    descricao: 'Qualquer serviço que fale a API da OpenAI: Groq, DeepSeek, Together, Ollama ou LM Studio no seu PC…',
+    descricao: 'Qualquer serviço que fale a API da OpenAI: Together, Fireworks, xAI, um servidor da sua empresa…',
+    grupo: 'avancado',
     capacidades: ['texto', 'visao', 'imagem', 'imagemComReferencia'],
     urlChave: 'https://platform.openai.com/docs/api-reference',
     exigeBaseUrl: true,
@@ -98,6 +178,8 @@ export interface ConfigProvedor {
   finalChave?: string;
   /** Só o "compatível": ex. https://api.groq.com/openai/v1 ou http://localhost:11434/v1 */
   baseUrl: string;
+  /** Locais: ligado pelo usuário em Ajustes (eles não têm chave para dizer que estão prontos). */
+  ativo: boolean;
   modeloTexto: string;
   modeloImagem: string;
 }
@@ -128,6 +210,8 @@ export interface SalvarProvedorInput {
   /** undefined mantém a chave atual; '' remove. */
   apiKey?: string;
   baseUrl?: string;
+  /** Só os locais. */
+  ativo?: boolean;
   modeloTexto?: string;
   modeloImagem?: string;
 }
@@ -318,6 +402,20 @@ export type TarefaTexto =
   | 'roteiro-melhorar'
   | 'roteiro-revisar'
   | 'roteiro-gancho-cta'
+  /** Estúdio de roteiro: 3 ângulos/ganchos a partir do briefing (variantes). */
+  | 'roteiro-angulos'
+  /** Lista de cenas com tipo, título, duração e objetivo (json). */
+  | 'roteiro-estrutura'
+  /** Fala, visual e texto na tela de uma cena (json). */
+  | 'roteiro-cena'
+  /** Reescrever/encurtar/… uma cena ou trecho, pela instrução (texto). */
+  | 'roteiro-acao-cena'
+  /** 3 variações de um trecho (variantes). */
+  | 'roteiro-variacoes'
+  /** Leitura crítica com notas por critério e apontamentos (json). */
+  | 'roteiro-critica'
+  /** O roteiro em outro formato, cena a cena (json). */
+  | 'roteiro-adaptar'
   | 'prompt-imagem'
   | 'prompt-thumbnail'
   /** Ideias diferentes de imagem (variantes com título + prompt). */
@@ -388,6 +486,11 @@ export interface RespostaTexto {
   variantes?: VarianteTexto[];
   /** 'lista-itens' e 'kanban-card'. */
   itens?: string[];
+  /**
+   * Tarefas de saída estruturada (estrutura, cena, crítica, adaptar): o JSON
+   * já extraído da resposta. A tela confere cada campo antes de usar.
+   */
+  json?: unknown;
   provedor: ProvedorId;
   modelo: string;
 }

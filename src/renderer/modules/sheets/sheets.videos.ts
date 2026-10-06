@@ -22,7 +22,8 @@ import {
   sugerirMapeamento,
 } from '../../../shared/types/videos.conversao.js';
 import { abrirPostagem } from '../../core/navegacao.js';
-import { buildSecaoModal, openConfirmModal, openCustomModal } from '../../ui/modal.js';
+import { buildSecaoModal, openCustomModal } from '../../ui/modal.js';
+import { mostrarToast } from '../../ui/toast.js';
 import { buildAviso, buildBotao } from '../../ui/pagina.js';
 import * as videosState from '../postagens/videos/videos.state.js';
 import { buildRedeBadge, buildTagChip, formatarDataCurta, ordenarTags, rotuloStatus } from '../postagens/postagens.ui.js';
@@ -441,17 +442,22 @@ export async function enviarParaVideos(tabela: SheetTable, linhaIds: string[], j
             .then((resultado) => {
               criou = resultado.criados > 0;
               fechar();
-              const pulados = resultado.pulados ? ` ${resultado.pulados} linha(s) pulada(s) — sem título ou já enviadas.` : '';
-              return openConfirmModal({
-                title: 'Enviado para Postagens',
-                message: `${resultado.criados} vídeo(s) criado(s) na pipeline.${pulados}`,
-                danger: false,
-                confirmText: 'Abrir Postagens',
-                cancelText: 'Continuar no Sheets',
-              });
-            })
-            .then((abrir) => {
-              if (abrir) abrirPostagem({ tipo: 'video' });
+              // Aviso no canto, não modal: o normal é seguir enviando outras linhas
+              // da planilha, e Postagens fica a um clique se quiser conferir.
+              const { criados, pulados } = resultado;
+              const pulou = pulados ? ` · ${pulados === 1 ? '1 linha pulada' : `${pulados} linhas puladas`}` : '';
+              if (!criados) {
+                mostrarToast(`Nenhum vídeo novo: as linhas estão sem título ou já foram enviadas`);
+                return;
+              }
+              const ids = resultado.file.importacoes[0]?.videoIds ?? [];
+              const texto = criados === 1 ? 'Vídeo enviado para Postagens' : `${criados} vídeos enviados para Postagens`;
+              mostrarToast(`${texto}${pulou}`, [
+                {
+                  rotulo: criados === 1 ? 'Abrir vídeo' : 'Ver em Postagens',
+                  fazer: () => abrirPostagem(criados === 1 && ids[0] ? { tipo: 'video', id: ids[0] } : { tipo: 'video' }),
+                },
+              ]);
             })
             .catch((erro: unknown) => {
               enviar.disabled = false;

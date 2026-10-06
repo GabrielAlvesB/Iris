@@ -107,7 +107,7 @@ export async function getFullFile(): Promise<ImagensFile> {
   return loadFile();
 }
 
-export async function replaceFile(file: ImagensFile): Promise<ImagensFile> {
+export async function replaceFile(file: unknown): Promise<ImagensFile> {
   // Passa pela migração: um backup de outra versão entra já normalizado.
   const normalizado = migrateImagensFile(file);
   await saveFile(normalizado);

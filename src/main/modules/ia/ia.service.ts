@@ -14,7 +14,7 @@ import {
   type SalvarProvedorInput,
 } from '../../../shared/types/ia.types';
 import { anthropic } from './provedores/anthropic';
-import type { Adaptador, ContextoProvedor } from './provedores/comum';
+import { ErroSemConexao, type Adaptador, type ContextoProvedor } from './provedores/comum';
 import { google } from './provedores/google';
 import { criarOpenAi } from './provedores/openai';
 import { openrouter } from './provedores/openrouter';
@@ -30,6 +30,8 @@ const SCHEMA_VERSION = 1;
 
 interface ProvedorSalvo {
   baseUrl: string;
+  /** Só os locais (sem chave): o usuário ligou em Ajustes. */
+  ativo: boolean;
   modeloTexto: string;
   modeloImagem: string;
 }
@@ -43,11 +45,35 @@ interface IaArquivo {
   destino?: DestinoBiblioteca;
 }
 
+/**
+ * Local desligado é o erro mais comum de quem usa Ollama/LM Studio: em vez de
+ * "Sem conexão (ECONNREFUSED)", diz o que fazer. Vale para listar, testar e
+ * gerar — todos passam pelo adaptador.
+ */
+function comAvisoLocal(adaptador: Adaptador, app: string, comoAbrir: string): Adaptador {
+  const traduzir = (erro: unknown): never => {
+    if (erro instanceof ErroSemConexao) {
+      throw new Error(`O ${app} não está respondendo neste computador. ${comoAbrir} e tente de novo — ou confira o endereço em Ajustes.`);
+    }
+    throw erro;
+  };
+  return {
+    listarModelos: (ctx, signal) => adaptador.listarModelos(ctx, signal).catch(traduzir),
+    gerarTexto: (ctx, pedido) => adaptador.gerarTexto(ctx, pedido).catch(traduzir),
+  };
+}
+
+/** Os serviços no formato da OpenAI reusam o mesmo adaptador; só muda o endereço. */
 const ADAPTADORES: Record<ProvedorId, Adaptador> = {
   openrouter,
   openai: criarOpenAi('A OpenAI', 'https://api.openai.com/v1', 'max_completion_tokens'),
   anthropic,
   google,
+  groq: criarOpenAi('O Groq', descritorDe('groq').basePadrao!),
+  deepseek: criarOpenAi('O DeepSeek', descritorDe('deepseek').basePadrao!),
+  mistral: criarOpenAi('A Mistral', descritorDe('mistral').basePadrao!),
+  ollama: comAvisoLocal(criarOpenAi('O Ollama', descritorDe('ollama').basePadrao!), 'Ollama', 'Abra o app do Ollama'),
+  lmstudio: comAvisoLocal(criarOpenAi('O LM Studio', descritorDe('lmstudio').basePadrao!), 'LM Studio', 'Abra o LM Studio e ligue o servidor local (aba Developer)'),
   compativel: criarOpenAi('O servidor compatível', ''),
 };
 
@@ -64,7 +90,7 @@ function texto(valor: unknown, max = 300): string {
 }
 
 function provedorVazio(): ProvedorSalvo {
-  return { baseUrl: '', modeloTexto: '', modeloImagem: '' };
+  return { baseUrl: '', ativo: false, modeloTexto: '', modeloImagem: '' };
 }
 
 function createDefaultFile(): IaArquivo {
@@ -85,7 +111,8 @@ function migrate(raw: unknown): IaArquivo {
   PROVEDORES.forEach((p) => {
     const s = salvos[p.id] ?? {};
     base.provedores[p.id] = {
-      baseUrl: p.exigeBaseUrl ? baseUrlValida(s.baseUrl) : '',
+      baseUrl: temEndereco(p.id) ? baseUrlValida(s.baseUrl) : '',
+      ativo: p.semChave === true && s.ativo === true,
       modeloTexto: texto(s.modeloTexto),
       modeloImagem: texto(s.modeloImagem),
     };
@@ -118,7 +145,18 @@ async function saveFile(file: IaArquivo): Promise<void> {
   await writeStore(FILE_NAME, file);
 }
 
+/** Endereço editável: o "compatível" (obrigatório) e os locais (para trocar a porta). */
+function temEndereco(id: ProvedorId): boolean {
+  const d = descritorDe(id);
+  return Boolean(d.exigeBaseUrl || d.semChave);
+}
+
+/**
+ * Pronto para uso. Local não tem chave: vale o "Ativar" de Ajustes. O
+ * "compatível" vale pela chave ou pelo endereço (servidor sem chave).
+ */
 function configurado(id: ProvedorId, salvo: ProvedorSalvo): boolean {
+  if (descritorDe(id).semChave) return salvo.ativo;
   return hasSecret(chaveSecreta(id)) || (id === 'compativel' && Boolean(salvo.baseUrl));
 }
 
@@ -132,6 +170,7 @@ function montarConfig(file: IaArquivo): IaConfig {
       temChave: Boolean(chave),
       finalChave: chave && chave.length > 8 ? chave.slice(-4) : undefined,
       configurado: configurado(p.id, salvo),
+      ativo: salvo.ativo,
       baseUrl: salvo.baseUrl,
       modeloTexto: salvo.modeloTexto,
       modeloImagem: salvo.modeloImagem,
@@ -168,11 +207,13 @@ export async function salvarProvedor(input: SalvarProvedorInput): Promise<IaConf
   const salvo = file.provedores[input.id];
   const descritor = descritorDe(input.id);
 
-  if (input.baseUrl !== undefined && descritor.exigeBaseUrl) {
+  if (input.baseUrl !== undefined && temEndereco(input.id)) {
     const url = baseUrlValida(input.baseUrl);
-    if (input.baseUrl.trim() && !url) throw new Error('Endereço inválido. Use algo como https://api.groq.com/openai/v1 ou http://localhost:11434/v1');
-    salvo.baseUrl = url;
+    if (input.baseUrl.trim() && !url) throw new Error(`Endereço inválido. Use algo como ${descritor.basePadrao ?? 'https://api.together.xyz/v1'}`);
+    // Local com o endereço padrão não guarda nada: se o padrão mudar, ele acompanha.
+    salvo.baseUrl = url === descritor.basePadrao ? '' : url;
   }
+  if (input.ativo !== undefined && descritor.semChave) salvo.ativo = input.ativo;
   if (input.modeloTexto !== undefined) salvo.modeloTexto = texto(input.modeloTexto);
   if (input.modeloImagem !== undefined) salvo.modeloImagem = texto(input.modeloImagem);
 
@@ -223,9 +264,15 @@ export interface ProvedorPronto {
 function contexto(id: ProvedorId, file: IaArquivo): ContextoProvedor {
   const salvo = file.provedores[id];
   if (!configurado(id, salvo)) {
-    throw new Error(`${descritorDe(id).rotulo} não está configurado. Coloque a chave em Ajustes › Inteligência artificial.`);
+    const d = descritorDe(id);
+    throw new Error(
+      d.semChave
+        ? `${d.rotulo} não está ativado. Ative em Ajustes › Inteligência artificial.`
+        : `${d.rotulo} não está configurado. Coloque a chave em Ajustes › Inteligência artificial.`,
+    );
   }
-  return { chave: getSecret(chaveSecreta(id)) ?? '', baseUrl: salvo.baseUrl };
+  const d2 = descritorDe(id);
+  return { chave: d2.semChave ? '' : (getSecret(chaveSecreta(id)) ?? ''), baseUrl: salvo.baseUrl || d2.basePadrao || '' };
 }
 
 /**
@@ -285,6 +332,14 @@ export async function listarModelos(id: ProvedorId, forcar = false): Promise<Mod
  */
 export async function testarProvedor(id: ProvedorId): Promise<string> {
   const modelos = await listarModelos(id, true);
+  const local = descritorDe(id);
+  if (local.semChave && !modelos.length) {
+    throw new Error(
+      local.comandoModelo
+        ? `O ${local.rotulo} está aberto, mas não tem nenhum modelo baixado. No terminal, rode: ${local.comandoModelo}`
+        : `O ${local.rotulo} está aberto, mas não há modelo carregado. Carregue um no app e tente de novo.`,
+    );
+  }
   const nImagem = modelos.filter((m) => m.geraImagem).length;
   const conectado = `Conectado — ${modelos.length} modelo${modelos.length === 1 ? '' : 's'} disponíve${modelos.length === 1 ? 'l' : 'is'}${nImagem ? `, ${nImagem} de imagem` : ''}`;
 

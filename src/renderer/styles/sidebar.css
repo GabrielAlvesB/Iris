@@ -1,0 +1,557 @@
+/* Barra lateral: trilho de ícones + painel de módulos (core/sidebar.ts) e busca rápida (core/paleta.ts). */
+
+#sidebar {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  height: 100vh;
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border-soft);
+  user-select: none;
+  z-index: 50;
+}
+
+/* ---------- Trilho ---------- */
+
+.trilho {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 64px;
+  flex-shrink: 0;
+  padding: 14px 0 12px;
+}
+
+.trilho-logo {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 14px;
+}
+
+/* Brilho suave atrás do logo: a marca é a única cor forte no trilho em repouso. */
+.trilho-logo::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  background: var(--accent);
+  border-radius: 50%;
+  filter: blur(12px);
+  opacity: 0.35;
+}
+
+.trilho-logo img {
+  position: relative;
+  border-radius: 8px;
+}
+
+.trilho-grupo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.trilho-espaco {
+  flex: 1;
+  min-height: 12px;
+}
+
+.trilho-divisor {
+  width: 22px;
+  height: 1px;
+  margin: 6px 0;
+  background: var(--border);
+}
+
+.trilho-aviso:empty {
+  display: none;
+}
+
+.trilho-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  color: var(--text-faint);
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.trilho-item:hover {
+  color: var(--text);
+  background: var(--bg-elevated-2);
+}
+
+.trilho-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.trilho-item.is-aberto {
+  color: var(--text);
+  background: var(--bg-elevated-3);
+}
+
+.trilho-item.is-ativo {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* Marca do ativo na borda do trilho: a posição é lida sem depender só da cor. */
+.trilho-item.is-ativo::before {
+  content: '';
+  position: absolute;
+  left: -11px;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  background: var(--accent);
+  border-radius: 0 3px 3px 0;
+}
+
+/* Dica ao lado: o trilho não tem rótulo, e o title do sistema demora ~1 s. */
+.trilho-item[data-dica]::after {
+  content: attr(data-dica);
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  z-index: 70;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--text);
+  background: var(--bg-elevated-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  transform: translate(-4px, -50%);
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+/* Pelo teclado também, mas só com o mouse fora do trilho: senão apareciam duas dicas. */
+.trilho-item[data-dica]:hover::after,
+.trilho:not(:hover) .trilho-item[data-dica]:focus-visible::after {
+  opacity: 1;
+  transform: translate(0, -50%);
+  transition-delay: 0.25s;
+}
+
+/* Com o painel aberto, a dica da categoria aberta só repetiria o título dele. */
+.trilho-item.is-aberto::after {
+  display: none;
+}
+
+/* ---- Aviso de atualização ---- */
+
+.trilho-atualizacao {
+  color: var(--accent);
+}
+
+.trilho-atualizacao::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  border: 2px solid var(--bg-elevated);
+  border-radius: 50%;
+}
+
+.trilho-atualizacao.is-erro {
+  color: var(--danger);
+}
+
+.trilho-atualizacao.is-erro::before {
+  background: var(--danger);
+}
+
+.trilho-atualizacao.is-baixando {
+  background:
+    linear-gradient(var(--accent), var(--accent)) no-repeat 6px calc(100% - 4px) / calc((100% - 12px) * var(--progresso, 0)) 3px,
+    linear-gradient(var(--border), var(--border)) no-repeat 6px calc(100% - 4px) / calc(100% - 12px) 3px;
+}
+
+/* ---------- Painel ---------- */
+
+.sb-painel {
+  display: flex;
+  flex-direction: column;
+  width: 264px;
+  min-height: 0;
+  background: var(--bg-elevated);
+}
+
+.sb-painel[hidden] {
+  display: none;
+}
+
+/* Solto: flutua sobre a tela, ao lado do trilho, sem empurrar o conteúdo. */
+#sidebar:not(.is-fixado) .sb-painel {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 64px;
+  z-index: 60;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 24px 48px -16px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.02);
+  animation: sb-painel-entrar 0.16s ease-out;
+}
+
+@keyframes sb-painel-entrar {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+}
+
+/* Fixado: parte da barra, separado do trilho por uma linha. */
+#sidebar.is-fixado .sb-painel {
+  border-left: 1px solid var(--border-soft);
+}
+
+.sb-painel-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 18px 12px 10px 18px;
+}
+
+.sb-painel-titulo {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.sb-painel-fixar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--text-faint);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.sb-painel-fixar:hover {
+  color: var(--text);
+  background: var(--bg-elevated-2);
+}
+
+.sb-painel-rolagem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-height: 0;
+  padding: 0 10px 14px;
+  overflow-y: auto;
+}
+
+.sb-painel-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 8px;
+  font-family: var(--font-sans);
+  text-align: left;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+.sb-painel-item:hover,
+.sb-painel-item:focus-visible {
+  color: var(--text);
+  background: var(--bg-elevated-2);
+  outline: none;
+}
+
+.sb-painel-item:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.sb-painel-item-icone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  color: var(--text-muted);
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+}
+
+.sb-painel-item:hover .sb-painel-item-icone {
+  color: var(--accent);
+}
+
+.sb-painel-item-textos {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.sb-painel-item-nome {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.sb-painel-item-desc {
+  overflow: hidden;
+  font-size: 11.5px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-faint);
+}
+
+.sb-painel-item.is-ativo {
+  background: var(--accent-soft);
+}
+
+.sb-painel-item.is-ativo .sb-painel-item-icone {
+  color: var(--accent);
+  background: var(--bg);
+  border-color: oklch(0.7 0.15 292 / 0.35);
+}
+
+/* Fixado: lista compacta de todas as categorias. */
+#sidebar.is-fixado .sb-painel-item {
+  padding: 6px 8px;
+}
+
+#sidebar.is-fixado .sb-painel-item-icone {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+.sb-painel-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 0 8px;
+  border-radius: 12px;
+}
+
+.sb-painel-grupo + .sb-painel-grupo {
+  border-top: 1px solid var(--border-soft);
+  padding-top: 10px;
+}
+
+.sb-painel-grupo-rotulo {
+  margin: 2px 8px 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.sb-painel-grupo.is-destacado {
+  animation: sb-painel-destacar 1.2s ease;
+}
+
+@keyframes sb-painel-destacar {
+  0%,
+  35% {
+    background: var(--accent-soft);
+  }
+}
+
+/* ---------- Busca rápida (Ctrl+P) ---------- */
+
+.paleta-overlay {
+  align-items: flex-start;
+  padding-top: 14vh;
+}
+
+.paleta {
+  display: flex;
+  flex-direction: column;
+  width: min(600px, calc(100vw - 32px));
+  max-height: 70vh;
+  overflow: hidden;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 32px 64px -20px rgba(0, 0, 0, 0.8);
+  animation: paleta-entrar 0.14s ease-out;
+}
+
+@keyframes paleta-entrar {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.99);
+  }
+}
+
+.paleta-campo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  color: var(--text-faint);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.paleta-campo input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.paleta-campo input::placeholder {
+  color: var(--text-faint);
+}
+
+.paleta kbd {
+  display: inline-flex;
+  align-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-muted);
+  background: var(--bg-elevated-3);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+}
+
+.paleta-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  overflow-y: auto;
+}
+
+.paleta-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 10px;
+  font-family: var(--font-sans);
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.paleta-item.is-selecionada {
+  background: var(--accent-soft);
+}
+
+.paleta-item-icone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  color: var(--text-muted);
+  background: var(--bg-elevated-2);
+  border-radius: 9px;
+}
+
+.paleta-item.is-selecionada .paleta-item-icone {
+  color: var(--accent);
+  background: var(--bg);
+}
+
+.paleta-item-textos {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.paleta-item-nome {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.paleta-item-detalhe {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-faint);
+}
+
+.paleta-item-tipo {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.paleta-vazio {
+  margin: 0;
+  padding: 18px;
+  font-size: 13px;
+  text-align: center;
+  color: var(--text-faint);
+}
+
+.paleta-rodape {
+  display: flex;
+  gap: 16px;
+  padding: 9px 16px;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  border-top: 1px solid var(--border-soft);
+}
+
+.paleta-rodape span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #sidebar:not(.is-fixado) .sb-painel,
+  .paleta,
+  .sb-painel-grupo.is-destacado {
+    animation: none;
+  }
+}

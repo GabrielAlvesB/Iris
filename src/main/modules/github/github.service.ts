@@ -377,7 +377,9 @@ export async function getFullFile(): Promise<GithubFile> {
   return loadFile();
 }
 
-export async function replaceFile(file: GithubFile): Promise<GithubFile> {
-  await saveFile(file);
-  return file;
+/** Backup e importação passam pela mesma leitura defensiva do disco: arquivo antigo ou malformado não vai cru. */
+export async function replaceFile(file: unknown): Promise<GithubFile> {
+  const migrado = migrate(file);
+  await saveFile(migrado);
+  return migrado;
 }

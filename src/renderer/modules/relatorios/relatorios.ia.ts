@@ -1,5 +1,14 @@
 import type { BlocoRelatorio, Relatorio, ResultadoMetricas, SecaoRelatorio } from '../../../shared/types/relatorios.types.js';
+import { descreverEscala } from '../../../shared/types/score.types.js';
 import { comAssistente } from '../../ui/ia.js';
+import {
+  escalaDoRelatorio,
+  fatosDoGuia,
+  frasesDaProducao,
+  frasesDoComparativo,
+  frasesDoRanking,
+  orientacaoDoGuia,
+} from './relatorios.guias.js';
 
 /**
  * IA nos campos de texto do relatório. A IA recebe o relatório inteiro como
@@ -47,6 +56,12 @@ function resumoDoBloco(b: BlocoRelatorio): string {
       return [`${b.tituloEsquerda}: ${b.textoEsquerda}`, `${b.tituloDireita}: ${b.textoDireita}`].join('\n');
     case 'citacao':
       return `Citação: "${b.texto}" ${b.fonte}`;
+    case 'comparativo':
+      return [`Comparativo "${b.titulo}"`, ...frasesDoComparativo(b), b.comentario].filter((t) => t.trim()).join('\n').replace(/\*\*/g, '');
+    case 'ranking':
+      return [`Melhores e piores "${b.titulo}"`, ...frasesDoRanking(b), b.comentario].filter((t) => t.trim()).join('\n').replace(/\*\*/g, '');
+    case 'producao':
+      return [`Produção "${b.titulo}"`, ...frasesDaProducao(b), b.comentario].filter((t) => t.trim()).join('\n').replace(/\*\*/g, '');
     default:
       return '';
   }
@@ -114,13 +129,19 @@ export const ORIENTACOES_RELATORIO = {
   destaque: 'De 1 a 2 frases com o recado mais importante para o cliente, com o número que o sustenta.',
   introMetricas: 'De 1 a 2 frases dizendo de onde vêm os números deste bloco e o período que cobrem.',
   leituraMetricas:
-    'Interprete os números deste bloco: o que está bom e o que está ruim (score 85 ou mais é positivo, abaixo de 85 é negativo), comparações entre meses, tipos, redes e tags, as postagens de maior e menor score, e uma recomendação que saia desses números.',
+    'Interprete os números deste bloco: o que está bom e o que está ruim (pelas faixas da escala de score informada no material), comparações entre meses, tipos, redes e tags, as postagens de maior e menor score, e uma recomendação que saia desses números.',
   analise: 'Interprete os indicadores digitados: o que as variações mostram, o que provavelmente as explica e o que fazer a seguir.',
   conclusao:
     'Síntese do relatório inteiro em 1 ou 2 parágrafos: compare os resultados com os objetivos, cite os números principais (total de postagens, score médio, as melhores e as piores e por quê), diga claramente o que funcionou e o que não funcionou.',
   proximosPassos:
     'Lista de 3 a 6 ações concretas para o próximo período, cada uma ligada a um achado específico do relatório (ex.: "Repetir o formato X, que teve score 92").',
   observacoes: 'Ressalvas curtas sobre os dados (período, postagens sem score, o que não foi medido) e combinados com o cliente.',
+  comparativo:
+    'Compare os dois períodos: o que subiu e o que caiu (com os números de antes e depois), se a mudança é relevante, o que provavelmente a explica e o que fazer.',
+  ranking:
+    'Aponte o que as postagens de maior score têm em comum e o que se repete nas de menor score, citando títulos e scores, e tire uma regra prática para o próximo período.',
+  producao:
+    'Leia o ritmo de produção: publicadas no período, as que passaram da data, onde a pipeline acumula, e o que ajustar no processo.',
 } as const;
 
 export function comIaRelatorio(area: HTMLTextAreaElement, campo: string, rel: Relatorio, foco?: () => string, orientacao?: string): HTMLElement {
@@ -128,10 +149,18 @@ export function comIaRelatorio(area: HTMLTextAreaElement, campo: string, rel: Re
     area: 'Relatório de resultados de conteúdo para um cliente',
     campo,
     orientacao,
+    // Lido na hora de gerar: o guia do campo (perguntas, exemplo e fatos — o
+    // mesmo "Como escrever" que a pessoa vê) entra junto, para a IA escrever
+    // no formato que o campo pede e com os números já conferidos.
     contexto: () => ({
       titulo: rel.titulo,
+      orientacao: [orientacao, orientacaoDoGuia(area)].filter(Boolean).join('\n'),
       referencia: [
-        'Regra do score (0 a 100): 85 ou mais é positivo; abaixo de 85 é negativo.',
+        // A régua é a escala das empresas do relatório — fixar 85 aqui faria a
+        // IA contradizer uma empresa com escala própria.
+        `Regra do score (0 a 100), escala ${escalaDoRelatorio(rel).nome}: ${descreverEscala(escalaDoRelatorio(rel))}.`,
+        // Antes do relatório completo: a referência é cortada no fim se passar do limite.
+        fatosDoGuia(area),
         foco ? `Dados mais importantes para este campo:\n${foco()}` : '',
         `Relatório completo:\n${resumoDoRelatorio(rel)}`,
       ]

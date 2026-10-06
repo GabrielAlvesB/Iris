@@ -895,7 +895,7 @@ function abrirCampanha(campanhaId: string): void {
 
   const handle = abrirPainel({
     icone: ICONES.campanha,
-    rotulo: `Campanha #${c.seq}`,
+    rotulo: 'Campanha',
     ariaLabel: `Campanha ${c.nome}`,
     posicao: lerPosicaoLembrada('trafego', 'centro'),
     aoMudarPosicao: (pos) => lembrarPosicao('trafego', pos),
@@ -1100,7 +1100,8 @@ function abrirCampanha(campanhaId: string): void {
   const notas = buildSecaoModal('Anotações');
   notas.conteudo.appendChild(areaLigada(c.anotacoes, 'Testes feitos, aprendizados, próximos passos…', 4, (v) => (c.anotacoes = v)));
 
-  handle.grade.append(config.secao, resultados.secao, estrategia.secao, links.secao, notas.secao);
+  handle.lateral.append(config.secao, links.secao);
+  handle.grade.append(resultados.secao, estrategia.secao, notas.secao);
 
   // Rodapé
   const excluir = buildBotao('Excluir', { icone: ICONES.lixeira, variante: 'fantasma' });

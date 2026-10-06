@@ -10,7 +10,27 @@
 import type { ModuloId } from '../../shared/types/modulos.types.js';
 import type { TipoPostagem } from '../../shared/types/postagens.types.js';
 
-export type GuiaId = 'n8n' | 'servidores' | 'github' | 'ia';
+/** Guias do Tutorial: os de conexão (com verificação) e um por área do app. */
+export type GuiaId =
+  | 'comecar'
+  | 'ia'
+  | 'n8n'
+  | 'servidores'
+  | 'github'
+  | 'kanban'
+  | 'todo'
+  | 'postagens'
+  | 'estudio'
+  | 'relatorios'
+  | 'roteiros'
+  | 'sheets'
+  | 'biblioteca'
+  | 'quadro'
+  | 'copy'
+  | 'pensamentos'
+  | 'links'
+  | 'trafego'
+  | 'ajustes';
 
 type Atendente = (modulo: string) => void;
 
@@ -83,12 +103,39 @@ export function onPostagemSolicitada(cb: (pedido: PedidoPostagem) => void): () =
 
 // ---------- Ajustes: abrir já numa seção ----------
 
+/**
+ * Seções de Ajustes que dá para abrir direto (busca rápida, Tutorial). Mesmos
+ * ids e rótulos do índice de ajustes.view.ts, que mora num módulo carregado
+ * sob demanda — por isso a lista curta fica aqui, sem importar a tela.
+ */
+export const SECOES_AJUSTES: ReadonlyArray<{ id: string; rotulo: string; termos: string }> = [
+  { id: 'ia', rotulo: 'Inteligência artificial', termos: 'ia chave openai claude gemini ollama groq modelo' },
+  { id: 'empresas', rotulo: 'Empresas e tags', termos: 'cliente marca tag rede' },
+  { id: 'escalas', rotulo: 'Escalas de score', termos: 'score nota faixa meta' },
+  { id: 'horarios', rotulo: 'Horários padrão', termos: 'agenda hora publicar' },
+  { id: 'n8n', rotulo: 'n8n', termos: 'automação api key' },
+  { id: 'github', rotulo: 'GitHub', termos: 'token repositório' },
+  { id: 'credenciais', rotulo: 'Segurança', termos: 'cofre senha credencial' },
+  { id: 'preferencias', rotulo: 'Preferências', termos: 'módulo inicial barra lateral fixar' },
+  { id: 'relatorios', rotulo: 'Relatórios (assinatura)', termos: 'assinatura pdf' },
+  { id: 'atualizacoes', rotulo: 'Atualizações', termos: 'versão instalar update' },
+  { id: 'backup', rotulo: 'Backup', termos: 'exportar importar json planilha restaurar' },
+];
+
 let secaoAjustesPendente: string | null = null;
+const ouvintesAjustes = new Set<() => void>();
 
 /** Abre Ajustes na seção pedida (ex.: 'relatorios', de onde vem a assinatura). */
 export function abrirAjustes(secao: string): void {
   secaoAjustesPendente = secao;
   atendente?.('ajustes');
+  // Com Ajustes já aberto o switch não remonta: o ouvinte redesenha na seção.
+  ouvintesAjustes.forEach((ouvir) => ouvir());
+}
+
+export function onSecaoAjustesSolicitada(cb: () => void): () => void {
+  ouvintesAjustes.add(cb);
+  return () => ouvintesAjustes.delete(cb);
 }
 
 export function consumirSecaoAjustes(): string | null {

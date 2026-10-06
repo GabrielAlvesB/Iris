@@ -63,6 +63,13 @@ export const TIMEOUT_IMAGEM_MS = 240_000;
  * adaptadores decidirem se dá para ajustar o pedido e tentar de novo; a
  * `message` já vem em português para a tela.
  */
+/**
+ * O endereço não respondeu (servidor desligado, porta errada, sem internet).
+ * Separado dos outros erros para os provedores locais trocarem a mensagem por
+ * "abra o Ollama", que é quase sempre a causa.
+ */
+export class ErroSemConexao extends Error {}
+
 export class ErroProvedor extends Error {
   constructor(
     mensagem: string,
@@ -156,7 +163,7 @@ export async function chamarJson<T>(rotulo: string, url: string, opcoes: HttpOpt
   if (isFalha(resposta)) {
     if (resposta.motivo === 'abortado') throw new Error('Cancelado.');
     if (resposta.motivo === 'timeout') throw new Error(`${rotulo} demorou demais para responder. Tente de novo ou use outro modelo.`);
-    throw new Error(`Sem conexão com ${rotulo} (${resposta.mensagem}).`);
+    throw new ErroSemConexao(`Sem conexão com ${rotulo} (${resposta.mensagem}).`);
   }
   if (!resposta.ok) {
     const { mensagem, parametro } = lerErroDoProvedor(resposta.body);

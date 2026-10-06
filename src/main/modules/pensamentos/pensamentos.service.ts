@@ -172,7 +172,7 @@ export async function getFullFile(): Promise<PensamentosFile> {
 }
 
 /** Passa pela migração: um backup da v1 (lista sem posição) volta como quadro. */
-export async function replaceFile(file: PensamentosFile): Promise<PensamentosFile> {
+export async function replaceFile(file: unknown): Promise<PensamentosFile> {
   const migrado = migratePensamentosFile(file);
   await saveFile(migrado);
   return migrado;

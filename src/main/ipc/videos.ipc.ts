@@ -9,6 +9,7 @@ import type {
   ImportarDeSheetsResult,
   MoverVideoInput,
   PreferenciasVideos,
+  SalvarEscalaInput,
   SalvarRedeInput,
   SalvarTagInput,
   VideosFile,
@@ -57,6 +58,18 @@ export function registerVideosIpc(): void {
 
   ipcMain.handle(VIDEOS_CHANNELS.excluirTag, (_event, tagId: string) =>
     toResult<VideosFile>(videosService.excluirTag(tagId)),
+  );
+
+  ipcMain.handle(VIDEOS_CHANNELS.salvarEscala, (_event, input: SalvarEscalaInput) =>
+    toResult<VideosFile>(videosService.salvarEscala(input)),
+  );
+
+  ipcMain.handle(VIDEOS_CHANNELS.excluirEscala, (_event, escalaId: string) =>
+    toResult<VideosFile>(videosService.excluirEscala(escalaId)),
+  );
+
+  ipcMain.handle(VIDEOS_CHANNELS.definirEscalaPadrao, (_event, escalaId: string) =>
+    toResult<VideosFile>(videosService.definirEscalaPadrao(escalaId)),
   );
 
   ipcMain.handle(VIDEOS_CHANNELS.salvarRede, (_event, input: SalvarRedeInput) =>

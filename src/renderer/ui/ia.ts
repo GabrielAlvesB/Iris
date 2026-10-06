@@ -386,6 +386,8 @@ export interface AcaoMenuIa {
   dica: string;
   /** Ícone SVG do item; sem ele, a faísca da IA. */
   icone?: string;
+  /** Título de grupo: quando muda de um item para o seguinte, entra um cabeçalho. */
+  grupo?: string;
   /** Recebe a IA marcada na fileira "Gerar com" (vazia = a padrão). */
   fazer: (ia: EscolhaTexto) => void;
 }
@@ -417,7 +419,12 @@ export function abrirMenuIa(ancora: HTMLElement, acoes: AcaoMenuIa[], opcoes: Op
   let fechar = (): void => undefined;
   let escolha: EscolhaTexto = {};
   if (opcoes.titulo) menu.appendChild(Object.assign(document.createElement('p'), { className: 'ia-menu-titulo', textContent: opcoes.titulo }));
+  let grupoAtual: string | undefined;
   acoes.forEach((a) => {
+    if (a.grupo && a.grupo !== grupoAtual) {
+      grupoAtual = a.grupo;
+      menu.appendChild(Object.assign(document.createElement('p'), { className: 'ia-menu-grupo', textContent: a.grupo }));
+    }
     const item = document.createElement('button');
     item.type = 'button';
     item.className = 'ia-menu-item';

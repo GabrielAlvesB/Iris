@@ -31,8 +31,10 @@ import {
   type MapeamentoSheets,
   type MoverVideoInput,
   type OrigemSheets,
+  type HorarioPadrao,
   type PreferenciasVideos,
   type RedeSocial,
+  type SalvarEscalaInput,
   type SalvarRedeInput,
   type SalvarTagInput,
   type Video,
@@ -52,9 +54,10 @@ import {
   parseHora,
   resolverStatus,
 } from '../../../shared/types/videos.conversao';
+import { ESCALA_LEGADA, lerEscala, problemaDaEscala, type EscalaScore } from '../../../shared/types/score.types';
 
 const FILE_NAME = 'videos.json';
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 const MAX_IMPORTACOES = 100;
 
@@ -108,7 +111,30 @@ function preferenciasPadrao(): PreferenciasVideos {
     inicioDaSemana: 0,
     calendarioPorRede: false,
     posicaoPainel: 'centro',
+    horariosPadrao: [],
   };
+}
+
+function migrateHorariosPadrao(raw: unknown): HorarioPadrao[] {
+  if (!Array.isArray(raw)) return [];
+  const vistos = new Set<string>();
+  const lista: HorarioPadrao[] = [];
+  for (const item of raw) {
+    const h = (item ?? {}) as Partial<HorarioPadrao>;
+    const hora = typeof h.hora === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(h.hora) ? h.hora : null;
+    if (!hora) continue;
+    const id = typeof h.id === 'string' && h.id && !vistos.has(h.id) ? h.id : randomUUID();
+    vistos.add(id);
+    // Sem nome, o próprio horário serve de nome — a lista nunca mostra um chip vazio.
+    const nome = typeof h.nome === 'string' && h.nome.trim() ? h.nome.trim().slice(0, 60) : hora;
+    lista.push({ id, nome, hora });
+  }
+  return lista.slice(0, 40);
+}
+
+/** Cópia da escala de antes (corte em 85): quem já usava o score não vê nada mudar. */
+function escalaLegada(): EscalaScore {
+  return { ...ESCALA_LEGADA, faixas: ESCALA_LEGADA.faixas.map((f) => ({ ...f })) };
 }
 
 function createDefaultFile(): VideosFile {
@@ -122,6 +148,8 @@ function createDefaultFile(): VideosFile {
     importacoes: [],
     mapeamentos: [],
     preferencias: preferenciasPadrao(),
+    escalasScore: [escalaLegada()],
+    escalaPadraoId: ESCALA_LEGADA.id,
     // Arquivo novo não tem nada antigo para migrar.
     empresasMigradas: true,
   };
@@ -144,6 +172,7 @@ function migratePreferencias(raw: unknown): PreferenciasVideos {
     inicioDaSemana: c.inicioDaSemana === 1 ? 1 : 0,
     calendarioPorRede: typeof c.calendarioPorRede === 'boolean' ? c.calendarioPorRede : padrao.calendarioPorRede,
     posicaoPainel: c.posicaoPainel === 'direita' || c.posicaoPainel === 'esquerda' ? c.posicaoPainel : 'centro',
+    horariosPadrao: migrateHorariosPadrao(c.horariosPadrao),
   };
 }
 
@@ -162,6 +191,7 @@ function migrateTag(raw: unknown, indice: number): VideoTag | null {
     nome,
     cor: cor(c.cor, PALETA_TAGS[indice % PALETA_TAGS.length]!),
     ...(c.empresa === true ? { empresa: true } : {}),
+    ...(c.empresa === true && typeof c.escalaScoreId === 'string' && c.escalaScoreId ? { escalaScoreId: c.escalaScoreId } : {}),
   };
 }
 
@@ -309,6 +339,18 @@ function migrateVideosFile(raw: unknown): VideosFile {
   if (Array.isArray(c.redes) && (typeof c.schemaVersion !== 'number' || c.schemaVersion < 2)) acrescentarRedesV2(redes);
   const catalogo = { tagIds: new Set(tags.map((t) => t.id)), redeIds: new Set(redes.map((r) => r.id)) };
 
+  // Arquivo anterior às escalas recebe a "Padrão" com o corte antigo em 85.
+  const escalasScore = Array.isArray(c.escalasScore)
+    ? c.escalasScore.map((e) => lerEscala(e, randomUUID)).filter((e): e is EscalaScore => e !== undefined)
+    : [];
+  if (!escalasScore.length) escalasScore.push(escalaLegada());
+  const idsEscalas = new Set(escalasScore.map((e) => e.id));
+  const escalaPadraoId = typeof c.escalaPadraoId === 'string' && idsEscalas.has(c.escalaPadraoId) ? c.escalaPadraoId : escalasScore[0]!.id;
+  // Empresa apontando para escala que não existe mais volta para a padrão.
+  tags.forEach((t) => {
+    if (t.escalaScoreId && !idsEscalas.has(t.escalaScoreId)) delete t.escalaScoreId;
+  });
+
   const videos = Array.isArray(c.videos) ? c.videos.map((v) => migrateVideo(v, catalogo)).filter(naoNulo) : [];
   const seqAtual = garantirSeq(videos, typeof c.seqAtual === 'number' ? c.seqAtual : 0);
   etapas.renumerar(videos);
@@ -323,6 +365,8 @@ function migrateVideosFile(raw: unknown): VideosFile {
     importacoes: Array.isArray(c.importacoes) ? c.importacoes.map(migrateImportacao).filter(naoNulo) : [],
     mapeamentos: Array.isArray(c.mapeamentos) ? c.mapeamentos.map(migrateMapeamento).filter(naoNulo) : [],
     preferencias: migratePreferencias(c.preferencias),
+    escalasScore,
+    escalaPadraoId,
     ...(c.empresasMigradas === true ? { empresasMigradas: true } : {}),
   };
 }
@@ -384,12 +428,14 @@ export async function getFullFile(): Promise<VideosFile> {
 /** Tags e redes: um catálogo só, usado por todos os tipos de postagem. */
 export function getCatalogo(): CatalogoPostagens {
   const file = loadFile();
-  return { tags: file.tags, redes: file.redes };
+  return { tags: file.tags, redes: file.redes, escalasScore: file.escalasScore, escalaPadraoId: file.escalaPadraoId };
 }
 
-export async function replaceFile(file: VideosFile): Promise<VideosFile> {
-  await saveFile(file);
-  return file;
+/** Backup e importação passam pela mesma leitura defensiva do disco: arquivo antigo ou malformado não vai cru. */
+export async function replaceFile(file: unknown): Promise<VideosFile> {
+  const migrado = migrateVideosFile(file);
+  await saveFile(migrado);
+  return migrado;
 }
 
 export async function criarVideo(input: CriarVideoInput): Promise<VideosFile> {
@@ -487,12 +533,24 @@ export async function salvarTag(input: SalvarTagInput): Promise<VideosFile> {
       if (input.empresa) existente.empresa = true;
       else delete existente.empresa;
     }
+    if (input.escalaScoreId !== undefined) {
+      if (input.escalaScoreId && !file.escalasScore.some((e) => e.id === input.escalaScoreId)) {
+        throw new Error('Essa escala de score não existe mais — escolha outra.');
+      }
+      if (input.escalaScoreId) existente.escalaScoreId = input.escalaScoreId;
+      else delete existente.escalaScoreId;
+    }
+    // A escala é da empresa: tag que deixou de ser empresa não a carrega.
+    if (!existente.empresa) delete existente.escalaScoreId;
   } else {
     file.tags.push({
       id: randomUUID(),
       nome,
       cor: cor(input.cor, PALETA_TAGS[file.tags.length % PALETA_TAGS.length]!),
       ...(input.empresa ? { empresa: true } : {}),
+      ...(input.empresa && input.escalaScoreId && file.escalasScore.some((e) => e.id === input.escalaScoreId)
+        ? { escalaScoreId: input.escalaScoreId }
+        : {}),
     });
   }
 
@@ -523,6 +581,46 @@ export async function excluirTag(tagId: string): Promise<VideosFile> {
   file.videos.forEach((v) => {
     v.tagIds = v.tagIds.filter((id) => id !== tagId);
   });
+  await saveFile(file);
+  return file;
+}
+
+// ---------- Escalas de score ----------
+
+export async function salvarEscala(input: SalvarEscalaInput): Promise<VideosFile> {
+  const file = loadFile();
+  const existente = input.id ? file.escalasScore.find((e) => e.id === input.id) : undefined;
+  if (input.id && !existente) throw new Error('Essa escala não existe mais — ela pode ter sido excluída.');
+  // A mesma leitura da migração: o que vem da tela passa pelas regras do disco.
+  const escala = lerEscala({ id: existente?.id, nome: input.nome, faixas: input.faixas }, randomUUID);
+  if (!escala) {
+    const ordenadas = [...input.faixas].sort((a, b) => a.de - b.de).map((f) => ({ ...f, id: f.id ?? '' }));
+    throw new Error(problemaDaEscala({ nome: input.nome, faixas: ordenadas }) ?? 'A escala não é válida.');
+  }
+  const duplicada = file.escalasScore.find((e) => normalizar(e.nome) === normalizar(escala.nome) && e.id !== escala.id);
+  if (duplicada) throw new Error(`Já existe a escala "${duplicada.nome}".`);
+  if (existente) Object.assign(existente, escala);
+  else file.escalasScore.push(escala);
+  await saveFile(file);
+  return file;
+}
+
+/** Empresas que usavam a escala voltam para a padrão; a padrão não se exclui. */
+export async function excluirEscala(escalaId: string): Promise<VideosFile> {
+  const file = loadFile();
+  if (escalaId === file.escalaPadraoId) throw new Error('A escala padrão não pode ser excluída — torne outra a padrão antes.');
+  file.escalasScore = file.escalasScore.filter((e) => e.id !== escalaId);
+  file.tags.forEach((t) => {
+    if (t.escalaScoreId === escalaId) delete t.escalaScoreId;
+  });
+  await saveFile(file);
+  return file;
+}
+
+export async function definirEscalaPadrao(escalaId: string): Promise<VideosFile> {
+  const file = loadFile();
+  if (!file.escalasScore.some((e) => e.id === escalaId)) throw new Error('Essa escala não existe mais.');
+  file.escalaPadraoId = escalaId;
   await saveFile(file);
   return file;
 }

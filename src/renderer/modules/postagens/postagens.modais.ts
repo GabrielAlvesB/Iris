@@ -8,6 +8,7 @@ import {
 } from '../../../shared/types/postagens.types.js';
 import type { PreferenciasVideos, VideosFile } from '../../../shared/types/videos.types.js';
 import { descreverOrigem } from '../../../shared/types/videos.conversao.js';
+import { escalaDaPostagem } from '../../../shared/types/score.types.js';
 import { buildSecaoModal, openConfirmModal, openCustomModal } from '../../ui/modal.js';
 import { campo, erroInline, grade2, input, interruptor, pilulas } from '../../ui/campos.js';
 import { buildBotao, buildSegmentado } from '../../ui/pagina.js';
@@ -385,7 +386,7 @@ export function abrirExibicao(): void {
         const topo = document.createElement('div');
         topo.className = 'vd-card-topo';
         if (exemplo.prioridade) topo.appendChild(buildPrioridade(exemplo.prioridade));
-        if (prefs.mostrarScore && exemplo.score !== undefined) topo.appendChild(buildScore(exemplo.score, true));
+        if (prefs.mostrarScore && exemplo.score !== undefined) topo.appendChild(buildScore(exemplo.score, escalaDaPostagem(file, exemplo.tagIds), true));
         const redesEl = document.createElement('span');
         redesEl.className = 'vd-card-redes';
         if (prefs.mostrarRedes) exemplo.redeIds.forEach((id) => {

@@ -1,4 +1,5 @@
 import type { BaseEntity } from './common.types';
+import type { EscalaScore } from './score.types';
 
 /**
  * Tipos de postagem. Cada tipo tem arquivo de dados, service e painel
@@ -79,6 +80,8 @@ export interface TagPostagem {
    * tags comuns juntas.
    */
   empresa?: boolean;
+  /** Só em empresa: escala de score das postagens dela. Ausente = a escala padrão. */
+  escalaScoreId?: string;
 }
 
 /**
@@ -118,10 +121,12 @@ export interface RedeSocial {
   logo?: LogoRede;
 }
 
-/** Tags e redes são um catálogo único, compartilhado por todos os tipos. */
+/** Tags, redes e escalas de score são um catálogo único, compartilhado por todos os tipos. */
 export interface CatalogoPostagens {
   tags: TagPostagem[];
   redes: RedeSocial[];
+  escalasScore: EscalaScore[];
+  escalaPadraoId: string;
 }
 
 /**

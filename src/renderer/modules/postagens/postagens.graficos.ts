@@ -7,14 +7,12 @@
  *
  * Cores validadas contra a superfície escura (#14161c) com o validador da
  * skill de dataviz: série 1 azul, série 2 laranja; faixas ordenadas numa rampa
- * de um tom de azul. As faixas de score (negativo/positivo) usam os tokens
- * --danger e --success: vermelho e verde já significam isso no resto do app.
+ * de um tom de azul. As faixas de score têm a cor que o usuário deu na escala
+ * (CORES_FAIXA de score.types, uma paleta fechada já validada).
  */
 
 export const COR_SERIE = ['#3987e5', '#d95926'] as const;
 export const RAMPA_ORDINAL = ['#184f95', '#256abf', '#3987e5', '#86b6ef'] as const;
-/** Na ordem de FAIXAS_SCORE: negativo, positivo. */
-export const CORES_FAIXA = ['#ef4444', '#22c55e'] as const;
 
 const NS = 'http://www.w3.org/2000/svg';
 const LARGURA = 600;
@@ -329,8 +327,8 @@ export interface LinhaRanking {
   valor: number | null;
   /** Texto à direita (ex.: "12 vídeos"). */
   detalhe: string;
-  /** Id da faixa de score (FAIXAS_SCORE): pinta a barra; o número continua escrito. */
-  faixa?: string;
+  /** Cor da faixa de score (da escala): pinta a barra; o número continua escrito. */
+  cor?: string;
   aoClicar?: () => void;
 }
 
@@ -359,7 +357,7 @@ export function buildRanking(linhas: LinhaRanking[], descricao: string, semValor
     if (l.valor !== null) {
       const barra = document.createElement('i');
       barra.style.width = `${Math.max(1.5, l.valor)}%`;
-      if (l.faixa) barra.className = `is-${l.faixa}`;
+      if (l.cor) barra.style.setProperty('--c', l.cor);
       trilho.appendChild(barra);
     }
     const valor = document.createElement('span');

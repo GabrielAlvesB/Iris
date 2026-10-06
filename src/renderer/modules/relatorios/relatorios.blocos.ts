@@ -1,12 +1,17 @@
 import { PRIORIDADES, TIPOS_POSTAGEM, type TipoPostagem } from '../../../shared/types/postagens.types.js';
 import {
   PARTES_METRICAS,
+  QUANTIDADES_RANKING,
   TONS_DESTAQUE,
   type BaseMetricas,
   type BlocoAnalise,
   type BlocoCitacao,
   type BlocoColunas,
+  type BlocoComparativo,
   type BlocoMetricas,
+  type BlocoProducao,
+  type BlocoRanking,
+  type QuantidadeRanking,
   type IndicadorManual,
   type BlocoRelatorio,
   type BlocoTabela,
@@ -19,11 +24,36 @@ import {
 import { campo, grade2, input, pilulas, textarea } from '../../ui/campos.js';
 import { openConfirmModal } from '../../ui/modal.js';
 import { buildBotao, svg } from '../../ui/pagina.js';
-import { ICONES_POSTAGEM, hojeIso, ordenarTags, somarDias } from '../postagens/postagens.ui.js';
+import { ICONES_POSTAGEM, formatarData, hojeIso, ordenarTags, somarDias } from '../postagens/postagens.ui.js';
 import { abrirMenuIa } from '../../ui/ia.js';
 import { buildBloco } from './relatorios.documento.js';
 import { ORIENTACOES_RELATORIO as ORIENTA, comIaRelatorio, resumoDoResultado } from './relatorios.ia.js';
-import { calcularMetricas, catalogoAtual, intervaloDoMes, mesExato, novoBlocoMetricas } from './relatorios.metricas.js';
+import {
+  calcularComparativo,
+  calcularMetricas,
+  calcularProducao,
+  catalogoAtual,
+  filtroPadrao,
+  intervaloDoMes,
+  mesExato,
+  novoBlocoMetricas,
+  periodoAnterior,
+} from './relatorios.metricas.js';
+import {
+  EXEMPLOS_FIXOS,
+  buildGuia,
+  exemploComparativo,
+  exemploIntroMetricas,
+  exemploLeituraMetricas,
+  exemploProducao,
+  exemploRanking,
+  frasesDaAnalise,
+  frasesDaProducao,
+  frasesDoComparativo,
+  frasesDoRanking,
+  frasesDoResultado,
+  type CampoGuia,
+} from './relatorios.guias.js';
 
 /**
  * Editores dos blocos livres de uma seção: texto, destaque, tabela, métricas
@@ -61,6 +91,21 @@ export const TIPOS_BLOCO: Record<TipoBloco, { rotulo: string; icone: string; dic
     rotulo: 'Métricas',
     icone: '<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
     dica: 'Números calculados sozinhos a partir das postagens (quantas, por rede, por tag, score…), com filtro de período.',
+  },
+  comparativo: {
+    rotulo: 'Comparativo',
+    icone: '<path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>',
+    dica: 'O período escolhido contra o anterior (ex.: outubro × setembro): quantidade, score médio, faixa positiva e redes, com a variação.',
+  },
+  ranking: {
+    rotulo: 'Melhores e piores',
+    icone: '<path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3"/><path d="M7 5H4v2a3 3 0 0 0 3 3"/>',
+    dica: 'As postagens de maior e de menor score do período, com data, redes e faixa — calculadas sozinhas.',
+  },
+  producao: {
+    rotulo: 'Produção',
+    icone: '<rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="10" rx="1"/><rect x="17" y="4" width="4" height="6" rx="1"/>',
+    dica: 'Quanto foi produzido: criadas, publicadas e atrasadas no período, e a pipeline por fase.',
   },
   analise: {
     rotulo: 'Texto + métrica',
@@ -131,6 +176,18 @@ export function novoBloco(tipo: TipoBloco, rel: Relatorio): BlocoRelatorio {
       return { id, tipo, titulo: '', colunas: ['Item', 'Valor'], linhas: [['', ''], ['', '']] };
     case 'metricas':
       return novoBlocoMetricas(rel);
+    case 'comparativo': {
+      const filtro = filtroPadrao(rel);
+      return { id, tipo, titulo: 'Comparação com o período anterior', filtro, ...calcularComparativo(filtro), comentario: '' };
+    }
+    case 'ranking': {
+      const filtro = filtroPadrao(rel);
+      return { id, tipo, titulo: 'Melhores e piores do período', filtro, quantidade: 5, resultado: calcularMetricas(filtro), comentario: '' };
+    }
+    case 'producao': {
+      const filtro = filtroPadrao(rel);
+      return { id, tipo, titulo: 'Produção do período', filtro, resultado: calcularProducao(filtro), comentario: '' };
+    }
     case 'analise':
       return { id, tipo, titulo: '', indicadores: [novoIndicador(), novoIndicador()], texto: '' };
     case 'colunas':
@@ -142,8 +199,8 @@ export function novoBloco(tipo: TipoBloco, rel: Relatorio): BlocoRelatorio {
   }
 }
 
-function novoIndicador(): IndicadorManual {
-  return { id: crypto.randomUUID(), rotulo: '', valor: '', variacao: '', nota: '' };
+export function novoIndicador(rotulo = ''): IndicadorManual {
+  return { id: crypto.randomUUID(), rotulo, valor: '', variacao: '', nota: '' };
 }
 
 /** Os blocos que têm título próprio no cabeçalho do editor. */
@@ -171,7 +228,7 @@ function editorTexto(bloco: Extract<BlocoRelatorio, { tipo: 'texto' | 'destaque'
       ),
     );
   }
-  const area = textarea(bloco.texto, bloco.tipo === 'destaque' ? 'O recado desta caixa' : 'Escreva à vontade…', bloco.tipo === 'destaque' ? 3 : 6);
+  const area = textarea(bloco.texto, bloco.tipo === 'destaque' ? EXEMPLOS_FIXOS.destaque : EXEMPLOS_FIXOS.texto, bloco.tipo === 'destaque' ? 3 : 6);
   area.addEventListener('input', () => {
     bloco.texto = area.value;
     ctx.agendarSalvar();
@@ -183,6 +240,7 @@ function editorTexto(bloco: Extract<BlocoRelatorio, { tipo: 'texto' | 'destaque'
           undefined,
           bloco.tipo === 'destaque' ? ORIENTA.destaque : ORIENTA.texto,
         ), DICA_FORMATACAO));
+  wrap.appendChild(buildGuia(area, bloco.tipo === 'destaque' ? 'destaque' : 'texto'));
   return wrap;
 }
 
@@ -281,22 +339,18 @@ function atalhosDePeriodo(rel: Relatorio): AtalhoPeriodo[] {
   return atalhos;
 }
 
-function editorMetricas(bloco: BlocoMetricas, ctx: ContextoBlocos): HTMLElement {
-  const wrap = document.createElement('div');
-  wrap.className = 'rel-bl-corpo rel-metricas-editor';
-  const f = bloco.filtro;
+/**
+ * O filtro dos blocos calculados (métricas, comparativo, ranking, produção):
+ * período, tipo, o que conta, redes, tags e prioridade. `aplicar` recalcula
+ * o bloco e redesenha — os números nunca ficam desencontrados do filtro.
+ */
+function buildEditorFiltro(
+  f: FiltroMetricas,
+  ctx: ContextoBlocos,
+  aplicar: (mudanca: Partial<FiltroMetricas>) => void,
+  opcoes: { base?: boolean; dicaPeriodo?: string } = {},
+): HTMLElement[] {
   const catalogo = catalogoAtual();
-
-  // Qualquer mudança no filtro recalcula na hora: os números nunca ficam
-  // desencontrados do filtro que aparece no documento.
-  const aplicar = (mudanca: Partial<FiltroMetricas>): void => {
-    Object.assign(f, mudanca);
-    if (f.inicio && f.fim && f.inicio > f.fim) [f.inicio, f.fim] = [f.fim, f.inicio];
-    bloco.resultado = calcularMetricas(f);
-    ctx.mudouEstrutura();
-  };
-
-  // Período
   const atalhos = document.createElement('div');
   atalhos.className = 'md-pilulas';
   atalhosDePeriodo(ctx.rel).forEach((at) => {
@@ -324,7 +378,106 @@ function editorMetricas(bloco: BlocoMetricas, ctx: ContextoBlocos): HTMLElement 
   datas.className = 'rel-metricas-datas';
   datas.append(campo('Um mês', mes), campo('De', de), campo('Até', ate));
 
-  const introducao = textarea(bloco.introducao, 'Apresente os números: de onde vêm, o que se esperava…', 3);
+  const els: HTMLElement[] = [campo('Período', atalhos, opcoes.dicaPeriodo), datas];
+  const tipo = campo(
+    'Tipo de postagem',
+    pilulas<'todos' | TipoPostagem>(
+      [{ id: 'todos', rotulo: 'Todos' }, ...TIPOS_POSTAGEM.map((t) => ({ id: t.id, rotulo: t.rotulo }))],
+      () => (f.tipos.length === 1 ? f.tipos[0]! : 'todos'),
+      (v) => aplicar({ tipos: v === 'todos' ? [] : [v] }),
+    ),
+  );
+  els.push(
+    opcoes.base === false
+      ? tipo
+      : grade2(
+          tipo,
+          campo(
+            'O que conta',
+            pilulas<BaseMetricas>(
+              [
+                { id: 'publicados', rotulo: 'Só publicados' },
+                { id: 'todos', rotulo: 'Tudo com data' },
+              ],
+              () => f.base,
+              (v) => aplicar({ base: v }),
+            ),
+            f.base === 'publicados' ? 'Pelo dia em que foi ao ar.' : 'Publicado, agendado ou em produção, pela data marcada.',
+          ),
+        ),
+  );
+
+  const redes = catalogo?.redes ?? [];
+  if (redes.length) {
+    els.push(campo('Redes', alternaveis(redes.map((r) => ({ id: r.id, rotulo: r.nome })), f.redeIds, (v) => aplicar({ redeIds: v })), 'Nenhuma marcada = todas.'));
+  }
+  const tags = ordenarTags(catalogo?.tags ?? []);
+  if (tags.length) {
+    els.push(campo('Tags', alternaveis(tags.map((t) => ({ id: t.id, rotulo: t.nome })), f.tagIds, (v) => aplicar({ tagIds: v })), 'Nenhuma marcada = todas.'));
+  }
+  els.push(
+    campo(
+      'Prioridade',
+      alternaveis(PRIORIDADES.map((p) => ({ id: p.id, rotulo: p.rotulo })), f.prioridades, (v) => aplicar({ prioridades: v })),
+      'Nenhuma marcada = todas.',
+    ),
+  );
+  return els;
+}
+
+/** "Números de … Recalcule." + botão Recalcular + a prévia no desenho do PDF. */
+function buildPreviaCalculada(calculadoEm: string | undefined, aplicar: () => void, bloco: BlocoRelatorio): HTMLElement[] {
+  const cabPrevia = document.createElement('div');
+  cabPrevia.className = 'rel-metricas-cab';
+  const quando = document.createElement('span');
+  quando.className = 'md-dica';
+  quando.textContent = calculadoEm
+    ? `Números de ${new Date(calculadoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}. Mudou alguma postagem depois? Recalcule.`
+    : 'Ainda sem cálculo.';
+  const recalcular = buildBotao('Recalcular', { icone: ICONE_RECALCULAR, variante: 'secundario', titulo: 'Recalcular com os dados atuais das postagens' });
+  recalcular.classList.add('is-mini');
+  recalcular.addEventListener('click', aplicar);
+  cabPrevia.append(quando, recalcular);
+  const papel = document.createElement('div');
+  papel.className = 'rd-documento rel-bl-previa';
+  papel.appendChild(buildBloco(bloco));
+  return [cabPrevia, papel];
+}
+
+/** O comentário dos blocos calculados, com IA e guia (perguntas + fatos). */
+function buildComentarioCalculado(
+  bloco: { titulo: string; comentario: string },
+  ctx: ContextoBlocos,
+  o: { rotulo: string; dica: string; exemplo: string; guia: CampoGuia; frases: () => string[]; orientacao: string },
+): HTMLElement[] {
+  const area = textarea(bloco.comentario, o.exemplo, 4);
+  area.addEventListener('input', () => {
+    bloco.comentario = area.value;
+    ctx.agendarSalvar();
+  });
+  return [
+    campo(o.rotulo, comIaRelatorio(area, `${o.rotulo} — "${bloco.titulo}"`, ctx.rel, () => o.frases().join('\n'), o.orientacao), `${o.dica} ${DICA_FORMATACAO}`),
+    buildGuia(area, o.guia, { frases: o.frases }),
+  ];
+}
+
+function editorMetricas(bloco: BlocoMetricas, ctx: ContextoBlocos): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'rel-bl-corpo rel-metricas-editor';
+  const f = bloco.filtro;
+
+  // Qualquer mudança no filtro recalcula na hora: os números nunca ficam
+  // desencontrados do filtro que aparece no documento.
+  const aplicar = (mudanca: Partial<FiltroMetricas>): void => {
+    Object.assign(f, mudanca);
+    if (f.inicio && f.fim && f.inicio > f.fim) [f.inicio, f.fim] = [f.fim, f.inicio];
+    bloco.resultado = calcularMetricas(f);
+    ctx.mudouEstrutura();
+  };
+
+  // Os exemplos citam os números deste bloco: mudar o filtro redesenha o
+  // editor (mudouEstrutura), e o exemplo acompanha.
+  const introducao = textarea(bloco.introducao, exemploIntroMetricas(bloco), 3);
   introducao.addEventListener('input', () => {
     bloco.introducao = introducao.value;
     ctx.agendarSalvar();
@@ -333,56 +486,12 @@ function editorMetricas(bloco: BlocoMetricas, ctx: ContextoBlocos): HTMLElement 
     campo(
       'Texto antes dos números (opcional)',
       comIaRelatorio(introducao, `Introdução do bloco de métricas "${bloco.titulo}"`, ctx.rel, () => resumoDoResultado(bloco.resultado), ORIENTA.introMetricas),
-      DICA_FORMATACAO,
+      `Diga de onde vêm os números e o que se esperava. ${DICA_FORMATACAO}`,
     ),
   );
+  wrap.appendChild(buildGuia(introducao, 'introMetricas'));
 
-  wrap.append(campo('Período', atalhos), datas);
-
-  wrap.appendChild(
-    grade2(
-      campo(
-        'Tipo de postagem',
-        pilulas<'todos' | TipoPostagem>(
-          [{ id: 'todos', rotulo: 'Todos' }, ...TIPOS_POSTAGEM.map((t) => ({ id: t.id, rotulo: t.rotulo }))],
-          () => (f.tipos.length === 1 ? f.tipos[0]! : 'todos'),
-          (v) => aplicar({ tipos: v === 'todos' ? [] : [v] }),
-        ),
-      ),
-      campo(
-        'O que conta',
-        pilulas<BaseMetricas>(
-          [
-            { id: 'publicados', rotulo: 'Só publicados' },
-            { id: 'todos', rotulo: 'Tudo com data' },
-          ],
-          () => f.base,
-          (v) => aplicar({ base: v }),
-        ),
-        f.base === 'publicados' ? 'Pelo dia em que foi ao ar.' : 'Publicado, agendado ou em produção, pela data marcada.',
-      ),
-    ),
-  );
-
-  const redes = catalogo?.redes ?? [];
-  if (redes.length) {
-    wrap.appendChild(
-      campo('Redes', alternaveis(redes.map((r) => ({ id: r.id, rotulo: r.nome })), f.redeIds, (v) => aplicar({ redeIds: v })), 'Nenhuma marcada = todas.'),
-    );
-  }
-  const tags = ordenarTags(catalogo?.tags ?? []);
-  if (tags.length) {
-    wrap.appendChild(
-      campo('Tags', alternaveis(tags.map((t) => ({ id: t.id, rotulo: t.nome })), f.tagIds, (v) => aplicar({ tagIds: v })), 'Nenhuma marcada = todas.'),
-    );
-  }
-  wrap.appendChild(
-    campo(
-      'Prioridade',
-      alternaveis(PRIORIDADES.map((p) => ({ id: p.id, rotulo: p.rotulo })), f.prioridades, (v) => aplicar({ prioridades: v })),
-      'Nenhuma marcada = todas.',
-    ),
-  );
+  wrap.append(...buildEditorFiltro(f, ctx, aplicar));
   wrap.appendChild(
     campo(
       'Mostrar no documento',
@@ -398,7 +507,7 @@ function editorMetricas(bloco: BlocoMetricas, ctx: ContextoBlocos): HTMLElement 
     ),
   );
 
-  const comentario = textarea(bloco.comentario, 'O que esses números dizem? Contexto, comparação, próximos passos…', 3);
+  const comentario = textarea(bloco.comentario, exemploLeituraMetricas(bloco.resultado), 5);
   comentario.addEventListener('input', () => {
     bloco.comentario = comentario.value;
     ctx.agendarSalvar();
@@ -407,29 +516,115 @@ function editorMetricas(bloco: BlocoMetricas, ctx: ContextoBlocos): HTMLElement 
     campo(
       'Leitura dos números (opcional)',
       comIaRelatorio(comentario, `Leitura dos números do bloco "${bloco.titulo}"`, ctx.rel, () => resumoDoResultado(bloco.resultado), ORIENTA.leituraMetricas),
-      DICA_FORMATACAO,
+      `O que os números dizem: compare com a meta, aponte o que puxou para cima e para baixo e o que fazer. ${DICA_FORMATACAO}`,
     ),
   );
+  wrap.appendChild(buildGuia(comentario, 'leituraMetricas', { frases: () => frasesDoResultado(bloco.resultado) }));
 
-  // Prévia dos números, com o mesmo desenho do PDF.
-  const cabPrevia = document.createElement('div');
-  cabPrevia.className = 'rel-metricas-cab';
-  const quando = document.createElement('span');
-  quando.className = 'md-dica';
-  quando.textContent = bloco.resultado
-    ? `Números de ${new Date(bloco.resultado.calculadoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}. Mudou alguma postagem depois? Recalcule.`
-    : 'Ainda sem cálculo.';
-  const recalcular = buildBotao('Recalcular', { icone: ICONE_RECALCULAR, variante: 'secundario', titulo: 'Recalcular com os dados atuais das postagens' });
-  recalcular.classList.add('is-mini');
-  recalcular.addEventListener('click', () => aplicar({}));
-  cabPrevia.append(quando, recalcular);
-  wrap.appendChild(cabPrevia);
+  // Prévia dos números, com o mesmo desenho do PDF. O título já está no campo
+  // de cima; a prévia mostra só os números.
+  wrap.append(...buildPreviaCalculada(bloco.resultado?.calculadoEm, () => aplicar({}), { ...bloco, titulo: '', introducao: '', comentario: '' }));
+  return wrap;
+}
 
-  const papel = document.createElement('div');
-  papel.className = 'rd-documento rel-bl-previa';
-  // O título do bloco já está no campo de cima; a prévia mostra só os números.
-  papel.appendChild(buildBloco({ ...bloco, titulo: '', introducao: '', comentario: '' }));
-  wrap.appendChild(papel);
+function editorComparativo(bloco: BlocoComparativo, ctx: ContextoBlocos): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'rel-bl-corpo rel-metricas-editor';
+  const f = bloco.filtro;
+  const aplicar = (mudanca: Partial<FiltroMetricas>): void => {
+    Object.assign(f, mudanca);
+    if (f.inicio && f.fim && f.inicio > f.fim) [f.inicio, f.fim] = [f.fim, f.inicio];
+    Object.assign(bloco, calcularComparativo(f));
+    ctx.mudouEstrutura();
+  };
+  const anterior = periodoAnterior(f);
+  wrap.append(
+    ...buildEditorFiltro(f, ctx, aplicar, {
+      dicaPeriodo: anterior
+        ? `Compara com ${formatarData(anterior.inicio)} a ${formatarData(anterior.fim)} — o período do mesmo tamanho logo antes${mesExato(f) ? ' (o mês anterior inteiro)' : ''}.`
+        : 'Escolha um período com início e fim: o comparativo usa o período do mesmo tamanho logo antes.',
+    }),
+  );
+  wrap.append(
+    ...buildComentarioCalculado(bloco, ctx, {
+      rotulo: 'Leitura da comparação (opcional)',
+      dica: 'O que melhorou, o que piorou e por quê.',
+      exemplo: exemploComparativo(bloco),
+      guia: 'comparativo',
+      frases: () => frasesDoComparativo(bloco),
+      orientacao: ORIENTA.comparativo,
+    }),
+  );
+  wrap.append(...buildPreviaCalculada(bloco.atual?.calculadoEm, () => aplicar({}), { ...bloco, titulo: '', comentario: '' }));
+  return wrap;
+}
+
+function editorRanking(bloco: BlocoRanking, ctx: ContextoBlocos): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'rel-bl-corpo rel-metricas-editor';
+  const f = bloco.filtro;
+  const aplicar = (mudanca: Partial<FiltroMetricas>): void => {
+    Object.assign(f, mudanca);
+    if (f.inicio && f.fim && f.inicio > f.fim) [f.inicio, f.fim] = [f.fim, f.inicio];
+    bloco.resultado = calcularMetricas(f);
+    ctx.mudouEstrutura();
+  };
+  wrap.appendChild(
+    campo(
+      'Quantas de cada lado',
+      pilulas<string>(
+        QUANTIDADES_RANKING.map((q) => ({ id: String(q), rotulo: `${q} maiores e ${q} menores` })),
+        () => String(bloco.quantidade),
+        (v) => {
+          bloco.quantidade = Number(v) as QuantidadeRanking;
+          ctx.mudouEstrutura();
+        },
+      ),
+    ),
+  );
+  wrap.append(...buildEditorFiltro(f, ctx, aplicar));
+  wrap.append(
+    ...buildComentarioCalculado(bloco, ctx, {
+      rotulo: 'O que as listas mostram (opcional)',
+      dica: 'O que as melhores têm em comum, e o que as piores têm em comum.',
+      exemplo: exemploRanking(bloco),
+      guia: 'ranking',
+      frases: () => frasesDoRanking(bloco),
+      orientacao: ORIENTA.ranking,
+    }),
+  );
+  wrap.append(...buildPreviaCalculada(bloco.resultado?.calculadoEm, () => aplicar({}), { ...bloco, titulo: '', comentario: '' }));
+  return wrap;
+}
+
+function editorProducao(bloco: BlocoProducao, ctx: ContextoBlocos): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'rel-bl-corpo rel-metricas-editor';
+  const f = bloco.filtro;
+  const aplicar = (mudanca: Partial<FiltroMetricas>): void => {
+    Object.assign(f, mudanca);
+    if (f.inicio && f.fim && f.inicio > f.fim) [f.inicio, f.fim] = [f.fim, f.inicio];
+    bloco.resultado = calcularProducao(f);
+    ctx.mudouEstrutura();
+  };
+  // "O que conta" não se aplica: a produção conta criadas, publicadas e atrasadas.
+  wrap.append(
+    ...buildEditorFiltro(f, ctx, aplicar, {
+      base: false,
+      dicaPeriodo: 'Vale para criadas, publicadas e atrasadas. A situação por fase é a da pipeline no momento do cálculo.',
+    }),
+  );
+  wrap.append(
+    ...buildComentarioCalculado(bloco, ctx, {
+      rotulo: 'Leitura da produção (opcional)',
+      dica: 'O ritmo foi o combinado? Onde a pipeline está travando?',
+      exemplo: exemploProducao(bloco),
+      guia: 'producao',
+      frases: () => frasesDaProducao(bloco),
+      orientacao: ORIENTA.producao,
+    }),
+  );
+  wrap.append(...buildPreviaCalculada(bloco.resultado?.calculadoEm, () => aplicar({}), { ...bloco, titulo: '', comentario: '' }));
   return wrap;
 }
 
@@ -496,11 +691,12 @@ function editorAnalise(bloco: BlocoAnalise, ctx: ContextoBlocos): HTMLElement {
   acoes.appendChild(novo);
   wrap.appendChild(acoes);
 
+  const analise = areaLigada(bloco.texto, EXEMPLOS_FIXOS.analise, 6, (v) => (bloco.texto = v), ctx);
   wrap.appendChild(
     campo(
       'Análise',
       comIaRelatorio(
-        areaLigada(bloco.texto, 'O que esses números mostram? Compare, explique, recomende…', 6, (v) => (bloco.texto = v), ctx),
+        analise,
         `Análise dos indicadores "${bloco.titulo}"`,
         ctx.rel,
         () => bloco.indicadores.map((i) => `${i.rotulo}: ${i.valor}${i.variacao ? ` (${i.variacao})` : ''}${i.nota ? ` — ${i.nota}` : ''}`).join('\n'),
@@ -509,6 +705,8 @@ function editorAnalise(bloco: BlocoAnalise, ctx: ContextoBlocos): HTMLElement {
       DICA_FORMATACAO,
     ),
   );
+  // As frases leem os indicadores na hora do clique: o que acabou de ser digitado entra.
+  wrap.appendChild(buildGuia(analise, 'analise', { frases: () => frasesDaAnalise(bloco) }));
   return wrap;
 }
 
@@ -520,7 +718,7 @@ function editorColunas(bloco: BlocoColunas, ctx: ContextoBlocos): HTMLElement {
     col.className = 'rel-colunas-lado';
     col.append(
       campo(`${rotulo} — título`, inputLigado(titulo, 'Título da coluna', aoTitulo, ctx)),
-      campo(`${rotulo} — texto`, areaLigada(textoLado, 'Escreva à vontade…', 6, aoTexto, ctx)),
+      campo(`${rotulo} — texto`, areaLigada(textoLado, EXEMPLOS_FIXOS.colunas, 6, aoTexto, ctx)),
     );
     return col;
   };
@@ -531,15 +729,19 @@ function editorColunas(bloco: BlocoColunas, ctx: ContextoBlocos): HTMLElement {
     ),
   );
   wrap.appendChild(Object.assign(document.createElement('p'), { className: 'md-dica', textContent: DICA_FORMATACAO }));
+  const primeiro = wrap.querySelector('textarea');
+  if (primeiro) wrap.appendChild(buildGuia(primeiro, 'colunas'));
   return wrap;
 }
 
 function editorCitacao(bloco: BlocoCitacao, ctx: ContextoBlocos): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'rel-bl-corpo';
+  const frase = areaLigada(bloco.texto, EXEMPLOS_FIXOS.citacao, 3, (v) => (bloco.texto = v), ctx);
   wrap.append(
-    campo('Frase', areaLigada(bloco.texto, '"O conteúdo desse mês trouxe…"', 3, (v) => (bloco.texto = v), ctx)),
-    campo('Quem disse (opcional)', inputLigado(bloco.fonte, 'Nome, cargo ou origem', (v) => (bloco.fonte = v), ctx)),
+    campo('Frase', frase),
+    campo('Quem disse (opcional)', inputLigado(bloco.fonte, 'Ex.: Ana, gerente de marketing · comentário no YouTube', (v) => (bloco.fonte = v), ctx)),
+    buildGuia(frase, 'citacao'),
   );
   return wrap;
 }
@@ -617,6 +819,15 @@ function buildBlocoEditor(secao: SecaoRelatorio, bloco: BlocoRelatorio, indice: 
       break;
     case 'metricas':
       cartao.appendChild(editorMetricas(bloco, ctx));
+      break;
+    case 'comparativo':
+      cartao.appendChild(editorComparativo(bloco, ctx));
+      break;
+    case 'ranking':
+      cartao.appendChild(editorRanking(bloco, ctx));
+      break;
+    case 'producao':
+      cartao.appendChild(editorProducao(bloco, ctx));
       break;
     case 'analise':
       cartao.appendChild(editorAnalise(bloco, ctx));

@@ -45,12 +45,37 @@ export function readStore<T>(fileName: string, defaultFactory: () => T, migrate:
   }
 }
 
+function versaoDoSchema(dados: unknown): number | undefined {
+  const v = (dados as { schemaVersion?: unknown } | null)?.schemaVersion;
+  return typeof v === 'number' ? v : undefined;
+}
+
+/**
+ * Uma versão mais antiga do app (voltar de versão, ou o instalado rodando ao
+ * lado do `npm run dev`) lê o arquivo novo, descarta o que não conhece e
+ * regrava — foi assim que as escalas de score sumiam. O `.bak` não basta:
+ * a escrita seguinte o sobrescreve. Fica uma cópia permanente do arquivo novo.
+ */
+function guardarVersaoMaisNova(filePath: string, novo: unknown): void {
+  try {
+    const versaoNova = versaoDoSchema(novo);
+    if (versaoNova === undefined) return;
+    const versaoNoDisco = versaoDoSchema(JSON.parse(fs.readFileSync(filePath, 'utf-8')));
+    if (versaoNoDisco === undefined || versaoNoDisco <= versaoNova) return;
+    const copia = filePath.replace(/\.json$/, `.v${versaoNoDisco}.json`);
+    if (!fs.existsSync(copia)) fs.copyFileSync(filePath, copia);
+  } catch {
+    // Arquivo ilegível já tem o tratamento de corrompido na leitura.
+  }
+}
+
 function writeStoreSync<T>(fileName: string, data: T): void {
   const filePath = getDataFilePath(fileName);
   const tmpPath = `${filePath}.tmp`;
   const backupPath = `${filePath}.bak`;
 
   if (fs.existsSync(filePath)) {
+    guardarVersaoMaisNova(filePath, data);
     fs.copyFileSync(filePath, backupPath);
   }
   fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8');

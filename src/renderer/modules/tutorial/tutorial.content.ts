@@ -1,19 +1,25 @@
 import type { Guia } from './tutorial.types.js';
+import { GUIAS_DAS_AREAS, GUIA_COMECAR } from './tutorial.areas.js';
 
 /**
  * Conteúdo dos guias em TypeScript, e não em markdown solto, porque o
  * checklist precisa consultar o estado real do app — o que só uma função faz.
+ * Aqui ficam os guias de conexão (com verificação); os de cada área do app
+ * estão em tutorial.areas.ts.
  */
 
 const GUIA_N8N: Guia = {
   id: 'n8n',
-  titulo: 'n8n — automações',
+  titulo: 'n8n',
+  chamada: 'Veja seus fluxos de automação, se rodaram e dispare um na hora.',
+  grupo: 'conectar',
+  modulo: 'n8n',
   resumo:
     'O n8n é uma ferramenta de automação: você monta fluxos que ligam serviços entre si (um formulário chega, um e-mail sai, uma planilha é preenchida). O Iris não substitui o n8n — ele mostra os fluxos que você já tem, diz se rodaram com sucesso e permite disparar um deles na hora.',
   passos: [
     {
       id: 'n8n.oque',
-      titulo: '1. Antes de tudo: você precisa ter um n8n rodando',
+      titulo: 'Antes de tudo: você precisa ter um n8n rodando',
       blocos: [
         {
           tipo: 'texto',
@@ -41,7 +47,7 @@ const GUIA_N8N: Guia = {
     },
     {
       id: 'n8n.url',
-      titulo: '2. Dizer ao Iris onde o n8n está',
+      titulo: 'Dizer ao Iris onde o n8n está',
       blocos: [
         {
           tipo: 'texto',
@@ -61,6 +67,7 @@ const GUIA_N8N: Guia = {
           nivel: 'atencao',
           texto: 'Não coloque barra no final do endereço, e não inclua /workflow nem nada depois da porta.',
         },
+        { tipo: 'abrir', rotulo: 'Abrir Ajustes › n8n', ajustes: 'n8n' },
       ],
       verificar: async () => {
         const r = await window.irisAPI.n8n.getConfig();
@@ -69,7 +76,7 @@ const GUIA_N8N: Guia = {
     },
     {
       id: 'n8n.apikey',
-      titulo: '3. Gerar a API key no n8n e colar no Iris',
+      titulo: 'Gerar a API key no n8n e colar no Iris',
       blocos: [
         {
           tipo: 'texto',
@@ -78,6 +85,7 @@ const GUIA_N8N: Guia = {
         },
         {
           tipo: 'lista',
+          numerada: true,
           itens: [
             'Abra o n8n no navegador',
             'Clique no seu perfil (canto inferior esquerdo) → Settings',
@@ -101,7 +109,7 @@ const GUIA_N8N: Guia = {
     },
     {
       id: 'n8n.conectado',
-      titulo: '4. Confirmar que está conectado',
+      titulo: 'Confirmar que está conectado',
       blocos: [
         {
           tipo: 'texto',
@@ -121,7 +129,7 @@ const GUIA_N8N: Guia = {
     },
     {
       id: 'n8n.disparar',
-      titulo: '5. Disparar um fluxo pelo Iris',
+      titulo: 'Disparar um fluxo pelo Iris',
       blocos: [
         {
           tipo: 'texto',
@@ -146,13 +154,16 @@ const GUIA_N8N: Guia = {
 
 const GUIA_SERVIDORES: Guia = {
   id: 'servidores',
-  titulo: 'Servidores — monitorar e acessar',
+  titulo: 'Servidores',
+  chamada: 'Saiba quando um site cai e rode comandos por SSH sem abrir terminal.',
+  grupo: 'conectar',
+  modulo: 'servidores',
   resumo:
     'Esta área faz duas coisas diferentes. A primeira é vigiar um endereço na internet e avisar se ele saiu do ar. A segunda é entrar numa máquina remota por SSH para rodar comandos de conferência, sem abrir um terminal.',
   passos: [
     {
       id: 'srv.http',
-      titulo: '1. Monitorar um site ou API (o mais simples)',
+      titulo: 'Monitorar um site ou API (o mais simples)',
       blocos: [
         {
           tipo: 'texto',
@@ -182,7 +193,7 @@ const GUIA_SERVIDORES: Guia = {
     },
     {
       id: 'srv.ssh.oque',
-      titulo: '2. Entender o SSH antes de configurar',
+      titulo: 'Entender o SSH antes de configurar',
       blocos: [
         {
           tipo: 'texto',
@@ -198,7 +209,7 @@ const GUIA_SERVIDORES: Guia = {
     },
     {
       id: 'srv.ssh.chave',
-      titulo: '3. Criar a chave (se ainda não tiver)',
+      titulo: 'Criar a chave (se ainda não tiver)',
       blocos: [
         { tipo: 'texto', texto: 'Abra o PowerShell no seu computador e rode:' },
         { tipo: 'comando', comando: 'ssh-keygen -t ed25519 -C "iris"', legenda: 'Pode aceitar todos os padrões apertando Enter' },
@@ -218,7 +229,7 @@ const GUIA_SERVIDORES: Guia = {
     },
     {
       id: 'srv.ssh.servidor',
-      titulo: '4. Autorizar sua chave no servidor',
+      titulo: 'Autorizar sua chave no servidor',
       blocos: [
         {
           tipo: 'texto',
@@ -241,7 +252,7 @@ const GUIA_SERVIDORES: Guia = {
     },
     {
       id: 'srv.ssh.cadastrar',
-      titulo: '5. Cadastrar o servidor no Iris',
+      titulo: 'Cadastrar o servidor no Iris',
       blocos: [
         {
           tipo: 'texto',
@@ -265,7 +276,7 @@ const GUIA_SERVIDORES: Guia = {
     },
     {
       id: 'srv.ssh.comandos',
-      titulo: '6. Salvar comandos de conferência',
+      titulo: 'Salvar comandos de conferência',
       blocos: [
         {
           tipo: 'texto',
@@ -296,13 +307,16 @@ const GUIA_SERVIDORES: Guia = {
 
 const GUIA_GITHUB: Guia = {
   id: 'github',
-  titulo: 'GitHub — seus projetos',
+  titulo: 'GitHub',
+  chamada: 'O que está publicado e o que ainda está parado no seu PC, lado a lado.',
+  grupo: 'conectar',
+  modulo: 'github',
   resumo:
     'Esta área junta duas visões do mesmo projeto: o que está publicado no GitHub e o que está no seu computador. Assim você vê, num lugar só, o que já foi enviado e o que ainda está parado aqui sem commit.',
   passos: [
     {
       id: 'gh.token',
-      titulo: '1. Criar um token de acesso',
+      titulo: 'Criar um token de acesso',
       blocos: [
         {
           tipo: 'texto',
@@ -311,6 +325,7 @@ const GUIA_GITHUB: Guia = {
         },
         {
           tipo: 'lista',
+          numerada: true,
           itens: [
             'Abra github.com/settings/tokens',
             'Escolha "Tokens (classic)" e clique em "Generate new token (classic)"',
@@ -334,18 +349,19 @@ const GUIA_GITHUB: Guia = {
     },
     {
       id: 'gh.colar',
-      titulo: '2. Colar o token no Iris',
+      titulo: 'Colar o token no Iris',
       blocos: [
         {
           tipo: 'texto',
           texto:
             'Em Ajustes → GitHub, cole o token e salve. Assim como a key do n8n, ele fica cifrado no cofre do Windows, nunca volta para a tela e não entra no backup.',
         },
+        { tipo: 'abrir', rotulo: 'Abrir Ajustes › GitHub', ajustes: 'github' },
       ],
     },
     {
       id: 'gh.pastas',
-      titulo: '3. Apontar onde ficam seus projetos no PC',
+      titulo: 'Apontar onde ficam seus projetos no PC',
       blocos: [
         {
           tipo: 'texto',
@@ -371,7 +387,7 @@ const GUIA_GITHUB: Guia = {
     },
     {
       id: 'gh.ler',
-      titulo: '4. Ler a tela',
+      titulo: 'Ler a tela',
       blocos: [
         {
           tipo: 'texto',
@@ -396,7 +412,7 @@ const GUIA_GITHUB: Guia = {
     },
     {
       id: 'gh.explorador',
-      titulo: '5. Informação de git na Biblioteca',
+      titulo: 'Informação de git na Biblioteca',
       blocos: [
         {
           tipo: 'texto',
@@ -425,13 +441,16 @@ async function provedorPronto(id: string): Promise<boolean> {
 
 const GUIA_IA: Guia = {
   id: 'ia',
-  titulo: 'Inteligência artificial — suas chaves de IA',
+  titulo: 'Inteligência artificial',
+  chamada: 'Sua própria chave de IA para escrever textos e gerar imagens.',
+  grupo: 'conectar',
+  icone: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
   resumo:
     'O Iris usa a SUA chave de IA (OpenRouter, OpenAI/ChatGPT, Claude, Gemini ou qualquer serviço compatível) para escrever legendas, roteiros e gerar imagens e thumbnails. A chave fica cifrada no seu computador, as chamadas saem direto do app para o provedor, e o custo é cobrado pelo provedor na sua conta — o Iris não cobra nada nem guarda seus pedidos em lugar nenhum além do seu PC.',
   passos: [
     {
       id: 'ia.onde',
-      titulo: '1. Onde a IA aparece no Iris',
+      titulo: 'Onde a IA aparece no Iris',
       blocos: [
         {
           tipo: 'lista',
@@ -451,7 +470,7 @@ const GUIA_IA: Guia = {
     },
     {
       id: 'ia.qual',
-      titulo: '2. Qual provedor escolher',
+      titulo: 'Qual provedor escolher',
       blocos: [
         {
           tipo: 'lista',
@@ -460,12 +479,19 @@ const GUIA_IA: Guia = {
             'OpenAI (ChatGPT) — texto e imagens (gpt-image), inclusive editar a partir de imagens de referência.',
             'Google (Gemini) — texto e imagens (Gemini Image), também com imagens de referência. Tem cota gratuita para testar.',
             'Anthropic (Claude) — excelente para textos e roteiros, mas NÃO gera imagens.',
-            'Compatível com OpenAI — Groq, DeepSeek, Together, ou uma IA rodando no seu PC (Ollama, LM Studio).',
+            'Groq — Llama e outros modelos abertos, muito rápidos, com cota gratuita. Só texto.',
+            'DeepSeek e Mistral — texto bom e barato; a Mistral também lê imagens.',
+            'Grátis e sem internet: Ollama ou LM Studio rodam a IA no seu próprio computador (Llama, Gemma, Qwen…). Só texto, e pedem um computador com memória folgada.',
+            'Compatível com OpenAI — qualquer outro serviço no mesmo formato (Together, Fireworks…).',
           ],
         },
         {
+          tipo: 'texto',
+          texto: 'Basta um. Os passos a seguir mostram como pegar a chave de cada provedor — siga só o do que você escolheu.',
+        },
+        {
           tipo: 'aviso',
-          nivel: 'info',
+          nivel: 'dica',
           texto:
             'Você pode configurar vários ao mesmo tempo e escolher um padrão para texto e outro para imagem em Ajustes. Ex.: Claude para roteiros e OpenRouter para as imagens.',
         },
@@ -483,10 +509,11 @@ const GUIA_IA: Guia = {
     },
     {
       id: 'ia.openrouter',
-      titulo: '3. OpenRouter',
+      titulo: 'OpenRouter',
       blocos: [
         {
           tipo: 'lista',
+          numerada: true,
           itens: [
             'Crie a conta em openrouter.ai e coloque crédito em Credits (a partir de US$ 5)',
             'Em Keys, clique em "Create Key", dê um nome (ex.: Iris) e copie a chave (começa com sk-or-)',
@@ -497,10 +524,11 @@ const GUIA_IA: Guia = {
         { tipo: 'link', url: 'https://openrouter.ai/settings/keys', rotulo: 'Abrir a página de chaves do OpenRouter' },
       ],
       verificar: () => provedorPronto('openrouter'),
+      opcional: true,
     },
     {
       id: 'ia.openai',
-      titulo: '4. OpenAI (ChatGPT)',
+      titulo: 'OpenAI (ChatGPT)',
       blocos: [
         {
           tipo: 'texto',
@@ -509,6 +537,7 @@ const GUIA_IA: Guia = {
         },
         {
           tipo: 'lista',
+          numerada: true,
           itens: [
             'Entre em platform.openai.com e adicione crédito em Settings → Billing',
             'Em API keys, clique em "Create new secret key" e copie (começa com sk-)',
@@ -524,13 +553,15 @@ const GUIA_IA: Guia = {
         { tipo: 'link', url: 'https://platform.openai.com/api-keys', rotulo: 'Abrir a página de chaves da OpenAI' },
       ],
       verificar: () => provedorPronto('openai'),
+      opcional: true,
     },
     {
       id: 'ia.anthropic',
-      titulo: '5. Anthropic (Claude)',
+      titulo: 'Anthropic (Claude)',
       blocos: [
         {
           tipo: 'lista',
+          numerada: true,
           itens: [
             'Entre em console.anthropic.com e adicione crédito em Billing',
             'Em Settings → API Keys, clique em "Create Key" e copie (começa com sk-ant-)',
@@ -545,13 +576,15 @@ const GUIA_IA: Guia = {
         { tipo: 'link', url: 'https://console.anthropic.com/settings/keys', rotulo: 'Abrir a página de chaves da Anthropic' },
       ],
       verificar: () => provedorPronto('anthropic'),
+      opcional: true,
     },
     {
       id: 'ia.google',
-      titulo: '6. Google (Gemini)',
+      titulo: 'Google (Gemini)',
       blocos: [
         {
           tipo: 'lista',
+          numerada: true,
           itens: [
             'Entre em aistudio.google.com com sua conta Google',
             'Clique em "Get API key" → "Create API key" e copie',
@@ -566,10 +599,75 @@ const GUIA_IA: Guia = {
         { tipo: 'link', url: 'https://aistudio.google.com/apikey', rotulo: 'Abrir o Google AI Studio' },
       ],
       verificar: () => provedorPronto('google'),
+      opcional: true,
+    },
+    {
+      id: 'ia.groq',
+      titulo: 'Groq (Llama na nuvem)',
+      blocos: [
+        {
+          tipo: 'lista',
+          numerada: true,
+          itens: [
+            'Crie a conta em console.groq.com (dá para entrar com o Google)',
+            'Em API Keys, clique em "Create API Key" e copie (começa com gsk_)',
+            'No Iris: Ajustes → Inteligência artificial → Groq → cole → Salvar → Testar',
+          ],
+        },
+        { tipo: 'aviso', nivel: 'info', texto: 'A cota gratuita tem limite por minuto e por dia. O modelo padrão é o Llama 3.3 70B; "Escolher" mostra os outros.' },
+        { tipo: 'link', url: 'https://console.groq.com/keys', rotulo: 'Abrir a página de chaves do Groq' },
+      ],
+      verificar: () => provedorPronto('groq'),
+      opcional: true,
+    },
+    {
+      id: 'ia.deepseek-mistral',
+      titulo: 'DeepSeek e Mistral',
+      blocos: [
+        {
+          tipo: 'lista',
+          itens: [
+            'DeepSeek: crie a chave em platform.deepseek.com → API keys e coloque crédito em Top up.',
+            'Mistral: crie a chave em console.mistral.ai → API Keys (há um plano gratuito para testar).',
+            'No Iris: Ajustes → Inteligência artificial → o cartão do provedor → cole → Salvar → Testar.',
+          ],
+        },
+      ],
+      verificar: async () => (await provedorPronto('deepseek')) || provedorPronto('mistral'),
+      opcional: true,
+    },
+    {
+      id: 'ia.ollama',
+      titulo: 'Ollama: IA grátis no seu computador',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            'O Ollama roda modelos abertos (Llama, Gemma, Qwen, DeepSeek…) no próprio PC: não precisa de chave, não custa nada e nada sai do computador. Em troca, precisa de memória — 8 GB de RAM para modelos pequenos, 16 GB ou mais para os médios.',
+        },
+        {
+          tipo: 'lista',
+          numerada: true,
+          itens: [
+            'Baixe e instale o Ollama (ollama.com/download) e deixe-o aberto',
+            'No PowerShell, baixe um modelo com o comando abaixo',
+            'No Iris: Ajustes → Inteligência artificial → No seu computador → Ollama → Ativar → Testar',
+          ],
+        },
+        { tipo: 'comando', comando: 'ollama pull llama3.2', legenda: 'Um modelo pequeno e bom para começar (cerca de 2 GB)' },
+        {
+          tipo: 'aviso',
+          nivel: 'dica',
+          texto: 'Prefere uma tela em vez do terminal? O LM Studio faz o mesmo com janela: baixe o modelo pelo app, ligue o servidor local (aba Developer) e ative o LM Studio em Ajustes.',
+        },
+        { tipo: 'link', url: 'https://ollama.com/download', rotulo: 'Baixar o Ollama' },
+      ],
+      verificar: async () => (await provedorPronto('ollama')) || provedorPronto('lmstudio'),
+      opcional: true,
     },
     {
       id: 'ia.compativel',
-      titulo: '7. Qualquer outra IA (compatível com OpenAI)',
+      titulo: 'Qualquer outra IA (compatível com OpenAI)',
       blocos: [
         {
           tipo: 'texto',
@@ -578,13 +676,7 @@ const GUIA_IA: Guia = {
         },
         {
           tipo: 'lista',
-          itens: [
-            'Groq: https://api.groq.com/openai/v1',
-            'DeepSeek: https://api.deepseek.com/v1',
-            'Together: https://api.together.xyz/v1',
-            'Ollama no seu PC: http://localhost:11434/v1 (sem chave)',
-            'LM Studio no seu PC: http://localhost:1234/v1 (sem chave)',
-          ],
+          itens: ['Together: https://api.together.xyz/v1', 'Fireworks: https://api.fireworks.ai/inference/v1', 'xAI (Grok): https://api.x.ai/v1'],
         },
         {
           tipo: 'aviso',
@@ -593,19 +685,22 @@ const GUIA_IA: Guia = {
         },
       ],
       verificar: () => provedorPronto('compativel'),
+      opcional: true,
     },
     {
       id: 'ia.padroes',
-      titulo: '8. Escolher os padrões e a pasta das imagens',
+      titulo: 'Escolher os padrões e a pasta das imagens',
       blocos: [
         {
           tipo: 'lista',
+          numerada: true,
           itens: [
             'Em Ajustes → Inteligência artificial → Padrões: escolha qual IA escreve os textos e qual gera as imagens',
             'Escolha também a pasta da Biblioteca onde "Salvar na Biblioteca" grava as imagens (padrão: uma subpasta "Iris IA" dentro de uma pasta monitorada)',
             'Toda imagem gerada fica também na galeria do Estúdio, mesmo sem salvar na Biblioteca',
           ],
         },
+        { tipo: 'abrir', rotulo: 'Abrir Ajustes › Inteligência artificial', ajustes: 'ia' },
       ],
       verificar: async () => {
         const r = await window.irisAPI.ia.getConfig();
@@ -615,4 +710,5 @@ const GUIA_IA: Guia = {
   ],
 };
 
-export const GUIAS: Guia[] = [GUIA_IA, GUIA_N8N, GUIA_SERVIDORES, GUIA_GITHUB];
+/** Ordem do índice e do "anterior/próximo": começar, conectar e depois as áreas na ordem da barra lateral. */
+export const GUIAS: Guia[] = [GUIA_COMECAR, GUIA_IA, GUIA_N8N, GUIA_SERVIDORES, GUIA_GITHUB, ...GUIAS_DAS_AREAS];

@@ -11,10 +11,19 @@ import {
   type Relatorio,
   type SecaoRelatorio,
 } from '../../../shared/types/relatorios.types.js';
-import { FAIXAS_SCORE, faixaDoScore } from '../../../shared/types/videos.conversao.js';
+import { ESCALA_LEGADA, descreverEscala, faixaDaEscala, intervaloDaFaixa, type EscalaScore } from '../../../shared/types/score.types.js';
 import { svg } from '../../ui/pagina.js';
 import { formatarData } from '../postagens/postagens.ui.js';
-import { descreverPeriodoFiltro, rotuloMes } from './relatorios.metricas.js';
+import {
+  descreverPeriodoFiltro,
+  formatarValorComparativo,
+  linhasDoComparativo,
+  rankingDoResultado,
+  redesDoComparativo,
+  rotuloMes,
+  variacaoComparativo,
+  type LinhaComparativo,
+} from './relatorios.metricas.js';
 import { ADAPTADORES, localMarcacaoImagem, localMarcacaoVideo } from './relatorios.tipos.js';
 
 /**
@@ -336,8 +345,8 @@ function mediaTexto(l: Pick<LinhaMetrica, 'media'>): string {
   return l.media === undefined ? '—' : num(l.media);
 }
 
-function faixaTexto(media: number | undefined): string {
-  return media === undefined ? '—' : faixaDoScore(media).rotulo;
+function faixaTexto(escala: EscalaScore, media: number | undefined): string {
+  return media === undefined ? '—' : faixaDaEscala(escala, media).rotulo;
 }
 
 function rotuloTipo(id: string, total: number): string {
@@ -377,6 +386,8 @@ function buildBlocoMetricas(bloco: BlocoMetricas): HTMLElement {
     wrap.appendChild(paragrafos('Métricas ainda não calculadas.'));
     return wrap;
   }
+  // A régua gravada no cálculo; resultado anterior às escalas usa o corte antigo em 85.
+  const escala = r.escala ?? ESCALA_LEGADA;
 
   const grade = el('div', 'rd-indicadores');
   const caixa = (rotulo: string, valor: string, detalhe = '', classe = ''): void => {
@@ -392,7 +403,7 @@ function buildBlocoMetricas(bloco: BlocoMetricas): HTMLElement {
     tiposComPostagem.length > 1 ? tiposComPostagem.map((t) => `${t.total} ${rotuloTipo(t.rotulo, t.total)}`).join(' · ') : '',
     'is-total',
   );
-  caixa('score geral (média)', r.media === undefined ? '—' : num(r.media), faixaTexto(r.media), 'is-score');
+  caixa('score geral (média)', r.media === undefined ? '—' : num(r.media), faixaTexto(escala, r.media), 'is-score');
   caixa('mediana', r.mediana === undefined ? '—' : num(r.mediana));
   caixa('com score', `${r.comScore}/${r.total}`, r.total ? `${Math.round((r.comScore / r.total) * 100)}% preenchido` : '');
   if (r.maior) caixa('maior score', num(r.maior.score), r.maior.titulo, 'is-ponto-forte');
@@ -411,9 +422,9 @@ function buildBlocoMetricas(bloco: BlocoMetricas): HTMLElement {
     wrap.appendChild(
       tabela(
         ['Mês', 'Postagens', 'Com score', 'Score médio', 'Faixa'],
-        r.porMes.map((m) => [rotuloMes(m.rotulo).replace(/^./, (c) => c.toUpperCase()), String(m.total), String(m.comScore), mediaTexto(m), faixaTexto(m.media)]),
+        r.porMes.map((m) => [rotuloMes(m.rotulo).replace(/^./, (c) => c.toUpperCase()), String(m.total), String(m.comScore), mediaTexto(m), faixaTexto(escala, m.media)]),
         ['rd-forte', 'rd-num', 'rd-num', 'rd-num', ''],
-        r.porMes.length > 1 ? ['Total', String(r.total), String(r.comScore), r.media === undefined ? '—' : num(r.media), faixaTexto(r.media)] : undefined,
+        r.porMes.length > 1 ? ['Total', String(r.total), String(r.comScore), r.media === undefined ? '—' : num(r.media), faixaTexto(escala, r.media)] : undefined,
       ),
     );
   }
@@ -422,14 +433,23 @@ function buildBlocoMetricas(bloco: BlocoMetricas): HTMLElement {
     wrap.appendChild(
       tabela(
         ['Faixa', 'Intervalo', 'Postagens', '% das com score'],
-        FAIXAS_SCORE.map((f) => {
+        escala.faixas.map((f, i) => {
           // Resultado calculado antes do corte em 85 guarda ids de faixas que não
           // existem mais: conta de novo pelos scores da própria fotografia.
           const gravada = r.faixas.find((x) => x.rotulo === f.id);
-          const n = gravada ? gravada.total : r.postagens.filter((p) => p.score !== undefined && p.score >= f.min && p.score <= f.max).length;
-          return [f.rotulo, `${f.min} a ${Math.floor(f.max)}`, String(n), `${Math.round((n / r.comScore) * 100)}%`];
+          const n = gravada ? gravada.total : r.postagens.filter((p) => p.score !== undefined && faixaDaEscala(escala, p.score).id === f.id).length;
+          return [f.rotulo, intervaloDaFaixa(escala, i), String(n), `${Math.round((n / r.comScore) * 100)}%`];
         }),
         ['rd-forte', 'rd-num', 'rd-num', 'rd-num'],
+      ),
+    );
+    wrap.appendChild(
+      el(
+        'p',
+        'rd-nota-escala',
+        r.escalaMisturada
+          ? `As postagens são de empresas com escalas diferentes; as faixas acima seguem a escala padrão, ${escala.nome}: ${descreverEscala(escala)}.`
+          : `Escala de score ${escala.nome}: ${descreverEscala(escala)}.`,
       ),
     );
   }
@@ -485,13 +505,22 @@ export function buildBloco(bloco: BlocoRelatorio): HTMLElement {
     }
     case 'tabela': {
       const wrap = el('div', 'rd-bloco-livre');
-      if (bloco.titulo.trim()) wrap.appendChild(el('h3', 'rd-h3', bloco.titulo));
       const linhas = bloco.linhas.filter((l) => l.some((c) => c.trim()));
+      // Tabela de modelo ainda sem nenhuma linha preenchida não sai (nem o
+      // título): um cabeçalho solto no PDF parece erro.
+      if (!linhas.length) return wrap;
+      if (bloco.titulo.trim()) wrap.appendChild(el('h3', 'rd-h3', bloco.titulo));
       wrap.appendChild(tabela(bloco.colunas, linhas, bloco.colunas.map((_, i) => (i === 0 ? 'rd-forte' : ''))));
       return wrap;
     }
     case 'metricas':
       return buildBlocoMetricas(bloco);
+    case 'comparativo':
+      return buildBlocoComparativo(bloco);
+    case 'ranking':
+      return buildBlocoRanking(bloco);
+    case 'producao':
+      return buildBlocoProducao(bloco);
     case 'analise':
       return buildBlocoAnalise(bloco);
     case 'colunas': {
@@ -519,6 +548,114 @@ export function buildBloco(bloco: BlocoRelatorio): HTMLElement {
   }
 }
 
+function cabecalhoCalculado(wrap: HTMLElement, titulo: string): void {
+  if (titulo.trim()) wrap.appendChild(el('h3', 'rd-h3', titulo));
+}
+
+function leitura(wrap: HTMLElement, rotulo: string, texto: string): void {
+  if (!texto.trim()) return;
+  wrap.appendChild(el('h5', 'rd-h5', rotulo));
+  wrap.appendChild(paragrafos(texto, 'rd-texto rd-destaque'));
+}
+
+/** Tabela de comparação; a última coluna (variação) ganha a cor do sentido — a seta já está no texto. */
+function tabelaComparativa(primeira: string, linhas: LinhaComparativo[]): HTMLElement {
+  const t = tabela(
+    [primeira, 'Anterior', 'Atual', 'Variação'],
+    linhas.map((l) => [l.rotulo, formatarValorComparativo(l, l.anterior), formatarValorComparativo(l, l.atual), variacaoComparativo(l).texto]),
+    ['rd-forte', 'rd-num', 'rd-num', 'rd-num'],
+  );
+  t.querySelectorAll('tbody tr').forEach((tr, i) => {
+    const sentido = variacaoComparativo(linhas[i]!).sentido;
+    tr.lastElementChild?.classList.add('rd-variacao', `is-${sentido === 'sobe' ? 'sobe' : sentido === 'desce' ? 'desce' : 'neutro'}`);
+  });
+  return t;
+}
+
+function buildBlocoComparativo(bloco: Extract<BlocoRelatorio, { tipo: 'comparativo' }>): HTMLElement {
+  const wrap = el('div', 'rd-metricas rd-comparativo');
+  cabecalhoCalculado(wrap, bloco.titulo);
+  if (!bloco.atual || !bloco.anterior || !bloco.periodoAnterior) {
+    wrap.appendChild(paragrafos('Escolha um período com início e fim para comparar com o anterior.'));
+    return wrap;
+  }
+  const periodo = el('dl', 'rd-meta rd-metricas-periodo');
+  const par = (rotulo: string, valor: string): void => {
+    const d = el('div');
+    d.append(el('dt', undefined, rotulo), el('dd', undefined, valor));
+    periodo.appendChild(d);
+  };
+  par('Período atual', descreverPeriodoFiltro(bloco.filtro));
+  par('Comparado com', descreverPeriodoFiltro(bloco.periodoAnterior));
+  par('Calculado em', new Date(bloco.atual.calculadoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }));
+  wrap.appendChild(periodo);
+  wrap.appendChild(tabelaComparativa('Indicador', linhasDoComparativo(bloco.atual, bloco.anterior)));
+  const redes = redesDoComparativo(bloco.atual, bloco.anterior);
+  if (redes.length) {
+    wrap.appendChild(el('h5', 'rd-h5', 'Score médio por rede'));
+    wrap.appendChild(tabelaComparativa('Rede', redes));
+  }
+  const escala = bloco.atual.escala ?? ESCALA_LEGADA;
+  wrap.appendChild(el('p', 'rd-nota-escala', `"Na faixa positiva" segue a escala de score ${escala.nome}: ${descreverEscala(escala)}.`));
+  leitura(wrap, 'Leitura da comparação', bloco.comentario);
+  return wrap;
+}
+
+function buildBlocoRanking(bloco: Extract<BlocoRelatorio, { tipo: 'ranking' }>): HTMLElement {
+  const wrap = el('div', 'rd-metricas rd-ranking');
+  cabecalhoCalculado(wrap, bloco.titulo);
+  const r = bloco.resultado;
+  if (!r) {
+    wrap.appendChild(paragrafos('Ranking ainda não calculado.'));
+    return wrap;
+  }
+  wrap.appendChild(el('p', 'rd-nota-escala', `${descreverPeriodoFiltro(bloco.filtro)} · ${r.comScore} postagens com score.`));
+  const escala = r.escala ?? ESCALA_LEGADA;
+  const { maiores, menores } = rankingDoResultado(r, bloco.quantidade);
+  const lista = (titulo: string, itens: typeof maiores): void => {
+    if (!itens.length) return;
+    wrap.appendChild(el('h5', 'rd-h5', titulo));
+    wrap.appendChild(
+      tabela(
+        ['#', 'Postagem', 'Data', 'Redes', 'Score', 'Faixa'],
+        itens.map((p, i) => [String(i + 1), p.titulo, formatarData(p.data), p.redes.join(', ') || '—', num(p.score!), faixaDaEscala(escala, p.score!).rotulo]),
+        ['rd-num', 'rd-forte', 'rd-num', '', 'rd-num', ''],
+      ),
+    );
+  };
+  if (!maiores.length) wrap.appendChild(paragrafos('Nenhuma postagem com score no período.'));
+  lista(`${maiores.length === 1 ? 'Maior score' : `${maiores.length} maiores scores`}`, maiores);
+  lista(`${menores.length === 1 ? 'Menor score' : `${menores.length} menores scores`}`, menores);
+  leitura(wrap, 'O que as listas mostram', bloco.comentario);
+  return wrap;
+}
+
+function buildBlocoProducao(bloco: Extract<BlocoRelatorio, { tipo: 'producao' }>): HTMLElement {
+  const wrap = el('div', 'rd-metricas rd-producao');
+  cabecalhoCalculado(wrap, bloco.titulo);
+  const r = bloco.resultado;
+  if (!r) {
+    wrap.appendChild(paragrafos('Produção ainda não calculada.'));
+    return wrap;
+  }
+  wrap.appendChild(el('p', 'rd-nota-escala', `${descreverPeriodoFiltro(bloco.filtro)} · calculado em ${new Date(r.calculadoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}.`));
+  const grade = el('div', 'rd-indicadores');
+  const caixa = (rotulo: string, valor: number, detalhe = '', classe = ''): void => {
+    const c = el('div', `rd-indicador ${classe}`.trim());
+    c.append(el('strong', undefined, String(valor)), el('span', undefined, rotulo));
+    if (detalhe) c.appendChild(el('small', 'rd-indicador-detalhe', detalhe));
+    grade.appendChild(c);
+  };
+  caixa('publicadas no período', r.publicadas, '', 'is-total');
+  caixa('criadas no período', r.criadas);
+  caixa('passaram da data', r.atrasadas, r.atrasadas ? 'com data no período, sem publicar' : 'nenhuma', r.atrasadas ? 'is-problema' : '');
+  wrap.appendChild(grade);
+  wrap.appendChild(el('h5', 'rd-h5', 'Pipeline no momento do cálculo'));
+  wrap.appendChild(tabela(['Fase', 'Postagens'], r.porFase.map((f) => [f.rotulo, String(f.total)]), ['rd-forte', 'rd-num']));
+  leitura(wrap, 'Leitura da produção', bloco.comentario);
+  return wrap;
+}
+
 /**
  * "+12%" sobe, "-3 mil" / "−3 mil" desce. O sentido vai também no texto (seta),
  * nunca só na cor.
@@ -532,8 +669,11 @@ function sentidoVariacao(variacao: string): 'sobe' | 'desce' | 'neutro' {
 
 function buildBlocoAnalise(bloco: Extract<BlocoRelatorio, { tipo: 'analise' }>): HTMLElement {
   const wrap = el('div', 'rd-bloco-livre rd-analise');
+  // Indicador só com o nome (o modelo "Números das redes" já vem nomeado) não
+  // sai: um "—" no PDF pareceria dado faltando. Sem nada preenchido, nem o título.
+  const preenchidos = bloco.indicadores.filter((i) => i.valor.trim());
+  if (!preenchidos.length && !bloco.texto.trim()) return wrap;
   if (bloco.titulo.trim()) wrap.appendChild(el('h3', 'rd-h3', bloco.titulo));
-  const preenchidos = bloco.indicadores.filter((i) => i.rotulo.trim() || i.valor.trim());
   if (preenchidos.length) {
     const grade = el('div', 'rd-indicadores');
     preenchidos.forEach((ind) => {

@@ -6,7 +6,8 @@ import {
   type Prioridade,
   type Publicacao,
 } from '../../../shared/types/postagens.types.js';
-import { extrairHashtags, faixaDoScore, hashtagsDoTexto } from '../../../shared/types/videos.conversao.js';
+import { extrairHashtags, hashtagsDoTexto } from '../../../shared/types/videos.conversao.js';
+import { descreverEscala, faixaDaEscala, type EscalaScore } from '../../../shared/types/score.types.js';
 import { openConfirmModal } from '../../ui/modal.js';
 import { buildBotao, buildSelo, svg, tempoRelativo } from '../../ui/pagina.js';
 import type { PainelHandle } from '../../ui/painel.js';
@@ -167,7 +168,32 @@ export function buildTituloPainel(
     aoMudar(titulo.value);
   });
   requestAnimationFrame(ajustar);
-  wrap.appendChild(titulo);
+
+  // Copiar o título é comum (colar no YouTube, na planilha): botão ao lado, sem precisar selecionar.
+  const copiar = document.createElement('button');
+  copiar.type = 'button';
+  copiar.className = 'vd-painel-titulo-copiar';
+  copiar.title = 'Copiar título';
+  copiar.setAttribute('aria-label', 'Copiar título');
+  copiar.innerHTML = svg(ICONE_SECAO.copiar, 15, 2);
+  let voltar: ReturnType<typeof setTimeout> | null = null;
+  copiar.addEventListener('click', () => {
+    window.irisAPI.system.copyToClipboard(titulo.value.trim());
+    copiar.innerHTML = svg('<path d="M20 6 9 17l-5-5"/>', 15, 2.4);
+    copiar.classList.add('is-copiado');
+    copiar.title = 'Copiado!';
+    if (voltar) clearTimeout(voltar);
+    voltar = setTimeout(() => {
+      copiar.innerHTML = svg(ICONE_SECAO.copiar, 15, 2);
+      copiar.classList.remove('is-copiado');
+      copiar.title = 'Copiar título';
+    }, 1400);
+  });
+
+  const linha = document.createElement('div');
+  linha.className = 'vd-painel-titulo-linha';
+  linha.append(titulo, copiar);
+  wrap.appendChild(linha);
   if (contador) wrap.appendChild(contador.el);
   return wrap;
 }
@@ -214,8 +240,18 @@ export function buildPrioridadeEscolha(atual: Prioridade | undefined, aoEscolher
   return grupo;
 }
 
-/** Score 0–100 com barra na cor da faixa; salva ao sair do campo ou no Enter. */
-export function buildCampoScore(score: number | undefined, aoSalvar: (score: number | null) => void): HTMLElement {
+export interface CampoScore {
+  el: HTMLElement;
+  /** A empresa da postagem mudou: outra régua, sem recriar o campo (e perder o foco). */
+  definirEscala: (escala: EscalaScore) => void;
+}
+
+/**
+ * Score 0–100 com barra na cor da faixa e os cortes da escala da postagem
+ * marcados na trilha; salva ao sair do campo ou no Enter.
+ */
+export function buildCampoScore(score: number | undefined, escalaInicial: EscalaScore, aoSalvar: (score: number | null) => void): CampoScore {
+  let escala = escalaInicial;
   const wrap = document.createElement('div');
   wrap.className = 'vd-score-campo';
   const campo = document.createElement('input');
@@ -234,13 +270,25 @@ export function buildCampoScore(score: number | undefined, aoSalvar: (score: num
   const faixa = document.createElement('span');
   faixa.className = 'vd-score-faixa';
 
+  const desenharCortes = (): void => {
+    trilho.querySelectorAll('.vd-score-corte').forEach((c) => c.remove());
+    escala.faixas.slice(1).forEach((f) => {
+      const corte = document.createElement('span');
+      corte.className = 'vd-score-corte';
+      corte.style.left = `${f.de}%`;
+      trilho.appendChild(corte);
+    });
+    trilho.title = `Escala ${escala.nome}: ${descreverEscala(escala)}`;
+  };
   const desenhar = (): void => {
     const n = Number(campo.value.replace(',', '.'));
     const valido = campo.value !== '' && !Number.isNaN(n) && n >= 0 && n <= 100;
     campo.classList.toggle('is-invalido', campo.value !== '' && !valido);
     barra.style.width = valido ? `${n}%` : '0%';
-    barra.className = valido ? `is-${faixaDoScore(n).id}` : '';
-    faixa.textContent = valido ? faixaDoScore(n).rotulo : campo.value === '' ? 'sem score' : 'use 0 a 100';
+    if (valido) barra.style.setProperty('--c', faixaDaEscala(escala, n).cor);
+    else barra.style.removeProperty('--c');
+    faixa.textContent = valido ? faixaDaEscala(escala, n).rotulo : campo.value === '' ? 'sem score' : 'use 0 a 100';
+    faixa.title = `Escala ${escala.nome}`;
   };
   const salvarScore = (): void => {
     const n = Number(campo.value.replace(',', '.'));
@@ -252,34 +300,23 @@ export function buildCampoScore(score: number | undefined, aoSalvar: (score: num
   campo.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') campo.blur();
   });
+  desenharCortes();
   desenhar();
   wrap.append(campo, trilho, faixa);
-  return wrap;
+  return {
+    el: wrap,
+    definirEscala: (nova) => {
+      escala = nova;
+      desenharCortes();
+      desenhar();
+    },
+  };
 }
 
 // ---------- Agenda, redes e tags ----------
 
-export function buildAgendamento(
-  data: string,
-  hora: string,
-  aoMudar: (campo: 'dataAgendada' | 'horaAgendada', valor: string) => void,
-): HTMLElement {
-  const agenda = document.createElement('div');
-  agenda.className = 'md-grade-2 vd-agenda-campos';
-  const dataEl = document.createElement('input');
-  dataEl.type = 'date';
-  dataEl.className = 'md-input';
-  dataEl.value = data;
-  const horaEl = document.createElement('input');
-  horaEl.type = 'time';
-  horaEl.className = 'md-input';
-  horaEl.value = hora;
-  // Data e hora salvam na hora da escolha: são poucas mudanças e afetam a agenda.
-  dataEl.addEventListener('change', () => aoMudar('dataAgendada', dataEl.value));
-  horaEl.addEventListener('change', () => aoMudar('horaAgendada', horaEl.value));
-  agenda.append(buildCampo('Data', dataEl), buildCampo('Horário', horaEl));
-  return agenda;
-}
+// Data e hora salvam na hora da escolha: são poucas mudanças e afetam a agenda.
+export { buildAgendamento } from './postagens.agendar.js';
 
 export function buildRedes(catalogo: Catalogo, redeIds: string[], aoMudar: (ids: string[]) => void): HTMLElement {
   const grupo = document.createElement('div');

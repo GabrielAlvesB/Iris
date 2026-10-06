@@ -345,6 +345,92 @@
   color: var(--text-muted);
 }
 
+/* "Como escrever": perguntas-guia sob o campo e o botão que escreve os números. */
+.rel-guia {
+  margin-top: -4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.rel-guia summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 3px 0;
+  color: var(--text-faint);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.rel-guia summary::-webkit-details-marker {
+  display: none;
+}
+
+.rel-guia summary:hover,
+.rel-guia[open] summary {
+  color: var(--text-muted);
+}
+
+.rel-guia summary > svg {
+  color: var(--warning);
+}
+
+.rel-guia-numeros {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 8px;
+  padding: 3px 9px;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in oklch, var(--accent) 35%, transparent);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.rel-guia-numeros:hover {
+  background: color-mix(in oklch, var(--accent) 24%, transparent);
+}
+
+.rel-guia ul {
+  display: grid;
+  gap: 3px;
+  margin: 6px 0 0;
+  padding: 10px 12px 10px 28px;
+  line-height: 1.5;
+  background: var(--bg-elevated-2);
+  border-left: 2px solid color-mix(in oklch, var(--warning) 60%, transparent);
+  border-radius: 0 8px 8px 0;
+}
+
+.rel-guia-nota,
+.rel-guia-aviso {
+  margin: 6px 0 0;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.rel-guia-aviso {
+  color: var(--warning);
+}
+
+.rel-guia-aviso[hidden] {
+  display: none;
+}
+
+.rel-campo-com-guia {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
 .rel-passo-acao {
   align-self: flex-start;
 }
@@ -370,6 +456,15 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 8px;
+}
+
+.rel-secoes-grupo {
+  margin: 6px 0 0;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
 }
 
 /* Os três modelos lado a lado: a comparação é o ponto. */
@@ -1475,6 +1570,12 @@
   margin: 3mm 0 0;
   padding: 0;
   list-style: none;
+  font-size: 8pt;
+  color: var(--rd-suave);
+}
+
+.rd-nota-escala {
+  margin: 1.5mm 0 0;
   font-size: 8pt;
   color: var(--rd-suave);
 }

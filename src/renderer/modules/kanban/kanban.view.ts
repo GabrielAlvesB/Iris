@@ -45,20 +45,6 @@ function avatarColor(name: string): string {
   return AVATAR_COLORS[hash % AVATAR_COLORS.length];
 }
 
-function shortId(id: string): string {
-  return `C-${id.replace(/-/g, '').slice(0, 4).toUpperCase()}`;
-}
-
-function boardPrefix(name: string): string {
-  const firstWord = name.trim().split(/\s+/)[0] ?? '';
-  const letters = firstWord.replace(/[^a-zA-Z]/g, '').toUpperCase();
-  return (letters || 'CARD').slice(0, 4);
-}
-
-function cardCode(board: KanbanBoard, card: KanbanCard): string {
-  return card.seq !== undefined ? `${boardPrefix(board.name)}-${card.seq}` : shortId(card.id);
-}
-
 function formatDueDate(dueDate?: string): string {
   if (!dueDate) return '';
   const date = new Date(`${dueDate}T00:00:00`);
@@ -632,7 +618,7 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
 
   const handle = abrirPainel({
     icone: '<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
-    rotulo: card && currentBoard ? cardCode(currentBoard, card) : 'Novo card',
+    rotulo: isNew ? 'Novo card' : 'Card',
     ariaLabel: isNew ? 'Novo card' : 'Detalhes do card',
     posicao: lerPosicaoLembrada('kanban', 'direita'),
     aoMudarPosicao: (pos) => lembrarPosicao('kanban', pos),
@@ -644,7 +630,6 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
       panelHandle = null;
       closeCardPanel();
     },
-    compacto: true,
   });
   panelHandle = handle;
   handle.painel.classList.add('kanban-cp');
@@ -782,7 +767,11 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
   renderTagChips(tagsWrap, salvarSeExistir);
   props.appendChild(linhaPropriedade(ICONES_PAINEL.tag, 'Tags', tagsWrap));
 
-  handle.grade.appendChild(props);
+  // Propriedades num cartão próprio, na coluna lateral: à direita no centro, logo abaixo do título nas laterais.
+  const detalhes = buildSecaoModal('Detalhes');
+  detalhes.secao.classList.add('kanban-cp-secao', 'kanban-cp-detalhes');
+  detalhes.conteudo.appendChild(props);
+  handle.lateral.appendChild(detalhes.secao);
 
   // ---- Subtarefas ----
   const sugerirSub = buildBotaoIa('Sugerir', 'A IA sugere subtarefas a partir do título e da descrição');
@@ -813,7 +802,6 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
   subtasksWrap.className = 'kanban-cp-subtarefas';
   renderSubtasks(subtasksWrap, salvarSeExistir);
   subtarefas.conteudo.appendChild(subtasksWrap);
-  handle.grade.appendChild(subtarefas.secao);
 
   // ---- Descrição ----
   const descricao = buildSecaoModal('Descrição');
@@ -842,7 +830,8 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
       contexto: () => ({ titulo: panelDraft?.title, itens: panelDraft?.subtasks.map((s) => s.title) }),
     }),
   );
-  handle.grade.appendChild(descricao.secao);
+  // Descrição primeiro: é o contexto para ler as subtarefas.
+  handle.grade.append(descricao.secao, subtarefas.secao);
 
   // ---- Rodapé ----
   const espaco = document.createElement('span');

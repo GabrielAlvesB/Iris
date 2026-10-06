@@ -7,6 +7,7 @@
   <link rel="icon" href="./assets/icon-64.png" />
   <link rel="stylesheet" href="./styles/fonts.css" />
   <link rel="stylesheet" href="./styles/base.css" />
+  <link rel="stylesheet" href="./styles/sidebar.css" />
   <link rel="stylesheet" href="./styles/pagina.css" />
   <link rel="stylesheet" href="./styles/kanban.css" />
   <link rel="stylesheet" href="./styles/quadro.css" />
@@ -32,28 +33,8 @@
 </head>
 <body>
   <div id="app-shell">
-    <nav id="sidebar">
-      <div class="sidebar-brand">
-        <div class="sidebar-brand-glow"></div>
-        <img class="sidebar-logo" src="./assets/icon-64.png" alt="Logo Iris" width="26" height="26" />
-        <div class="sidebar-brand-info">
-          <span class="sidebar-title">Iris</span>
-          <span class="sidebar-subtitle">Workspace</span>
-        </div>
-        <button type="button" class="sidebar-toggle-btn" id="sidebar-toggle" title="Recolher menu lateral (Ctrl+B)" aria-label="Alternar menu lateral">
-          <svg class="sidebar-toggle-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="m15 18-6-6 6-6"/>
-          </svg>
-        </button>
-      </div>
-      <!-- Gerado por core/sidebar.ts a partir do catálogo de módulos. -->
-      <div id="sidebar-nav"></div>
-      <div class="sidebar-footer">
-        <span class="sidebar-footer-dot" title="Modo Local · Dados no seu PC"></span>
-        <span class="sidebar-footer-text">Modo Local · Dados no seu PC</span>
-      </div>
-      <div class="sidebar-resizer" id="sidebar-resizer" title="Arraste para redimensionar (duplo clique para restaurar)"></div>
-    </nav>
+    <!-- Trilho e painel gerados por core/sidebar.ts a partir do catálogo de módulos. -->
+    <nav id="sidebar" aria-label="Navegação"></nav>
     <main id="view-root"></main>
   </div>
 

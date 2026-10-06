@@ -373,9 +373,11 @@ export async function getFullFile(): Promise<N8nFile> {
   return loadFile();
 }
 
-export async function replaceFile(file: N8nFile): Promise<N8nFile> {
-  await saveFile(file);
-  return file;
+/** Backup e importação passam pela mesma leitura defensiva do disco: arquivo antigo ou malformado não vai cru. */
+export async function replaceFile(file: unknown): Promise<N8nFile> {
+  const migrado = migrate(file);
+  await saveFile(migrado);
+  return migrado;
 }
 
 export async function abrirExecucao(execucaoId: string): Promise<void> {

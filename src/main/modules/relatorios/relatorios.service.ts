@@ -6,6 +6,7 @@ import { TIPOS_POSTAGEM, isTipoPostagem, type TipoPostagem } from '../../../shar
 import {
   CATEGORIAS_PADRAO,
   PARTES_METRICAS,
+  QUANTIDADES_RANKING,
   isAreaImagem,
   isParteMetricas,
   isTomDestaque,
@@ -17,6 +18,7 @@ import {
   type LinhaMetrica,
   type PostagemMetrica,
   type ResultadoMetricas,
+  type ResultadoProducao,
   type ItemRelatorio,
   type MarcacaoImagem,
   type MarcacaoVideo,
@@ -26,12 +28,14 @@ import {
   type SecaoRelatorio,
   type SnapshotPostagem,
 } from '../../../shared/types/relatorios.types';
+import { lerEscala } from '../../../shared/types/score.types';
 
 const FILE_NAME = 'relatorios.json';
 // v2: blocos livres nas seções (texto, destaque, tabela, métricas, quebra).
 // v3: empresa por tags, objetivos/recomendações/observações finais, blocos
 // análise (texto + métrica), duas colunas e citação.
-const SCHEMA_VERSION = 3;
+// v4: blocos comparativo (período anterior), ranking e produção.
+const SCHEMA_VERSION = 4;
 const MAX_COLUNAS = 8;
 const MAX_LINHAS = 100;
 const MAX_INDICADORES = 12;
@@ -165,7 +169,11 @@ function migratePostagemMetrica(raw: unknown): PostagemMetrica | null {
 function migrateResultado(raw: unknown): ResultadoMetricas | null {
   if (!raw || typeof raw !== 'object') return null;
   const c = raw as Partial<ResultadoMetricas>;
+  // Sem escala (resultado de antes das escalas, ou inválida): o documento lê com a legada.
+  const escala = c.escala === undefined ? undefined : lerEscala(c.escala, randomUUID);
   return {
+    ...(escala ? { escala } : {}),
+    ...(escala && c.escalaMisturada === true ? { escalaMisturada: true } : {}),
     calculadoEm: texto(c.calculadoEm) || nowIso(),
     filtrosDescritos: listaDeStrings(c.filtrosDescritos),
     primeiraData: data(c.primeiraData),
@@ -200,6 +208,23 @@ function migrateFiltro(raw: unknown): FiltroMetricas {
   };
 }
 
+function migrateProducao(raw: unknown): ResultadoProducao | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const c = raw as Partial<ResultadoProducao>;
+  return {
+    calculadoEm: texto(c.calculadoEm) || nowIso(),
+    criadas: numero(c.criadas),
+    publicadas: numero(c.publicadas),
+    atrasadas: numero(c.atrasadas),
+    porFase: (Array.isArray(c.porFase) ? c.porFase : [])
+      .map((f) => {
+        const x = (f ?? {}) as { rotulo?: unknown; total?: unknown };
+        return typeof x.rotulo === 'string' ? { rotulo: x.rotulo, total: numero(x.total) } : null;
+      })
+      .filter(naoNulo),
+  };
+}
+
 function migrateBloco(raw: unknown): BlocoRelatorio | null {
   const c = (raw ?? {}) as Record<string, unknown>;
   const base = { id: id(c.id), titulo: texto(c.titulo) };
@@ -230,6 +255,37 @@ function migrateBloco(raw: unknown): BlocoRelatorio | null {
         comentario: texto(c.comentario),
       };
     }
+    case 'comparativo': {
+      const p = (c.periodoAnterior ?? {}) as { inicio?: unknown; fim?: unknown };
+      const inicio = data(p.inicio);
+      const fim = data(p.fim);
+      return {
+        ...base,
+        tipo: 'comparativo',
+        filtro: migrateFiltro(c.filtro),
+        atual: migrateResultado(c.atual),
+        anterior: migrateResultado(c.anterior),
+        ...(inicio && fim ? { periodoAnterior: { inicio, fim } } : {}),
+        comentario: texto(c.comentario),
+      };
+    }
+    case 'ranking':
+      return {
+        ...base,
+        tipo: 'ranking',
+        filtro: migrateFiltro(c.filtro),
+        quantidade: QUANTIDADES_RANKING.find((q) => q === c.quantidade) ?? 5,
+        resultado: migrateResultado(c.resultado),
+        comentario: texto(c.comentario),
+      };
+    case 'producao':
+      return {
+        ...base,
+        tipo: 'producao',
+        filtro: migrateFiltro(c.filtro),
+        resultado: migrateProducao(c.resultado),
+        comentario: texto(c.comentario),
+      };
     case 'analise': {
       const brutos: unknown[] = Array.isArray(c.indicadores) ? c.indicadores : [];
       return {
@@ -372,7 +428,7 @@ export async function getFullFile(): Promise<RelatoriosFile> {
   return loadFile();
 }
 
-export async function replaceFile(file: RelatoriosFile): Promise<RelatoriosFile> {
+export async function replaceFile(file: unknown): Promise<RelatoriosFile> {
   const normalizado = migrateFile(file);
   await saveFile(normalizado);
   return normalizado;

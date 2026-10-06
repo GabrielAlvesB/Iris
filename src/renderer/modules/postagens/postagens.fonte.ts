@@ -10,7 +10,7 @@ import type { VideosFile } from '../../../shared/types/videos.types.js';
 export type Postagem = PostagemBase<string>;
 
 /** Tags, redes e preferências de exibição: moram em videos.json e valem para todos os tipos. */
-export type Catalogo = Pick<VideosFile, 'tags' | 'redes' | 'preferencias'>;
+export type Catalogo = Pick<VideosFile, 'tags' | 'redes' | 'preferencias' | 'escalasScore' | 'escalaPadraoId'>;
 
 export interface NovaPostagemOpcoes {
   status?: string;

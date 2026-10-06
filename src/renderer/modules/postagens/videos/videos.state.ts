@@ -7,6 +7,7 @@ import type {
   ImportarDeSheetsResult,
   MoverVideoInput,
   PreferenciasVideos,
+  SalvarEscalaInput,
   SalvarRedeInput,
   SalvarTagInput,
   VideosFile,
@@ -76,6 +77,18 @@ export async function salvarTag(input: SalvarTagInput): Promise<VideosFile> {
 
 export async function excluirTag(tagId: string): Promise<void> {
   applyAndNotify(unwrap(await window.irisAPI.videos.excluirTag(tagId)));
+}
+
+export async function salvarEscala(input: SalvarEscalaInput): Promise<VideosFile> {
+  return applyAndNotify(unwrap(await window.irisAPI.videos.salvarEscala(input)));
+}
+
+export async function excluirEscala(escalaId: string): Promise<void> {
+  applyAndNotify(unwrap(await window.irisAPI.videos.excluirEscala(escalaId)));
+}
+
+export async function definirEscalaPadrao(escalaId: string): Promise<void> {
+  applyAndNotify(unwrap(await window.irisAPI.videos.definirEscalaPadrao(escalaId)));
 }
 
 export async function salvarRede(input: SalvarRedeInput): Promise<void> {

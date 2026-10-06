@@ -1,5 +1,6 @@
 import { VIDEO_STATUS, type AtualizarVideoInput, type CampoExtra, type Video, type VideosFile } from '../../../../shared/types/videos.types.js';
 import { descreverOrigem, extrairHashtags } from '../../../../shared/types/videos.conversao.js';
+import { escalaDaPostagem } from '../../../../shared/types/score.types.js';
 import { svg } from '../../../ui/pagina.js';
 import { abrirPainel as abrirCasca, type PainelHandle } from '../../../ui/painel.js';
 import { buildMateriais } from '../postagens.materiais.js';
@@ -228,7 +229,7 @@ export function abrirPainel(file: VideosFile, id: string): void {
     },
   });
   handle = casca;
-  const { grade } = casca;
+  const { grade, lateral } = casca;
 
   // Título em destaque, fora dos cartões
   const titulo = buildTituloPainel(
@@ -250,8 +251,9 @@ export function abrirPainel(file: VideosFile, id: string): void {
   const prioridadeSlot = document.createElement('div');
   const scoreSlot = document.createElement('div');
   producao.conteudo.append(buildCampo('Etapa', etapasSlot), buildCampo('Prioridade', prioridadeSlot), buildCampo('Score', scoreSlot));
-  scoreSlot.appendChild(buildCampoScore(video.score, (score) => salvar({ score })));
-  grade.appendChild(producao.secao);
+  const campoScore = buildCampoScore(video.score, escalaDaPostagem(file, video.tagIds), (score) => salvar({ score }));
+  scoreSlot.appendChild(campoScore.el);
+  lateral.appendChild(producao.secao);
 
   // Agendamento e publicação
   const alertaSlot = document.createElement('span');
@@ -259,14 +261,19 @@ export function abrirPainel(file: VideosFile, id: string): void {
   const redesSlot = document.createElement('div');
   const publicacoesSlot = document.createElement('div');
   agendaSecao.conteudo.append(
-    buildAgendamento(r.dataAgendada, r.horaAgendada, (campo, valor) => {
-      r[campo] = valor;
-      salvador.agora();
-    }),
+    buildAgendamento(
+      r.dataAgendada,
+      r.horaAgendada,
+      (campo, valor) => {
+        r[campo] = valor;
+        salvador.agora();
+      },
+      { inicioDaSemana: file.preferencias.inicioDaSemana, horasUsadas: file.videos.map((v) => v.horaAgendada ?? '') },
+    ),
     buildCampo('Redes sociais', redesSlot),
     buildCampo('Links publicados', publicacoesSlot),
   );
-  grade.appendChild(agendaSecao.secao);
+  lateral.appendChild(agendaSecao.secao);
 
   // Conteúdo: descrição e hashtags
   const contDescricao = buildContador(r.descricao);
@@ -319,7 +326,7 @@ export function abrirPainel(file: VideosFile, id: string): void {
   const tagsSecao = buildSecaoPainel('Tags', ICONES_POSTAGEM.tag);
   const tagsSlot = document.createElement('div');
   tagsSecao.conteudo.appendChild(tagsSlot);
-  grade.appendChild(tagsSecao.secao);
+  lateral.appendChild(tagsSecao.secao);
 
   // Materiais da Biblioteca
   const materiaisSlot = document.createElement('section');
@@ -344,6 +351,7 @@ export function abrirPainel(file: VideosFile, id: string): void {
   grade.appendChild(historico.secao);
 
   redesenharSecoes = (arquivo, atual) => {
+    campoScore.definirEscala(escalaDaPostagem(arquivo, atual.tagIds));
     casca.estado.replaceChildren(buildSeloEtapa(atual, VIDEO_STATUS));
     etapasSlot.replaceChildren(buildEtapas(VIDEO_STATUS, atual.status, (status) => salvar({ status: status as Video['status'] })));
     prioridadeSlot.replaceChildren(buildPrioridadeEscolha(atual.prioridade, (prioridade) => salvar({ prioridade })));

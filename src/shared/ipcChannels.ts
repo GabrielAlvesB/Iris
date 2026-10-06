@@ -40,8 +40,14 @@ export const SHEETS_CHANNELS = {
 } as const;
 
 export const EXPORT_CHANNELS = {
-  exportAll: 'export:exportAll',
-  importAll: 'export:importAll',
+  resumo: 'export:resumo',
+  exportar: 'export:exportar',
+  escolherImportacao: 'export:escolherImportacao',
+  aplicarImportacao: 'export:aplicarImportacao',
+  cancelarImportacao: 'export:cancelarImportacao',
+  ultimaCopia: 'export:ultimaCopia',
+  desfazerImportacao: 'export:desfazerImportacao',
+  abrirPastaDeCopias: 'export:abrirPastaDeCopias',
 } as const;
 
 export const LINKS_CHANNELS = {
@@ -138,6 +144,9 @@ export const ROTEIROS_CHANNELS = {
   excluirRoteiro: 'roteiros:excluirRoteiro',
   duplicarRoteiro: 'roteiros:duplicarRoteiro',
   salvarChecklistPadrao: 'roteiros:salvarChecklistPadrao',
+  salvarVersao: 'roteiros:salvarVersao',
+  restaurarVersao: 'roteiros:restaurarVersao',
+  criarAdaptacao: 'roteiros:criarAdaptacao',
 } as const;
 
 export const TRAFEGO_CHANNELS = {
@@ -216,6 +225,9 @@ export const VIDEOS_CHANNELS = {
   excluirVideo: 'videos:excluirVideo',
   salvarTag: 'videos:salvarTag',
   excluirTag: 'videos:excluirTag',
+  salvarEscala: 'videos:salvarEscala',
+  excluirEscala: 'videos:excluirEscala',
+  definirEscalaPadrao: 'videos:definirEscalaPadrao',
   salvarRede: 'videos:salvarRede',
   excluirRede: 'videos:excluirRede',
   importarDeSheets: 'videos:importarDeSheets',

@@ -2,9 +2,12 @@ import type { IpcResult } from '../../../shared/types/common.types';
 import type {
   AprovarRoteiroInput,
   AtualizarRoteiroInput,
+  CriarAdaptacaoInput,
   CriarRoteiroInput,
   MudarStatusRoteiroInput,
+  RestaurarVersaoInput,
   RoteirosFile,
+  SalvarVersaoInput,
 } from '../../../shared/types/roteiros.types';
 
 type Listener = (state: RoteirosFile) => void;
@@ -79,4 +82,22 @@ export async function duplicarRoteiro(roteiroId: string): Promise<void> {
 
 export async function salvarChecklistPadrao(itens: string[]): Promise<void> {
   applyAndNotify(unwrap(await window.irisAPI.roteiros.salvarChecklistPadrao(itens)));
+}
+
+/** Versão guardada sem redesenhar o Estúdio (as cenas não mudam). */
+export async function salvarVersao(input: SalvarVersaoInput): Promise<RoteirosFile> {
+  state = unwrap(await window.irisAPI.roteiros.salvarVersao(input));
+  return state;
+}
+
+export async function restaurarVersao(input: RestaurarVersaoInput): Promise<void> {
+  applyAndNotify(unwrap(await window.irisAPI.roteiros.restaurarVersao(input)));
+}
+
+/** Devolve o id do roteiro novo (a adaptação), para o Estúdio abri-lo. */
+export async function criarAdaptacao(input: CriarAdaptacaoInput): Promise<string> {
+  const r = await window.irisAPI.roteiros.criarAdaptacao(input);
+  if (!r.ok) throw new Error(r.error);
+  applyAndNotify(r.data.file);
+  return r.data.roteiroId;
 }

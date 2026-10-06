@@ -3,7 +3,7 @@ import { MODULOS, rotuloCompleto } from '../../../shared/types/modulos.types.js'
 import * as ajustesState from './ajustes.state.js';
 import type { AjustesViewState } from './ajustes.state.js';
 import * as exportacaoView from '../exportacao/exportacao.view.js';
-import { abrirTutorial, consumirSecaoAjustes, type GuiaId } from '../../core/navegacao.js';
+import { abrirTutorial, consumirSecaoAjustes, onSecaoAjustesSolicitada, type GuiaId } from '../../core/navegacao.js';
 import {
   ICONE_ATUALIZACAO,
   abrirPaginaDaRelease,
@@ -18,21 +18,15 @@ import type { EstadoAtualizacao } from '../../../shared/types/atualizacao.types.
 import { buildAssinatura } from '../relatorios/relatorios.documento.js';
 import { buildSecaoIa } from './ajustes.ia.js';
 import { buildCadastroTags, contarEmpresas } from '../postagens/postagens.tags.js';
-import { ICONE_EMPRESA } from '../postagens/postagens.ui.js';
+import { ICONE_ESCALA, buildCadastroEscalas } from '../postagens/postagens.escalas.js';
+import { ICONE_EMPRESA, ICONES_POSTAGEM } from '../postagens/postagens.ui.js';
+import { abrirHorariosPadrao } from '../postagens/postagens.agendar.js';
 import * as videosState from '../postagens/videos/videos.state.js';
 import { ICONE_IA } from '../../ui/ia.js';
-import {
-  assinarSidebar,
-  definirLargura,
-  definirModoCompacto,
-  obterEstadoSidebar,
-  LARGURA_PADRAO,
-  LARGURA_MINIMA,
-  LARGURA_MAXIMA,
-} from '../../core/sidebar.js';
+import { assinarFixado, definirFixado, estaFixado } from '../../core/sidebar.js';
 import { ICONES, buildAviso, buildBotao, buildCabecalho, buildSelo, svg, type Tom } from '../../ui/pagina.js';
 
-type Secao = 'n8n' | 'github' | 'ia' | 'empresas' | 'credenciais' | 'preferencias' | 'relatorios' | 'atualizacoes' | 'backup';
+type Secao = 'n8n' | 'github' | 'ia' | 'empresas' | 'escalas' | 'horarios' | 'credenciais' | 'preferencias' | 'relatorios' | 'atualizacoes' | 'backup';
 
 let secaoAtiva: Secao = 'n8n';
 /** A seção do último desenho, para saber se a rolagem deve ser mantida. */
@@ -78,6 +72,26 @@ const NAV: ItemNav[] = [
       if (!videosState.getCurrentState()) return { texto: 'catálogo global', tom: 'neutro' };
       const n = contarEmpresas();
       return { texto: n === 1 ? '1 empresa' : `${n} empresas`, tom: n ? 'ok' : 'neutro' };
+    },
+  },
+  {
+    id: 'escalas',
+    rotulo: 'Escalas de score',
+    icone: ICONE_ESCALA,
+    estado: () => {
+      const n = videosState.getCurrentState()?.escalasScore.length;
+      if (n === undefined) return { texto: 'faixas do score', tom: 'neutro' };
+      return { texto: n === 1 ? '1 escala' : `${n} escalas`, tom: 'neutro' };
+    },
+  },
+  {
+    id: 'horarios',
+    rotulo: 'Horários padrão',
+    icone: ICONES_POSTAGEM.relogio,
+    estado: () => {
+      const n = videosState.getCurrentState()?.preferencias.horariosPadrao.length;
+      if (n === undefined) return { texto: 'atalhos de agenda', tom: 'neutro' };
+      return { texto: n === 1 ? '1 horário' : `${n} horários`, tom: n ? 'ok' : 'neutro' };
     },
   },
   {
@@ -500,6 +514,75 @@ function buildSecaoEmpresas(): HTMLElement {
   return painel;
 }
 
+/** Escalas de score (também no catálogo de videos.json), com o mesmo cadastro da aba Métricas. */
+function buildSecaoEscalas(): HTMLElement {
+  const painel = buildPainel(
+    'Escalas de score',
+    'De quanto a quanto o score de uma postagem é positivo, mediano ou negativo. Cada empresa pode ter a sua escala; Métricas e Relatórios leem o score por ela.',
+    ICONE_ESCALA,
+  );
+  const corpo = document.createElement('div');
+  corpo.className = 'aj-corpo aj-escalas';
+  const status = buildStatus('escalas');
+  if (!videosState.getCurrentState()) {
+    corpo.appendChild(Object.assign(document.createElement('p'), { className: 'aj-campo-dica', textContent: 'Carregando as escalas…' }));
+    void videosState
+      .load()
+      .then(rerender)
+      .catch((erro: unknown) => status.mostrar(mensagemDe(erro), 'erro'));
+  } else {
+    corpo.appendChild(buildCadastroEscalas(rerender, (e: unknown) => status.mostrar(mensagemDe(e), 'erro')));
+  }
+  corpo.appendChild(status.el);
+  painel.appendChild(corpo);
+  return painel;
+}
+
+/** Horários padrão do agendamento de postagens (catálogo de videos.json), com o mesmo modal do painel. */
+function buildSecaoHorarios(): HTMLElement {
+  const painel = buildPainel(
+    'Horários padrão',
+    'Horários com nome que aparecem primeiro ao agendar qualquer postagem (ex.: "Reels da manhã" às 09:00). Também dá para criar pelo próprio seletor de horário.',
+    ICONES_POSTAGEM.relogio,
+  );
+  const corpo = document.createElement('div');
+  corpo.className = 'aj-corpo';
+  const status = buildStatus('horarios');
+  const file = videosState.getCurrentState();
+  if (!file) {
+    corpo.appendChild(Object.assign(document.createElement('p'), { className: 'aj-campo-dica', textContent: 'Carregando os horários…' }));
+    void videosState
+      .load()
+      .then(rerender)
+      .catch((erro: unknown) => status.mostrar(mensagemDe(erro), 'erro'));
+  } else {
+    const horarios = [...file.preferencias.horariosPadrao].sort((a, b) => a.hora.localeCompare(b.hora));
+    const lista = document.createElement('div');
+    lista.className = 'vd-agendar-chips is-padroes';
+    horarios.forEach((h) => {
+      const item = document.createElement('span');
+      item.className = 'vd-agendar-padrao is-estatico';
+      const nome = document.createElement('span');
+      nome.className = 'vd-agendar-padrao-nome';
+      nome.textContent = h.nome;
+      const hora = document.createElement('span');
+      hora.className = 'vd-agendar-padrao-hora';
+      hora.textContent = h.hora;
+      item.append(nome, hora);
+      lista.appendChild(item);
+    });
+    if (!horarios.length) {
+      lista.appendChild(Object.assign(document.createElement('p'), { className: 'aj-campo-dica', textContent: 'Nenhum horário padrão cadastrado.' }));
+    }
+    const editar = buildBotao(horarios.length ? 'Editar horários' : 'Cadastrar horários', { icone: ICONES_POSTAGEM.relogio, variante: 'primario' });
+    editar.addEventListener('click', () => void abrirHorariosPadrao().then(rerender));
+    corpo.append(lista, editar);
+  }
+  corpo.appendChild(status.el);
+  painel.appendChild(corpo);
+  return painel;
+}
+
 function buildSecaoRelatorios(state: AjustesViewState): HTMLElement {
   const painel = buildPainel(
     'Assinatura dos relatórios',
@@ -617,66 +700,21 @@ function buildSecaoPreferencias(state: AjustesViewState): HTMLElement {
 
   corpo.appendChild(buildCampo('Abrir o Iris em', select, 'A área que aparece primeiro quando o app inicia.'));
 
-  // Controles do Menu Lateral (Navbar)
-  const estadoSidebar = obterEstadoSidebar();
-
-  const opcaoCompacto = buildOpcao(
-    'Menu lateral compacto (Clean)',
-    'Exibe apenas os ícones para uma interface minimalista e maior foco no conteúdo (Atalho: Ctrl+B).',
-    estadoSidebar.compacto,
+  // A barra lateral: o painel de categorias abre ao lado (padrão) ou fica fixo.
+  const opcaoFixar = buildOpcao(
+    'Fixar o painel da barra lateral',
+    'Deixa a lista de módulos sempre aberta ao lado dos ícones, empurrando a tela. Desligado, cada categoria abre num painel por cima e fecha ao escolher. Atalho: Ctrl+B.',
+    estaFixado(),
   );
-  const btnCompacto = opcaoCompacto.el.querySelector<HTMLButtonElement>('.pg-interruptor');
-  btnCompacto?.addEventListener('click', () => {
-    definirModoCompacto(opcaoCompacto.valor());
-  });
-  corpo.appendChild(opcaoCompacto.el);
+  const interruptorFixar = opcaoFixar.el.querySelector<HTMLButtonElement>('.pg-interruptor');
+  interruptorFixar?.addEventListener('click', () => definirFixado(opcaoFixar.valor()));
+  corpo.appendChild(opcaoFixar.el);
 
-  const sliderRow = document.createElement('div');
-  sliderRow.className = 'aj-slider-row';
-
-  const range = document.createElement('input');
-  range.type = 'range';
-  range.className = 'aj-slider';
-  range.min = String(LARGURA_MINIMA);
-  range.max = String(LARGURA_MAXIMA);
-  range.step = '2';
-  range.value = String(estadoSidebar.largura);
-
-  const valorSpan = document.createElement('span');
-  valorSpan.className = 'aj-slider-valor';
-  valorSpan.textContent = `${estadoSidebar.largura} px`;
-
-  const resetBtn = buildBotao('Padrão (216px)', { variante: 'fantasma' });
-  resetBtn.addEventListener('click', () => {
-    definirLargura(LARGURA_PADRAO);
-    range.value = String(LARGURA_PADRAO);
-    valorSpan.textContent = `${LARGURA_PADRAO} px`;
-  });
-
-  range.addEventListener('input', () => {
-    const valor = Number(range.value);
-    valorSpan.textContent = `${valor} px`;
-    definirLargura(valor);
-  });
-
-  sliderRow.append(range, valorSpan, resetBtn);
-  corpo.appendChild(
-    buildCampo(
-      'Largura do menu lateral',
-      sliderRow,
-      'Ajuste o tamanho do menu. Você também pode arrastar a borda direita da barra lateral diretamente na tela.',
-    ),
-  );
-
-  // Sincroniza em tempo real caso o usuário arraste ou alterne a barra lateral
-  if (unsubSidebar) unsubSidebar();
-  unsubSidebar = assinarSidebar((est) => {
-    range.value = String(est.largura);
-    valorSpan.textContent = `${est.largura} px`;
-    if (btnCompacto) {
-      btnCompacto.classList.toggle('is-ligado', est.compacto);
-      btnCompacto.setAttribute('aria-checked', String(est.compacto));
-    }
+  // Acompanha o botão do próprio painel e o Ctrl+B.
+  unsubSidebar?.();
+  unsubSidebar = assinarFixado((fixo) => {
+    interruptorFixar?.classList.toggle('is-ligado', fixo);
+    interruptorFixar?.setAttribute('aria-checked', String(fixo));
   });
 
   corpo.appendChild(status.el);
@@ -845,7 +883,7 @@ function buildSecaoAtualizacoes(): HTMLElement {
 function buildSecaoBackup(): HTMLElement {
   const painel = buildPainel(
     'Backup e restauração',
-    'Exporte todos os dados do Iris para um arquivo JSON, ou restaure um backup anterior.',
+    'Exporte tudo ou só um módulo, e restaure escolhendo o que volta — sempre com uma cópia antes.',
     ICONES.backup,
   );
 
@@ -900,8 +938,12 @@ function buildNav(state: AjustesViewState): HTMLElement {
   return nav;
 }
 
+let pararPedidosDeSecao: (() => void) | null = null;
+
 export function render(container: HTMLElement, state: AjustesViewState): void {
   containerAtual = container;
+  // Busca rápida ou Tutorial pedindo outra seção com Ajustes já aberto.
+  pararPedidosDeSecao ??= onSecaoAjustesSolicitada(() => rerender());
   // Outro módulo pode ter pedido uma seção (ex.: Relatórios → assinatura).
   const pedida = consumirSecaoAjustes();
   if (pedida && NAV.some((n) => n.id === pedida)) secaoAtiva = pedida as Secao;
@@ -932,6 +974,8 @@ export function render(container: HTMLElement, state: AjustesViewState): void {
     github: () => buildSecaoGithub(state),
     ia: () => buildSecaoIa({ buildPainel, buildCampo, buildInput, buildStatus }, state.ia),
     empresas: () => buildSecaoEmpresas(),
+    escalas: () => buildSecaoEscalas(),
+    horarios: () => buildSecaoHorarios(),
     credenciais: () => buildSecaoCredenciais(state),
     preferencias: () => buildSecaoPreferencias(state),
     relatorios: () => buildSecaoRelatorios(state),
@@ -950,6 +994,8 @@ export function render(container: HTMLElement, state: AjustesViewState): void {
 export function destroy(): void {
   // Voltar a Ajustes vindo de outro módulo começa do topo.
   secaoDesenhada = null;
+  pararPedidosDeSecao?.();
+  pararPedidosDeSecao = null;
   statusVivos.clear();
   if (unsubSidebar) {
     unsubSidebar();

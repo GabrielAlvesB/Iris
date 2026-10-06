@@ -8,6 +8,7 @@ import {
   type ImagensFile,
 } from '../../../../shared/types/imagens.types.js';
 import type { CampoExtra } from '../../../../shared/types/postagens.types.js';
+import { escalaDaPostagem } from '../../../../shared/types/score.types.js';
 import { abrirPainel as abrirCasca, type PainelHandle } from '../../../ui/painel.js';
 import { buildMateriais } from '../postagens.materiais.js';
 import { buildBotaoThumbnail } from '../../ia/ia.thumbnail.js';
@@ -198,7 +199,7 @@ export function abrirPainel(file: ImagensFile, catalogo: Catalogo, id: string): 
     },
   });
   handle = casca;
-  const { grade } = casca;
+  const { grade, lateral } = casca;
 
   // O catálogo muda quando o usuário cria uma tag: a sugestão usa o mais recente.
   let catalogoVisto = catalogo;
@@ -214,15 +215,16 @@ export function abrirPainel(file: ImagensFile, catalogo: Catalogo, id: string): 
   const etapasSlot = document.createElement('div');
   const prioridadeSlot = document.createElement('div');
   const scoreSlot = document.createElement('div');
-  scoreSlot.appendChild(buildCampoScore(imagem.score, (score) => salvar({ score })));
+  const campoScore = buildCampoScore(imagem.score, escalaDaPostagem(catalogo, imagem.tagIds), (score) => salvar({ score }));
+  scoreSlot.appendChild(campoScore.el);
   producao.conteudo.append(buildCampo('Etapa', etapasSlot), buildCampo('Prioridade', prioridadeSlot), buildCampo('Score', scoreSlot));
-  grade.appendChild(producao.secao);
+  lateral.appendChild(producao.secao);
 
   // Formato e peças
   const formatoSecao = buildSecaoPainel('Formato', ICONES_POSTAGEM.imagem);
   const formatoSlot = document.createElement('div');
   formatoSecao.conteudo.appendChild(formatoSlot);
-  grade.appendChild(formatoSecao.secao);
+  lateral.appendChild(formatoSecao.secao);
 
   // Arte: o que pedir e o que vai escrito nela
   const arte = buildSecaoPainel('Arte', ICONES_POSTAGEM.paleta);
@@ -239,14 +241,19 @@ export function abrirPainel(file: ImagensFile, catalogo: Catalogo, id: string): 
   const redesSlot = document.createElement('div');
   const publicacoesSlot = document.createElement('div');
   agendaSecao.conteudo.append(
-    buildAgendamento(r.dataAgendada, r.horaAgendada, (campo, valor) => {
-      r[campo] = valor;
-      salvador.agora();
-    }),
+    buildAgendamento(
+      r.dataAgendada,
+      r.horaAgendada,
+      (campo, valor) => {
+        r[campo] = valor;
+        salvador.agora();
+      },
+      { inicioDaSemana: catalogo.preferencias.inicioDaSemana, horasUsadas: file.imagens.map((i) => i.horaAgendada ?? '') },
+    ),
     buildCampo('Redes sociais', redesSlot),
     buildCampo('Links publicados', publicacoesSlot),
   );
-  grade.appendChild(agendaSecao.secao);
+  lateral.appendChild(agendaSecao.secao);
 
   // Legenda (com as hashtags dentro), CTA, link e acessibilidade
   const contLegenda = buildContador(r.legenda);
@@ -300,7 +307,7 @@ export function abrirPainel(file: ImagensFile, catalogo: Catalogo, id: string): 
   const tagsSecao = buildSecaoPainel('Tags', ICONES_POSTAGEM.tag);
   const tagsSlot = document.createElement('div');
   tagsSecao.conteudo.appendChild(tagsSlot);
-  grade.appendChild(tagsSecao.secao);
+  lateral.appendChild(tagsSecao.secao);
 
   // A arte em si, se quiser, fica ligada por Materiais (caminho da Biblioteca).
   const materiaisSlot = document.createElement('section');
@@ -318,6 +325,7 @@ export function abrirPainel(file: ImagensFile, catalogo: Catalogo, id: string): 
 
   redesenharSecoes = (cat, atual) => {
     catalogoVisto = cat;
+    campoScore.definirEscala(escalaDaPostagem(cat, atual.tagIds));
     casca.estado.replaceChildren(buildSeloEtapa(atual, IMAGEM_STATUS));
     etapasSlot.replaceChildren(buildEtapas(IMAGEM_STATUS, atual.status, (status) => salvar({ status: status as Imagem['status'] })));
     prioridadeSlot.replaceChildren(buildPrioridadeEscolha(atual.prioridade, (prioridade) => salvar({ prioridade })));

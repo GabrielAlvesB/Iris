@@ -3,15 +3,40 @@ import { GUIAS } from './tutorial.content.js';
 import type { EstadoPasso } from './tutorial.types.js';
 
 export interface TutorialViewState {
-  guiaAtivo: GuiaId;
+  /** null = Início. */
+  guiaAtivo: GuiaId | null;
+  busca: string;
   /** id do passo → estado; ausente enquanto a checagem não terminou. */
   estados: Record<string, EstadoPasso>;
   conferindo: boolean;
+  /** Guias já abertos — só para o selo "lido" no Início. */
+  vistos: GuiaId[];
+  /** Passo para onde rolar ao abrir o guia (resultado da busca). */
+  passoAlvo: string | null;
 }
 
 type Listener = (state: TutorialViewState) => void;
 
-let state: TutorialViewState = { guiaAtivo: 'n8n', estados: {}, conferindo: false };
+const CHAVE_VISTOS = 'iris.tutorial.vistos';
+
+function lerVistos(): GuiaId[] {
+  try {
+    const cru: unknown = JSON.parse(localStorage.getItem(CHAVE_VISTOS) ?? '[]');
+    return Array.isArray(cru) ? cru.filter((id): id is GuiaId => GUIAS.some((g) => g.id === id)) : [];
+  } catch {
+    return [];
+  }
+}
+
+function gravarVistos(vistos: GuiaId[]): void {
+  try {
+    localStorage.setItem(CHAVE_VISTOS, JSON.stringify(vistos));
+  } catch {
+    // Sem armazenamento, o selo "lido" só não sobrevive ao reinício.
+  }
+}
+
+let state: TutorialViewState = { guiaAtivo: null, busca: '', estados: {}, conferindo: false, vistos: lerVistos(), passoAlvo: null };
 let listener: Listener | null = null;
 let cancelarOuvinte: (() => void) | null = null;
 
@@ -24,19 +49,25 @@ function aplicar(parcial: Partial<TutorialViewState>): void {
   notify();
 }
 
+function comVisto(guia: GuiaId | null): Partial<TutorialViewState> {
+  if (!guia || state.vistos.includes(guia)) return {};
+  const vistos = [...state.vistos, guia];
+  gravarVistos(vistos);
+  return { vistos };
+}
+
 export function onStateChange(cb: Listener): void {
   listener = cb;
 
-  // Quem clicou no "?" de outro módulo já deixou o guia escolhido.
+  // Quem clicou no "?" de outro módulo já deixou o guia escolhido. Sem pedido,
+  // o Tutorial volta ao Início — reabrir no último guia lido confundia quem
+  // vinha procurar outra coisa.
   const pedido = consumirGuiaPendente();
-  if (pedido) state = { ...state, guiaAtivo: pedido };
+  state = { ...state, guiaAtivo: pedido, busca: '', passoAlvo: null, ...comVisto(pedido) };
 
   // Cobre o clique no "?" quando o tutorial já está aberto.
   cancelarOuvinte?.();
-  cancelarOuvinte = onGuiaSolicitado((guia) => {
-    aplicar({ guiaAtivo: guia });
-    void conferir();
-  });
+  cancelarOuvinte = onGuiaSolicitado((guia) => abrirGuia(guia));
 }
 
 export function offStateChange(): void {
@@ -49,9 +80,21 @@ export function getCurrentState(): TutorialViewState {
   return state;
 }
 
-export function selecionarGuia(guia: GuiaId): void {
-  aplicar({ guiaAtivo: guia });
-  void conferir();
+export function abrirGuia(guia: GuiaId, passoAlvo: string | null = null): void {
+  aplicar({ guiaAtivo: guia, busca: '', passoAlvo, ...comVisto(guia) });
+}
+
+export function irParaInicio(): void {
+  aplicar({ guiaAtivo: null, busca: '', passoAlvo: null });
+}
+
+export function buscar(texto: string): void {
+  aplicar({ busca: texto, passoAlvo: null });
+}
+
+/** A tela já rolou até o passo; não rolar de novo no próximo redesenho. */
+export function consumirPassoAlvo(): void {
+  state = { ...state, passoAlvo: null };
 }
 
 /**

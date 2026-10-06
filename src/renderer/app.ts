@@ -265,7 +265,7 @@ function preCarregarRestantes(): void {
 
 function bootstrap(): void {
   const viewRoot = document.getElementById('view-root');
-  const navRoot = document.getElementById('sidebar-nav');
+  const navRoot = document.getElementById('sidebar');
   if (!viewRoot || !navRoot) return;
 
   const abrir = (nome: ModuleName): void => {

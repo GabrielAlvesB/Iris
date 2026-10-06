@@ -25,27 +25,29 @@ export interface ModuloDescritor {
   id: string;
   rotulo: string;
   posicao: PosicaoModulo;
+  /** Uma linha: aparece no painel da barra lateral e na busca rápida (Ctrl+P). */
+  descricao: string;
 }
 
 export const MODULOS = [
-  { id: 'kanban', rotulo: 'Kanban', posicao: 'topo' },
-  { id: 'todo', rotulo: 'To-do', posicao: 'topo' },
-  { id: 'postagens', rotulo: 'Postagens', posicao: 'conteudo' },
-  { id: 'ia', rotulo: 'Estúdio IA', posicao: 'conteudo' },
-  { id: 'relatorios', rotulo: 'Relatórios', posicao: 'conteudo' },
-  { id: 'roteiros', rotulo: 'Roteiros', posicao: 'conteudo' },
-  { id: 'sheets', rotulo: 'Sheets', posicao: 'conteudo' },
-  { id: 'explorador', rotulo: 'Biblioteca', posicao: 'arquivos' },
-  { id: 'quadro', rotulo: 'Quadro', posicao: 'arquivos' },
-  { id: 'copy', rotulo: 'Copy', posicao: 'arquivos' },
-  { id: 'pensamentos', rotulo: 'Pensamentos', posicao: 'arquivos' },
-  { id: 'links', rotulo: 'Links rápidos', posicao: 'arquivos' },
-  { id: 'servidores', rotulo: 'Servidores', posicao: 'sistema' },
-  { id: 'n8n', rotulo: 'n8n', posicao: 'sistema' },
-  { id: 'github', rotulo: 'GitHub', posicao: 'sistema' },
-  { id: 'trafego', rotulo: 'Tráfego pago', posicao: 'trafego' },
-  { id: 'tutorial', rotulo: 'Tutorial', posicao: 'rodape' },
-  { id: 'ajustes', rotulo: 'Ajustes', posicao: 'rodape' },
+  { id: 'kanban', rotulo: 'Kanban', posicao: 'topo', descricao: 'Cards em colunas, do a fazer ao feito' },
+  { id: 'todo', rotulo: 'To-do', posicao: 'topo', descricao: 'Checklists rápidas do dia a dia' },
+  { id: 'postagens', rotulo: 'Postagens', posicao: 'conteudo', descricao: 'Vídeos e imagens, da ideia à publicação' },
+  { id: 'ia', rotulo: 'Estúdio IA', posicao: 'conteudo', descricao: 'Imagens e thumbnails com IA' },
+  { id: 'relatorios', rotulo: 'Relatórios', posicao: 'conteudo', descricao: 'PDFs de resultado para clientes' },
+  { id: 'roteiros', rotulo: 'Roteiros', posicao: 'conteudo', descricao: 'Roteiros de vídeo, cena por cena' },
+  { id: 'sheets', rotulo: 'Sheets', posicao: 'conteudo', descricao: 'Tabelas importadas de planilhas' },
+  { id: 'explorador', rotulo: 'Biblioteca', posicao: 'arquivos', descricao: 'Seus arquivos organizados em coleções' },
+  { id: 'quadro', rotulo: 'Quadro', posicao: 'arquivos', descricao: 'Tela livre de notas, tarefas e rotinas' },
+  { id: 'copy', rotulo: 'Copy', posicao: 'arquivos', descricao: 'Textos prontos para copiar' },
+  { id: 'pensamentos', rotulo: 'Pensamentos', posicao: 'arquivos', descricao: 'Post-its para ideias soltas' },
+  { id: 'links', rotulo: 'Links rápidos', posicao: 'arquivos', descricao: 'Atalhos para os sites de sempre' },
+  { id: 'servidores', rotulo: 'Servidores', posicao: 'sistema', descricao: 'Sites no ar e comandos por SSH' },
+  { id: 'n8n', rotulo: 'n8n', posicao: 'sistema', descricao: 'Fluxos de automação' },
+  { id: 'github', rotulo: 'GitHub', posicao: 'sistema', descricao: 'Repositórios e o que falta enviar' },
+  { id: 'trafego', rotulo: 'Tráfego pago', posicao: 'trafego', descricao: 'Campanhas pagas e retorno' },
+  { id: 'tutorial', rotulo: 'Tutorial', posicao: 'rodape', descricao: 'Um guia para cada área' },
+  { id: 'ajustes', rotulo: 'Ajustes', posicao: 'rodape', descricao: 'Conexões, preferências e backup' },
 ] as const satisfies readonly ModuloDescritor[];
 
 export type ModuloId = (typeof MODULOS)[number]['id'];

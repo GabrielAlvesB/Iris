@@ -83,6 +83,7 @@ import type {
   PreferenciasVideos,
   SalvarRedeInput,
   SalvarTagInput,
+  SalvarEscalaInput,
   VideosFile,
 } from './videos.types';
 import type { IrisEventPayload, IrisEventTopic, Unsubscribe } from './events.types';
@@ -103,13 +104,25 @@ import type {
   UpdateRowInput,
   UpdateTableVisibilityInput,
 } from './sheets.types';
-import type { FileOpResult } from './export.types';
+import type {
+  CopiaDeSeguranca,
+  FileOpResult,
+  FormatoExportacao,
+  ModuloExportavel,
+  PreviaImportacao,
+  ResultadoImportacao,
+  ResumoExportavel,
+} from './export.types';
 import type {
   AprovarRoteiroInput,
   AtualizarRoteiroInput,
+  CriarAdaptacaoInput,
+  CriarAdaptacaoResult,
   CriarRoteiroInput,
   MudarStatusRoteiroInput,
+  RestaurarVersaoInput,
   RoteirosFile,
+  SalvarVersaoInput,
 } from './roteiros.types';
 import type {
   AtualizarCampanhaInput,
@@ -313,8 +326,16 @@ export interface LinksApi {
 }
 
 export interface ExportApi {
-  exportAll(): Promise<IpcResult<FileOpResult>>;
-  importAll(): Promise<IpcResult<FileOpResult>>;
+  /** O que cada módulo tem hoje ("34 cards"), para a tela de Backup. */
+  resumo(): Promise<IpcResult<ResumoExportavel[]>>;
+  exportar(escopo: ModuloExportavel[], formato: FormatoExportacao): Promise<IpcResult<FileOpResult>>;
+  /** Abre o diálogo e lê o arquivo; nada é substituído ainda. null = cancelado. */
+  escolherImportacao(): Promise<IpcResult<PreviaImportacao | null>>;
+  aplicarImportacao(modulos: ModuloExportavel[]): Promise<IpcResult<ResultadoImportacao>>;
+  cancelarImportacao(): Promise<IpcResult<void>>;
+  ultimaCopia(): Promise<IpcResult<CopiaDeSeguranca | null>>;
+  desfazerImportacao(): Promise<IpcResult<ModuloExportavel[]>>;
+  abrirPastaDeCopias(): Promise<IpcResult<void>>;
 }
 
 export interface CopyApi {
@@ -335,6 +356,11 @@ export interface RoteirosApi {
   excluirRoteiro(roteiroId: string): Promise<IpcResult<RoteirosFile>>;
   duplicarRoteiro(roteiroId: string): Promise<IpcResult<RoteirosFile>>;
   salvarChecklistPadrao(itens: string[]): Promise<IpcResult<RoteirosFile>>;
+  salvarVersao(input: SalvarVersaoInput): Promise<IpcResult<RoteirosFile>>;
+  /** Guarda a atual como versão antes de voltar à escolhida. */
+  restaurarVersao(input: RestaurarVersaoInput): Promise<IpcResult<RoteirosFile>>;
+  /** Roteiro novo em outro formato; o original não muda. */
+  criarAdaptacao(input: CriarAdaptacaoInput): Promise<IpcResult<CriarAdaptacaoResult>>;
 }
 
 export interface TrafegoApi {
@@ -419,6 +445,9 @@ export interface VideosApi {
   excluirVideo(videoId: string): Promise<IpcResult<VideosFile>>;
   salvarTag(input: SalvarTagInput): Promise<IpcResult<VideosFile>>;
   excluirTag(tagId: string): Promise<IpcResult<VideosFile>>;
+  salvarEscala(input: SalvarEscalaInput): Promise<IpcResult<VideosFile>>;
+  excluirEscala(escalaId: string): Promise<IpcResult<VideosFile>>;
+  definirEscalaPadrao(escalaId: string): Promise<IpcResult<VideosFile>>;
   salvarRede(input: SalvarRedeInput): Promise<IpcResult<VideosFile>>;
   excluirRede(redeId: string): Promise<IpcResult<VideosFile>>;
   importarDeSheets(input: ImportarDeSheetsInput): Promise<IpcResult<ImportarDeSheetsResult>>;

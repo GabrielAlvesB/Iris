@@ -1,5 +1,6 @@
 import type { BaseEntity } from './common.types';
 import type { CampoExtra, TipoPostagem } from './postagens.types.js';
+import type { EscalaScore } from './score.types.js';
 
 /**
  * Relatórios de análise: documentos com seções, cada uma com postagens
@@ -211,7 +212,14 @@ export interface ResultadoMetricas {
   porTipo: LinhaMetrica[];
   /** rotulo = YYYY-MM */
   porMes: LinhaMetrica[];
-  /** rotulo = id da faixa (FAIXAS_SCORE); total = quantidade na faixa. */
+  /**
+   * Cópia da escala de score usada no cálculo (a das empresas do filtro).
+   * Ausente em resultado calculado antes das escalas: lê-se com ESCALA_LEGADA.
+   */
+  escala?: EscalaScore;
+  /** Postagens de empresas com escalas diferentes: médias lidas pela escala padrão. */
+  escalaMisturada?: boolean;
+  /** rotulo = id da faixa da `escala`; total = quantidade na faixa. */
   faixas: LinhaMetrica[];
   redes: LinhaMetrica[];
   tags: LinhaMetrica[];
@@ -295,11 +303,66 @@ export interface BlocoCitacao {
   fonte: string;
 }
 
+/**
+ * O mesmo filtro em dois períodos: o escolhido e o anterior, do mesmo
+ * tamanho (mês exato → mês anterior). Dois resultados gravados, como fotos.
+ */
+export interface BlocoComparativo {
+  id: string;
+  tipo: 'comparativo';
+  titulo: string;
+  filtro: FiltroMetricas;
+  atual: ResultadoMetricas | null;
+  anterior: ResultadoMetricas | null;
+  /** Período do `anterior`, calculado do filtro no momento do cálculo. */
+  periodoAnterior?: { inicio: string; fim: string };
+  comentario: string;
+}
+
+export const QUANTIDADES_RANKING = [3, 5, 10] as const;
+export type QuantidadeRanking = (typeof QUANTIDADES_RANKING)[number];
+
+/** As N postagens de maior e de menor score do filtro. */
+export interface BlocoRanking {
+  id: string;
+  tipo: 'ranking';
+  titulo: string;
+  filtro: FiltroMetricas;
+  quantidade: QuantidadeRanking;
+  resultado: ResultadoMetricas | null;
+  comentario: string;
+}
+
+/** Quanto foi produzido: contagens da pipeline, gravadas no cálculo. */
+export interface ResultadoProducao {
+  calculadoEm: string;
+  /** Criadas dentro do período (data de criação). */
+  criadas: number;
+  /** Foram ao ar dentro do período (mesma regra das métricas). */
+  publicadas: number;
+  /** Com data no período que passou sem publicar. */
+  atrasadas: number;
+  /** Situação da pipeline no momento do cálculo, por fase. */
+  porFase: Array<{ rotulo: string; total: number }>;
+}
+
+export interface BlocoProducao {
+  id: string;
+  tipo: 'producao';
+  titulo: string;
+  filtro: FiltroMetricas;
+  resultado: ResultadoProducao | null;
+  comentario: string;
+}
+
 export type BlocoRelatorio =
   | BlocoTexto
   | BlocoDestaque
   | BlocoTabela
   | BlocoMetricas
+  | BlocoComparativo
+  | BlocoRanking
+  | BlocoProducao
   | BlocoAnalise
   | BlocoColunas
   | BlocoCitacao

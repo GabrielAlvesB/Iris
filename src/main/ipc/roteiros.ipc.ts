@@ -4,9 +4,13 @@ import type { IpcResult } from '../../shared/types/common.types';
 import type {
   AprovarRoteiroInput,
   AtualizarRoteiroInput,
+  CriarAdaptacaoInput,
+  CriarAdaptacaoResult,
   CriarRoteiroInput,
   MudarStatusRoteiroInput,
+  RestaurarVersaoInput,
   RoteirosFile,
+  SalvarVersaoInput,
 } from '../../shared/types/roteiros.types';
 import * as roteirosService from '../modules/roteiros/roteiros.service';
 
@@ -48,5 +52,17 @@ export function registerRoteirosIpc(): void {
 
   ipcMain.handle(ROTEIROS_CHANNELS.salvarChecklistPadrao, (_event, itens: string[]) =>
     toResult<RoteirosFile>(roteirosService.salvarChecklistPadrao(itens)),
+  );
+
+  ipcMain.handle(ROTEIROS_CHANNELS.salvarVersao, (_event, input: SalvarVersaoInput) =>
+    toResult<RoteirosFile>(roteirosService.salvarVersao(input)),
+  );
+
+  ipcMain.handle(ROTEIROS_CHANNELS.restaurarVersao, (_event, input: RestaurarVersaoInput) =>
+    toResult<RoteirosFile>(roteirosService.restaurarVersao(input)),
+  );
+
+  ipcMain.handle(ROTEIROS_CHANNELS.criarAdaptacao, (_event, input: CriarAdaptacaoInput) =>
+    toResult<CriarAdaptacaoResult>(roteirosService.criarAdaptacao(input)),
   );
 }

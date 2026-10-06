@@ -1,14 +1,17 @@
 import { CATEGORIAS, MODULOS, type CategoriaId, type ModuloId } from '../../shared/types/modulos.types.js';
+import { empilharCamada, haModalAberto } from '../ui/modal.js';
 
 /**
- * Sidebar gerada a partir do catálogo de módulos. Para um módulo novo aparecer,
- * basta a entrada em modulos.types.ts e um ícone aqui — o Record abaixo faz o
- * compilador cobrar o ícone que faltar.
+ * Barra lateral em duas partes: um trilho de ícones sempre visível e um
+ * painel com os módulos de uma categoria, que abre ao lado sem empurrar a tela.
+ * Fixado, o painel fica aberto com todas as categorias — o "modo lista".
+ *
+ * Tudo deriva do catálogo de módulos: categoria com um módulo só (Tráfego)
+ * vira atalho direto no trilho, e uma categoria nova aparece sozinha. O
+ * Record abaixo faz o compilador cobrar o ícone de um módulo novo.
  */
 
-const ABRE = '<svg class="nav-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">';
-
-const ICONE_DO_MODULO: Record<ModuloId, string> = {
+export const ICONE_DO_MODULO: Record<ModuloId, string> = {
   kanban: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/>',
   todo: '<path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="m3 6 1 1 2-2"/><path d="m3 12 1 1 2-2"/><path d="m3 18 1 1 2-2"/>',
   ia: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
@@ -39,369 +42,319 @@ const ICONE_DO_MODULO: Record<ModuloId, string> = {
     '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6h.09A1.65 1.65 0 0 0 10 3.09V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
 };
 
-export const LARGURA_PADRAO = 216;
-export const LARGURA_MINIMA = 160;
-export const LARGURA_MAXIMA = 380;
-export const LARGURA_COMPACTA = 60;
-const LIMIAR_COMPACTAR = 120;
+const ICONE_DA_CATEGORIA: Record<CategoriaId, string> = {
+  conteudo: '<rect x="2" y="4" width="20" height="16" rx="3"/><path d="m10 9 5 3-5 3z"/>',
+  arquivos: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
+  sistema: '<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3"/><path d="M15 1v3"/><path d="M9 20v3"/><path d="M15 20v3"/><path d="M20 9h3"/><path d="M20 14h3"/><path d="M1 9h3"/><path d="M1 14h3"/>',
+  trafego: '<path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>',
+};
 
-const CHAVE_RECOLHIDAS = 'iris.sidebar.recolhidas';
-const CHAVE_LARGURA = 'iris.sidebar.largura';
-const CHAVE_COMPACTO = 'iris.sidebar.compacto';
+const ICONE_BUSCA = '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>';
+const ICONE_FIXAR = '<path d="M12 17v5"/><path d="M9 10.76V6h6v4.76a2 2 0 0 0 .55 1.38L17 13.6V16H7v-2.4l1.45-1.46A2 2 0 0 0 9 10.76z"/><path d="M8 2h8"/>';
+const ICONE_RECOLHER = '<path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/>';
 
-const ICONE_RECOLHER = '<path d="m15 18-6-6 6-6"/>';
-const ICONE_EXPANDIR = '<path d="m9 18 6-6-6-6"/>';
+const CHAVE_FIXADO = 'iris.sidebar.fixado';
 
-// localStorage é só conveniência de tela: se falhar, todas as categorias abrem.
-function lerRecolhidas(): Set<CategoriaId> {
-  try {
-    const bruto = JSON.parse(localStorage.getItem(CHAVE_RECOLHIDAS) ?? '[]') as unknown;
-    return new Set(Array.isArray(bruto) ? (bruto.filter((v) => typeof v === 'string') as CategoriaId[]) : []);
-  } catch {
-    return new Set();
-  }
+function svg(path: string, tamanho = 20, traco = 1.8): string {
+  return `<svg viewBox="0 0 24 24" width="${tamanho}" height="${tamanho}" fill="none" stroke="currentColor" stroke-width="${traco}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
 }
 
-function gravarRecolhidas(recolhidas: Set<CategoriaId>): void {
+// localStorage é só conveniência de tela: se falhar, o painel começa flutuante.
+function lerFixado(): boolean {
   try {
-    localStorage.setItem(CHAVE_RECOLHIDAS, JSON.stringify([...recolhidas]));
-  } catch {
-    // Sem armazenamento, o estado só dura a sessão.
-  }
-}
-
-function lerLargura(): number {
-  try {
-    const raw = Number(localStorage.getItem(CHAVE_LARGURA));
-    if (Number.isFinite(raw) && raw >= LARGURA_MINIMA && raw <= LARGURA_MAXIMA) {
-      return Math.round(raw);
-    }
-  } catch {
-    // cai no padrão
-  }
-  return LARGURA_PADRAO;
-}
-
-function gravarLargura(valor: number): void {
-  try {
-    localStorage.setItem(CHAVE_LARGURA, String(Math.round(valor)));
-  } catch {
-    // Sem armazenamento, o estado só dura a sessão.
-  }
-}
-
-function lerCompacto(): boolean {
-  try {
-    return localStorage.getItem(CHAVE_COMPACTO) === 'true';
+    return localStorage.getItem(CHAVE_FIXADO) === 'true';
   } catch {
     return false;
   }
 }
 
-function gravarCompacto(compacto: boolean): void {
+function gravarFixado(valor: boolean): void {
   try {
-    localStorage.setItem(CHAVE_COMPACTO, String(compacto));
+    localStorage.setItem(CHAVE_FIXADO, String(valor));
   } catch {
-    // Sem armazenamento, o estado só dura a sessão.
+    // Sem armazenamento, a escolha só dura a sessão.
   }
 }
 
-const recolhidas = lerRecolhidas();
-let larguraAtual = lerLargura();
-let compactoAtual = lerCompacto();
-
-let navEl: HTMLElement | null = null;
-let sidebarEl: HTMLElement | null = null;
-let toggleBtnEl: HTMLButtonElement | null = null;
-let aoEscolher: (modulo: ModuloId) => void = () => undefined;
-let atalhoTecladoRegistrado = false;
-
-export interface EstadoSidebar {
-  largura: number;
-  compacto: boolean;
+/** Categorias com mais de um módulo abrem painel; as de um só viram atalho direto. */
+function modulosDa(categoria: CategoriaId): Array<(typeof MODULOS)[number]> {
+  return MODULOS.filter((m) => m.posicao === categoria);
 }
 
-type ListenerSidebar = (estado: EstadoSidebar) => void;
-const ouvintes: Set<ListenerSidebar> = new Set();
+function categoriasComPainel(): Array<(typeof CATEGORIAS)[number]> {
+  return CATEGORIAS.filter((c) => modulosDa(c.id).length > 1);
+}
 
-function notificarOuvintes(): void {
-  const estado: EstadoSidebar = { largura: larguraAtual, compacto: compactoAtual };
-  ouvintes.forEach((cb) => {
-    try {
-      cb(estado);
-    } catch {
-      // Proteção de ouvinte
+let sidebarEl: HTMLElement | null = null;
+let painelEl: HTMLElement | null = null;
+let aoEscolher: (modulo: ModuloId) => void = () => undefined;
+let moduloAtivo: ModuloId | null = null;
+let fixado = lerFixado();
+let categoriaAberta: CategoriaId | null = null;
+let soltarCamada: (() => void) | null = null;
+let atalhosRegistrados = false;
+const ouvintesFixado = new Set<(fixado: boolean) => void>();
+
+// ---------- Trilho ----------
+
+function itemDoTrilho(icone: string, rotulo: string, aoClicar: (e: MouseEvent) => void): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'trilho-item';
+  btn.dataset.dica = rotulo;
+  btn.setAttribute('aria-label', rotulo);
+  btn.innerHTML = svg(icone);
+  btn.addEventListener('click', aoClicar);
+  return btn;
+}
+
+function itemDeModulo(id: ModuloId, rotulo: string): HTMLButtonElement {
+  const btn = itemDoTrilho(ICONE_DO_MODULO[id], rotulo, () => escolher(id));
+  btn.dataset.module = id;
+  return btn;
+}
+
+function itemDeCategoria(id: CategoriaId, rotulo: string): HTMLButtonElement {
+  const btn = itemDoTrilho(ICONE_DA_CATEGORIA[id], rotulo, (e) => {
+    if (fixado) {
+      rolarAteCategoria(id);
+      return;
+    }
+    if (categoriaAberta === id) fecharPainel();
+    // detail 0 = teclado: o foco entra no painel para seguir pelas setas/Tab.
+    else abrirPainel(id, e.detail === 0);
+  });
+  btn.dataset.categoria = id;
+  btn.setAttribute('aria-haspopup', 'true');
+  btn.setAttribute('aria-expanded', 'false');
+  return btn;
+}
+
+function buildTrilho(): HTMLElement {
+  const trilho = document.createElement('div');
+  trilho.className = 'trilho';
+
+  const logo = document.createElement('div');
+  logo.className = 'trilho-logo';
+  logo.innerHTML = '<img src="./assets/icon-64.png" alt="" width="28" height="28" />';
+  logo.title = 'Iris';
+  trilho.appendChild(logo);
+
+  const principal = document.createElement('div');
+  principal.className = 'trilho-grupo';
+  MODULOS.filter((m) => m.posicao === 'topo').forEach((m) => principal.appendChild(itemDeModulo(m.id, m.rotulo)));
+  principal.appendChild(Object.assign(document.createElement('span'), { className: 'trilho-divisor' }));
+  CATEGORIAS.forEach((c) => {
+    const modulos = modulosDa(c.id);
+    if (modulos.length > 1) principal.appendChild(itemDeCategoria(c.id, c.rotulo));
+    else if (modulos[0]) principal.appendChild(itemDeModulo(modulos[0].id, modulos[0].rotulo));
+  });
+  trilho.appendChild(principal);
+
+  trilho.appendChild(Object.assign(document.createElement('span'), { className: 'trilho-espaco' }));
+
+  const rodape = document.createElement('div');
+  rodape.className = 'trilho-grupo';
+  rodape.appendChild(itemDoTrilho(ICONE_BUSCA, 'Ir para… (Ctrl+P)', () => void abrirBuscaRapida()));
+  // O aviso de atualização (core/atualizacao.ts) entra aqui quando há versão nova.
+  rodape.appendChild(Object.assign(document.createElement('div'), { className: 'trilho-aviso' }));
+  rodape.appendChild(Object.assign(document.createElement('span'), { className: 'trilho-divisor' }));
+  MODULOS.filter((m) => m.posicao === 'rodape').forEach((m) => rodape.appendChild(itemDeModulo(m.id, m.rotulo)));
+  trilho.appendChild(rodape);
+  return trilho;
+}
+
+// ---------- Painel ----------
+
+function itemDoPainel(m: (typeof MODULOS)[number], comDescricao: boolean): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = `sb-painel-item${m.id === moduloAtivo ? ' is-ativo' : ''}`;
+  btn.dataset.module = m.id;
+  const icone = document.createElement('span');
+  icone.className = 'sb-painel-item-icone';
+  icone.innerHTML = svg(ICONE_DO_MODULO[m.id], 17);
+  const textos = document.createElement('span');
+  textos.className = 'sb-painel-item-textos';
+  textos.appendChild(Object.assign(document.createElement('span'), { className: 'sb-painel-item-nome', textContent: m.rotulo }));
+  if (comDescricao) textos.appendChild(Object.assign(document.createElement('span'), { className: 'sb-painel-item-desc', textContent: m.descricao }));
+  btn.append(icone, textos);
+  btn.addEventListener('click', () => escolher(m.id));
+  return btn;
+}
+
+function cabecalhoDoPainel(titulo: string): HTMLElement {
+  const cab = document.createElement('header');
+  cab.className = 'sb-painel-cab';
+  cab.appendChild(Object.assign(document.createElement('span'), { className: 'sb-painel-titulo', textContent: titulo }));
+  const botao = document.createElement('button');
+  botao.type = 'button';
+  botao.className = 'sb-painel-fixar';
+  const rotulo = fixado ? 'Soltar o painel (Ctrl+B)' : 'Fixar o painel aberto (Ctrl+B)';
+  botao.title = rotulo;
+  botao.setAttribute('aria-label', rotulo);
+  botao.innerHTML = svg(fixado ? ICONE_RECOLHER : ICONE_FIXAR, 15, 2);
+  botao.addEventListener('click', () => definirFixado(!fixado));
+  cab.appendChild(botao);
+  return cab;
+}
+
+function desenharPainel(): void {
+  if (!painelEl || !sidebarEl) return;
+  const visivel = fixado || categoriaAberta !== null;
+  sidebarEl.classList.toggle('is-fixado', fixado);
+  sidebarEl.classList.toggle('is-painel-aberto', visivel);
+  painelEl.hidden = !visivel;
+  sidebarEl.querySelectorAll<HTMLElement>('.trilho-item[data-categoria]').forEach((b) => {
+    b.setAttribute('aria-expanded', String(!fixado && b.dataset.categoria === categoriaAberta));
+    b.classList.toggle('is-aberto', !fixado && b.dataset.categoria === categoriaAberta);
+  });
+  if (!visivel) {
+    painelEl.replaceChildren();
+    return;
+  }
+
+  if (fixado) {
+    // Fixado: todas as categorias numa lista compacta, como um índice.
+    painelEl.replaceChildren(cabecalhoDoPainel('Navegação'));
+    const lista = document.createElement('div');
+    lista.className = 'sb-painel-rolagem';
+    categoriasComPainel().forEach((c) => {
+      const grupo = document.createElement('section');
+      grupo.className = 'sb-painel-grupo';
+      grupo.dataset.categoria = c.id;
+      grupo.appendChild(Object.assign(document.createElement('span'), { className: 'sb-painel-grupo-rotulo', textContent: c.rotulo }));
+      modulosDa(c.id).forEach((m) => grupo.appendChild(itemDoPainel(m, false)));
+      lista.appendChild(grupo);
+    });
+    painelEl.appendChild(lista);
+    return;
+  }
+
+  const categoria = CATEGORIAS.find((c) => c.id === categoriaAberta);
+  if (!categoria) return;
+  painelEl.replaceChildren(cabecalhoDoPainel(categoria.rotulo));
+  const lista = document.createElement('div');
+  lista.className = 'sb-painel-rolagem';
+  modulosDa(categoria.id).forEach((m) => lista.appendChild(itemDoPainel(m, true)));
+  painelEl.appendChild(lista);
+}
+
+function aoClicarFora(e: PointerEvent): void {
+  if (sidebarEl && !sidebarEl.contains(e.target as Node)) fecharPainel();
+}
+
+function abrirPainel(categoria: CategoriaId, focar = false): void {
+  categoriaAberta = categoria;
+  desenharPainel();
+  if (!soltarCamada && painelEl) {
+    // Na pilha de camadas: Esc fecha o painel antes de qualquer coisa por baixo.
+    soltarCamada = empilharCamada(painelEl, fecharPainel);
+    document.addEventListener('pointerdown', aoClicarFora, true);
+  }
+  if (focar) painelEl?.querySelector<HTMLElement>('.sb-painel-item')?.focus();
+}
+
+function fecharPainel(): void {
+  if (categoriaAberta === null) return;
+  const voltarFoco = categoriaAberta;
+  categoriaAberta = null;
+  soltarCamada?.();
+  soltarCamada = null;
+  document.removeEventListener('pointerdown', aoClicarFora, true);
+  desenharPainel();
+  // Quem estava no painel pelo teclado volta para o ícone da categoria.
+  if (sidebarEl?.contains(document.activeElement) || document.activeElement === document.body) {
+    sidebarEl?.querySelector<HTMLElement>(`.trilho-item[data-categoria="${voltarFoco}"]`)?.focus({ preventScroll: true });
+  }
+}
+
+function rolarAteCategoria(categoria: CategoriaId): void {
+  const grupo = painelEl?.querySelector<HTMLElement>(`.sb-painel-grupo[data-categoria="${categoria}"]`);
+  if (!grupo) return;
+  grupo.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  grupo.classList.remove('is-destacado');
+  void grupo.offsetWidth;
+  grupo.classList.add('is-destacado');
+}
+
+function escolher(modulo: ModuloId): void {
+  fecharPainel();
+  aoEscolher(modulo);
+}
+
+// ---------- Fixado ----------
+
+export function estaFixado(): boolean {
+  return fixado;
+}
+
+export function definirFixado(valor: boolean): void {
+  if (fixado === valor) return;
+  fecharPainel();
+  fixado = valor;
+  gravarFixado(valor);
+  desenharPainel();
+  ouvintesFixado.forEach((cb) => cb(valor));
+}
+
+/** Para a opção de Ajustes acompanhar o botão do painel e o Ctrl+B. */
+export function assinarFixado(cb: (fixado: boolean) => void): () => void {
+  ouvintesFixado.add(cb);
+  return () => ouvintesFixado.delete(cb);
+}
+
+// ---------- Busca rápida ----------
+
+/** Carregada no primeiro uso: a paleta não pesa na abertura do app. */
+async function abrirBuscaRapida(): Promise<void> {
+  fecharPainel();
+  const { abrirPaleta } = await import('./paleta.js');
+  abrirPaleta();
+}
+
+function registrarAtalhos(): void {
+  if (atalhosRegistrados) return;
+  atalhosRegistrados = true;
+  window.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
+    const tecla = e.key.toLowerCase();
+    if (tecla === 'p') {
+      // Ctrl+P do Chromium é "imprimir": aqui nunca faz sentido.
+      e.preventDefault();
+      if (!haModalAberto()) void abrirBuscaRapida();
+    } else if (tecla === 'b') {
+      const ativo = document.activeElement as HTMLElement | null;
+      // Num campo de texto, Ctrl+B pode ser negrito; não roubar.
+      if (ativo && (ativo.tagName === 'INPUT' || ativo.tagName === 'TEXTAREA' || ativo.isContentEditable)) return;
+      e.preventDefault();
+      definirFixado(!fixado);
     }
   });
 }
 
-export function assinarSidebar(cb: ListenerSidebar): () => void {
-  ouvintes.add(cb);
-  return () => {
-    ouvintes.delete(cb);
-  };
-}
+// ---------- API ----------
 
-export function obterEstadoSidebar(): EstadoSidebar {
-  return { largura: larguraAtual, compacto: compactoAtual };
-}
-
-export function definirLargura(largura: number, salvar = true): void {
-  const clamp = Math.max(LARGURA_MINIMA, Math.min(LARGURA_MAXIMA, Math.round(largura)));
-  larguraAtual = clamp;
-  if (salvar) gravarLargura(clamp);
-  atualizarDOMSidebar();
-  notificarOuvintes();
-}
-
-export function definirModoCompacto(compacto: boolean, salvar = true): void {
-  if (compactoAtual === compacto) return;
-  compactoAtual = compacto;
-  if (salvar) gravarCompacto(compacto);
-  atualizarDOMSidebar();
-  notificarOuvintes();
-}
-
-export function alternarModoCompacto(): void {
-  definirModoCompacto(!compactoAtual);
-}
-
-function atualizarDOMSidebar(): void {
-  if (!sidebarEl) return;
-  sidebarEl.classList.toggle('is-compact', compactoAtual);
-  sidebarEl.style.setProperty('--sidebar-largura', `${larguraAtual}px`);
-  sidebarEl.style.width = compactoAtual ? `${LARGURA_COMPACTA}px` : `${larguraAtual}px`;
-
-  if (toggleBtnEl) {
-    toggleBtnEl.innerHTML = `<svg class="sidebar-toggle-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${
-      compactoAtual ? ICONE_EXPANDIR : ICONE_RECOLHER
-    }</svg>`;
-    const rotuloAcao = compactoAtual ? 'Expandir menu lateral (Ctrl+B)' : 'Recolher menu lateral (Ctrl+B)';
-    toggleBtnEl.title = rotuloAcao;
-    toggleBtnEl.setAttribute('aria-label', rotuloAcao);
-  }
-}
-
-function buildItem(id: ModuloId, rotulo: string): HTMLButtonElement {
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'nav-item';
-  btn.dataset.module = id;
-  btn.title = rotulo;
-  btn.innerHTML = `${ABRE}${ICONE_DO_MODULO[id]}</svg>`;
-  const label = document.createElement('span');
-  label.className = 'nav-label';
-  label.textContent = rotulo;
-  btn.appendChild(label);
-  btn.addEventListener('click', () => aoEscolher(id));
-  return btn;
-}
-
-function buildGrupoSolto(posicao: 'topo' | 'rodape'): HTMLElement {
-  const grupo = document.createElement('div');
-  grupo.className = `nav-items nav-grupo-${posicao}`;
-  MODULOS.filter((m) => m.posicao === posicao).forEach((m) => grupo.appendChild(buildItem(m.id, m.rotulo)));
-  return grupo;
-}
-
-function buildCategoria(id: CategoriaId, rotulo: string): HTMLElement {
-  const modulos = MODULOS.filter((m) => m.posicao === id);
-  const secao = document.createElement('section');
-  secao.className = 'nav-categoria';
-  secao.dataset.categoria = id;
-  secao.classList.toggle('is-recolhida', recolhidas.has(id));
-
-  const cabecalho = document.createElement('button');
-  cabecalho.type = 'button';
-  cabecalho.className = 'nav-categoria-cabecalho';
-  cabecalho.setAttribute('aria-expanded', String(!recolhidas.has(id)));
-  cabecalho.innerHTML =
-    '<svg class="nav-categoria-seta" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
-  const texto = document.createElement('span');
-  texto.className = 'nav-categoria-rotulo';
-  texto.textContent = rotulo;
-  const contador = document.createElement('span');
-  contador.className = 'nav-categoria-contador';
-  contador.textContent = String(modulos.length);
-  cabecalho.append(texto, contador);
-  cabecalho.addEventListener('click', () => alternarCategoria(secao, id));
-
-  const corpo = document.createElement('div');
-  corpo.className = 'nav-categoria-corpo';
-  const itens = document.createElement('div');
-  itens.className = 'nav-items';
-  modulos.forEach((m) => itens.appendChild(buildItem(m.id, m.rotulo)));
-  corpo.appendChild(itens);
-
-  secao.append(cabecalho, corpo);
-  return secao;
-}
-
-function alternarCategoria(secao: HTMLElement, id: CategoriaId): void {
-  const recolher = !recolhidas.has(id);
-  if (recolher) recolhidas.add(id);
-  else recolhidas.delete(id);
-  secao.classList.toggle('is-recolhida', recolher);
-  secao.querySelector('.nav-categoria-cabecalho')?.setAttribute('aria-expanded', String(!recolher));
-  gravarRecolhidas(recolhidas);
-}
-
-function onResizerPointerDown(e: PointerEvent): void {
-  if (e.button !== 0 || !sidebarEl) return;
-  const resizerEl = e.currentTarget as HTMLElement;
-  e.preventDefault();
-
-  try {
-    resizerEl.setPointerCapture(e.pointerId);
-  } catch {
-    // ignorar se captura de ponteiro não for suportada
-  }
-
-  document.body.classList.add('is-resizing-sidebar');
-  sidebarEl.classList.add('is-dragging');
-
-  const startX = e.clientX;
-  const startWidth = sidebarEl.getBoundingClientRect().width;
-
-  const onPointerMove = (ev: PointerEvent): void => {
-    const deltaX = ev.clientX - startX;
-    const rawWidth = startWidth + deltaX;
-
-    if (rawWidth < LIMIAR_COMPACTAR) {
-      if (!compactoAtual) {
-        compactoAtual = true;
-        atualizarDOMSidebar();
-        notificarOuvintes();
-      }
-    } else {
-      if (compactoAtual) {
-        compactoAtual = false;
-      }
-      const clamped = Math.max(LARGURA_MINIMA, Math.min(LARGURA_MAXIMA, Math.round(rawWidth)));
-      larguraAtual = clamped;
-      sidebarEl?.style.setProperty('--sidebar-largura', `${clamped}px`);
-      if (sidebarEl) sidebarEl.style.width = `${clamped}px`;
-      sidebarEl?.classList.remove('is-compact');
-      if (toggleBtnEl) {
-        toggleBtnEl.innerHTML = `<svg class="sidebar-toggle-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONE_RECOLHER}</svg>`;
-        toggleBtnEl.title = 'Recolher menu lateral (Ctrl+B)';
-        toggleBtnEl.setAttribute('aria-label', 'Recolher menu lateral (Ctrl+B)');
-      }
-      notificarOuvintes();
-    }
-  };
-
-  const onPointerUp = (ev: PointerEvent): void => {
-    try {
-      resizerEl.releasePointerCapture(ev.pointerId);
-    } catch {
-      // ignorar
-    }
-    document.body.classList.remove('is-resizing-sidebar');
-    sidebarEl?.classList.remove('is-dragging');
-    window.removeEventListener('pointermove', onPointerMove);
-    window.removeEventListener('pointerup', onPointerUp);
-    window.removeEventListener('pointercancel', onPointerUp);
-
-    gravarLargura(larguraAtual);
-    gravarCompacto(compactoAtual);
-    atualizarDOMSidebar();
-    notificarOuvintes();
-  };
-
-  window.addEventListener('pointermove', onPointerMove);
-  window.addEventListener('pointerup', onPointerUp);
-  window.addEventListener('pointercancel', onPointerUp);
-}
-
-function configurarControlesSidebar(): void {
-  if (!sidebarEl) return;
-
-  toggleBtnEl = sidebarEl.querySelector<HTMLButtonElement>('#sidebar-toggle');
-  if (toggleBtnEl && !toggleBtnEl.dataset.initialized) {
-    toggleBtnEl.dataset.initialized = 'true';
-    toggleBtnEl.addEventListener('click', (e) => {
-      e.stopPropagation();
-      alternarModoCompacto();
-    });
-  }
-
-  const logoEl = sidebarEl.querySelector<HTMLElement>('.sidebar-logo');
-  if (logoEl && !logoEl.dataset.initialized) {
-    logoEl.dataset.initialized = 'true';
-    logoEl.addEventListener('click', () => {
-      if (compactoAtual) {
-        definirModoCompacto(false);
-      }
-    });
-  }
-
-  let resizerEl = sidebarEl.querySelector<HTMLElement>('#sidebar-resizer');
-  if (!resizerEl) {
-    resizerEl = document.createElement('div');
-    resizerEl.id = 'sidebar-resizer';
-    resizerEl.className = 'sidebar-resizer';
-    resizerEl.title = 'Arraste para redimensionar (duplo clique para restaurar)';
-    sidebarEl.appendChild(resizerEl);
-  }
-
-  if (resizerEl && !resizerEl.dataset.initialized) {
-    resizerEl.dataset.initialized = 'true';
-    resizerEl.addEventListener('pointerdown', onResizerPointerDown);
-    resizerEl.addEventListener('dblclick', () => {
-      definirLargura(LARGURA_PADRAO);
-      definirModoCompacto(false);
-    });
-  }
-
-  if (!atalhoTecladoRegistrado) {
-    atalhoTecladoRegistrado = true;
-    window.addEventListener('keydown', (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
-        const active = document.activeElement;
-        const isInput =
-          active &&
-          (active.tagName === 'INPUT' ||
-            active.tagName === 'TEXTAREA' ||
-            (active as HTMLElement).isContentEditable);
-        if (!isInput) {
-          e.preventDefault();
-          alternarModoCompacto();
-        }
-      }
-    });
-  }
-}
-
-export function montarSidebar(container: HTMLElement, escolher: (modulo: ModuloId) => void): void {
-  navEl = container;
-  aoEscolher = escolher;
-  sidebarEl = container.closest<HTMLElement>('#sidebar') ?? document.getElementById('sidebar');
-
-  container.innerHTML = '';
-  // Só o miolo rola: em janela baixa, Tutorial e Ajustes continuam à vista.
-  const rolagem = document.createElement('div');
-  rolagem.className = 'nav-rolagem';
-  rolagem.appendChild(buildGrupoSolto('topo'));
-  CATEGORIAS.forEach((c) => rolagem.appendChild(buildCategoria(c.id, c.rotulo)));
-  container.appendChild(rolagem);
-  container.appendChild(buildGrupoSolto('rodape'));
-
-  configurarControlesSidebar();
-  atualizarDOMSidebar();
+export function montarSidebar(container: HTMLElement, escolherModulo: (modulo: ModuloId) => void): void {
+  sidebarEl = container;
+  aoEscolher = escolherModulo;
+  painelEl = document.createElement('aside');
+  painelEl.className = 'sb-painel';
+  painelEl.setAttribute('aria-label', 'Módulos');
+  container.replaceChildren(buildTrilho(), painelEl);
+  desenharPainel();
+  registrarAtalhos();
 }
 
 export function marcarAtivo(modulo: ModuloId): void {
-  if (!navEl) return;
-  navEl.querySelectorAll('.nav-item').forEach((el) => el.classList.toggle('active', el.getAttribute('data-module') === modulo));
-
-  // O módulo ativo nunca fica escondido: abrir por atalho ou pelo módulo inicial
-  // dentro de uma categoria recolhida a expande só nesta sessão, sem gravar.
+  moduloAtivo = modulo;
+  if (!sidebarEl) return;
   const categoria = MODULOS.find((m) => m.id === modulo)?.posicao;
-  const secao = navEl.querySelector<HTMLElement>(`.nav-categoria[data-categoria="${categoria}"]`);
-  if (secao?.classList.contains('is-recolhida')) {
-    recolhidas.delete(categoria as CategoriaId);
-    secao.classList.remove('is-recolhida');
-    secao.querySelector('.nav-categoria-cabecalho')?.setAttribute('aria-expanded', 'true');
-  }
+  sidebarEl.querySelectorAll<HTMLElement>('.trilho-item').forEach((b) => {
+    const ativo = b.dataset.module === modulo || (b.dataset.categoria !== undefined && b.dataset.categoria === categoria);
+    b.classList.toggle('is-ativo', ativo);
+    if (ativo) b.setAttribute('aria-current', 'page');
+    else b.removeAttribute('aria-current');
+  });
+  sidebarEl.querySelectorAll<HTMLElement>('.sb-painel-item').forEach((b) => b.classList.toggle('is-ativo', b.dataset.module === modulo));
 }

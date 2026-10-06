@@ -106,7 +106,7 @@ export async function getFullFile(): Promise<AjustesFile> {
   return loadFile();
 }
 
-export async function replaceFile(file: AjustesFile): Promise<AjustesFile> {
+export async function replaceFile(file: unknown): Promise<AjustesFile> {
   // Um backup antigo entra normalizado (sem assinatura, com id de módulo antigo).
   const normalizado = migrate(file);
   await saveFile(normalizado);

@@ -84,9 +84,11 @@ export async function getFullFile(): Promise<SheetsFile> {
   return loadFile();
 }
 
-export async function replaceFile(file: SheetsFile): Promise<SheetsFile> {
-  await saveFile(file);
-  return file;
+/** Backup e importação passam pela mesma leitura defensiva do disco: arquivo antigo ou malformado não vai cru. */
+export async function replaceFile(file: unknown): Promise<SheetsFile> {
+  const migrado = migrateSheetsFile(file);
+  await saveFile(migrado);
+  return migrado;
 }
 
 // A hand-rolled CSV parser is used instead of XLSX's CSV reader: SheetJS applies

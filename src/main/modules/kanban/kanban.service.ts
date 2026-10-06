@@ -109,9 +109,11 @@ export async function getFullFile(): Promise<KanbanFile> {
   return loadFile();
 }
 
-export async function replaceFile(file: KanbanFile): Promise<KanbanFile> {
-  await saveFile(file);
-  return file;
+/** Backup e importação passam pela mesma leitura defensiva do disco: arquivo antigo ou malformado não vai cru. */
+export async function replaceFile(file: unknown): Promise<KanbanFile> {
+  const migrado = migrateKanbanFile(file);
+  await saveFile(migrado);
+  return migrado;
 }
 
 export async function createColumn(input: CreateColumnInput): Promise<KanbanBoard> {

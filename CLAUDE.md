@@ -114,22 +114,34 @@ Ao adicionar um módulo:
 2. O ícone em `ICONE_DO_MODULO` de [sidebar.ts](src/renderer/core/sidebar.ts).
 3. `mount`/`destroy` em [app.ts](src/renderer/app.ts).
 4. O `register…Ipc()` em [src/main/ipc/index.ts](src/main/ipc/index.ts).
-5. Se tem arquivo de dados, `getFullFile`/`replaceFile` em
-   [export.service.ts](src/main/modules/export/export.service.ts) e o campo opcional em
-   `export.types.ts`.
+5. Se tem arquivo de dados: `getFullFile`/`replaceFile` (que **passa pela `migrate`**) no service, a
+   chave em `LEITORES`/`GRAVADORES` de [export.service.ts](src/main/modules/export/export.service.ts),
+   o campo opcional no `ExportBundle` e a entrada em `EXPORTAVEIS` (`export.types.ts`). Planilha
+   opcional em `export.planilhas.ts`.
 
 Os passos 1–3 são checados pelo compilador (`Record<ModuloId, …>`); 4 e 5 não.
 
-O `<nav>` do `index.html` é só uma casca: os itens são gerados por
-[sidebar.ts](src/renderer/core/sidebar.ts). Para navegar de um módulo para outro, usar
-`abrirModulo()` de [navegacao.ts](src/renderer/core/navegacao.ts).
+O `<nav id="sidebar">` do `index.html` é vazio: [sidebar.ts](src/renderer/core/sidebar.ts) gera um
+**trilho de ícones** (64px) e um **painel** ao lado. Kanban/To-do/Tutorial/Ajustes e categorias de um
+módulo só (Tráfego) são atalhos diretos no trilho; as outras categorias abrem o painel flutuante (Esc,
+clique fora ou escolher fecham; entra na pilha de camadas). **Fixado** (Ctrl+B, botão do painel ou
+Ajustes › Preferências, localStorage `iris.sidebar.fixado`) o painel lista todas as categorias e empurra
+a tela. Classes do painel têm prefixo `sb-` — `.painel` é do painel de detalhes (ui/painel.ts).
+`MODULOS[].descricao` é a linha que aparece no painel e na busca. **Ctrl+P** abre a busca rápida
+([paleta.ts](src/renderer/core/paleta.ts), importada sob demanda): módulos, `SECOES_AJUSTES` (navegacao.ts)
+e guias do Tutorial. Para navegar de um módulo para outro, usar `abrirModulo()` de
+[navegacao.ts](src/renderer/core/navegacao.ts); `abrirAjustes(secao)` funciona também com Ajustes já
+aberto (`onSecaoAjustesSolicitada`).
 
 ## Persistência
 
 [jsonStore.ts](src/main/storage/jsonStore.ts) — `readStore(fileName, defaultFactory, migrate)`
 e `writeStore`. Escreve em `.tmp` e renomeia, guarda `.bak` antes de sobrescrever, e um
 arquivo corrompido vira `.corrupted-<timestamp>` em vez de derrubar o app. Escritas do mesmo
-arquivo são serializadas numa fila.
+arquivo são serializadas numa fila. Se o arquivo no disco tem `schemaVersion` **maior** que o que
+vai ser gravado (versão antiga do app rodando — o Iris instalado ao lado do `npm run dev`, ou
+"Escolher versão…" para trás), fica uma cópia permanente `<nome>.v<N>.json` antes: a versão
+antiga descarta o que não conhece (foi assim que as escalas de score "não salvavam").
 
 **Todo arquivo de dados tem `schemaVersion` e uma `migrate(raw: unknown)` defensiva** — nada
 é lido sem passar por ela. Campos derivados são recalculados na leitura em vez de confiados
@@ -194,7 +206,20 @@ não seria decifrável em outra máquina.
   (painel, arrasto, agenda, restaurar): a mais recente primeiro.
 - `seq` de postagens, roteiros e relatórios é interno: não mostrar em card, painel, tabela nem
   no PDF (o usuário pediu para tirar).
+- **Data e horário** no painel: [postagens.agendar.ts](src/renderer/modules/postagens/postagens.agendar.ts)
+  (mini calendário com atalhos + horário digitado livre — `lerHora` aceita "1830", "9h", "21:15" — ou
+  escolhido numa grade; "Mais usados" = os repetidos do tipo). Não voltar ao `<input type="time">`.
+  **Horários padrão** com nome (`preferencias.horariosPadrao` em videos.json, catálogo único — vale para
+  todo tipo) vêm primeiro no seletor; cadastro em `abrirHorariosPadrao` (do seletor e de Ajustes › Horários padrão).
+- A pipeline guarda a rolagem de cada coluna (`rolagemColunas`) e marca o **último card aberto**
+  (`is-recente`, selo "último aberto"); se o card em foco muda de etapa ou posição no redesenho
+  (`acompanharFoco`), rola até ele e pisca. Abrir postagem de dentro da view = `abrirItem`, não `fonte.abrir`.
 - Fases da pipeline recolhem numa faixa estreita (localStorage `iris.postagens.fasesRecolhidas`).
+- **Agenda** tem abas **Próximas** (atrasados, hoje → +60 dias, prontos sem data e um "Últimos 7 dias"
+  recolhível no topo) e **Anteriores** (histórico por dia, do mais recente ao mais antigo, com atalhos de
+  período, "Só publicadas/Todas", resumo e separador por semana). O dia de uma publicada é o mesmo das
+  Métricas (`dataParaMetricas`); sem hora marcada, mostra a hora de `publicadoEm`. Escolhas em localStorage
+  `iris.postagens.agenda`.
 - Para abrir Postagens já num tipo/postagem a partir de outro módulo: `abrirPostagem()` de
   [navegacao.ts](src/renderer/core/navegacao.ts).
 
@@ -215,8 +240,19 @@ não seria decifrável em outra máquina.
   Parte nova ou campo novo = dizer para que serve e onde sai no PDF.
 - **Modelos** ([relatorios.modelos.ts](src/renderer/modules/relatorios/relatorios.modelos.ts)):
   "Resultados do mês", "Análise de postagens", "Em branco" no Novo relatório, e tipos prontos em
-  "Adicionar seção". O main cria o relatório com uma seção vazia "Análise"; o modelo a substitui.
+  "Adicionar seção" (`MODELOS_SECAO`, em grupos: Números automáticos — resultados, só vídeos, só imagens,
+  por rede, comparativo, melhores e piores, produção; Números a mão — números das redes (indicadores já
+  nomeados, valores vazios), metas × realizado, plano de ação, calendário do próximo período (puxa as
+  postagens com data, não publicadas, como cópia); Análise e texto). Bloco de modelo vazio (indicador sem
+  valor, tabela sem linha preenchida) não sai no documento. O main cria o relatório com uma seção vazia "Análise"; o modelo a substitui.
   Modelo só cria estrutura vazia — nunca texto inventado.
+- **Guias de escrita** ([relatorios.guias.ts](src/renderer/modules/relatorios/relatorios.guias.ts)): todo campo de
+  texto tem placeholder de exemplo (os de métricas, resumo, conclusão e próximos passos citam os números reais do
+  bloco ou do primeiro bloco de métricas) e um "Como escrever" (`buildGuia`) com perguntas-guia. "Começar com os
+  números" escreve **só fatos** do resultado gravado (`frasesDoResultado`, `frasesDaAnalise`, `frasesDaPostagem`),
+  via evento `input`; a interpretação é de quem escreve. Campo novo = entrada em `PERGUNTAS` + exemplo.
+  A IA do campo lê o mesmo guia (`buildGuia` registra o textarea; `comIaRelatorio` junta
+  `orientacaoDoGuia` — perguntas + exemplo como modelo de forma — e `fatosDoGuia` antes do relatório completo).
 - **PDF**: o documento é um DOM só
   ([relatorios.documento.ts](src/renderer/modules/relatorios/relatorios.documento.ts)), usado
   na prévia e no PDF. Para exportar, o renderer monta-o em `#impressao` e o main chama
@@ -240,6 +276,11 @@ não seria decifrável em outra máquina.
   analisadas. Os textos aceitam `- ` (lista), `1. ` (lista numerada) e `**negrito**`
   (`paragrafos()` do documento). Bloco novo = entrada em `BlocoRelatorio`, `migrateBloco` no
   service, `buildBloco` no documento e `TIPOS_BLOCO`/editor.
+- **Blocos calculados além das métricas** (v4): `comparativo` (o filtro em dois períodos — `periodoAnterior`
+  em relatorios.metricas.ts: mês exato → mês anterior, senão o mesmo tamanho logo antes; variação com seta e
+  sinal, `variacaoComparativo`), `ranking` (N maiores/menores do `resultado.postagens`, `rankingDoResultado`) e
+  `producao` (`calcularProducao`: criadas, publicadas, atrasadas no período + pipeline por fase no cálculo).
+  Os quatro editores calculados usam o mesmo `buildEditorFiltro`.
 - **Bloco de métricas**: filtro (tipos, período, publicados/todos, redes, tags, prioridade) +
   `resultado` gravado com `calculadoEm` — uma fotografia, como o snapshot dos itens; só muda
   quando o filtro muda ou o usuário recalcula. Conta pela mesma regra da aba Métricas
@@ -254,15 +295,34 @@ não seria decifrável em outra máquina.
   entra em todo roteiro novo) e histórico. Tags = catálogo único de Postagens.
 - `aprovarRoteiro` (main) cria o card na **primeira coluna** do Kanban via `kanbanService`,
   com o roteiro na descrição; guarda `kanbanCardId` e não duplica se o card ainda existe.
-- O roteiro é **texto livre em markdown** (`Roteiro.texto`): `# título`, seções com tempo
-  (`## [0:00 - 0:50] Abertura`), notas de cena numa linha entre colchetes, `**NARRAÇÃO:**`,
-  listas, `---`. Renderização e índice de seções em
-  [roteiros.markdown.ts](src/renderer/modules/roteiros/roteiros.markdown.ts) (DOM, sem
-  innerHTML). Gancho/CTA/observações são opcionais. A estimativa de fala usa `textoFalado`
-  (tira títulos, cenas, rótulos, linhas de ficha e a parte de Fontes). Colar um roteiro na
-  criação tira título (`# …`) e duração ("Duração estimada:") do próprio texto.
-- O editor é um painel com a prévia ao lado; texto salva por `atualizarSilencioso` (sem
-  notificar, para não redesenhar sob o cursor) e a lista redesenha ao fechar.
+- **v2: o roteiro é uma lista de cenas** (`Roteiro.cenas`, fonte única): tipo (`TIPOS_CENA`: gancho,
+  abertura, seção, demonstração, CTA, encerramento), título, `fala` (só ela conta no tempo), `visual`,
+  `textoTela`, `notas`, `duracaoAlvoSeg`. Mais `briefing` (tema, público, tom, objetivo, pontos-chave,
+  duração alvo, ppm), `pesquisa` (notas + fontes), `versoes` (máx. 30), `revisaoIa`, `adaptadoDe`.
+- **Markdown ↔ cenas** em [roteiros.conversao.ts](src/shared/types/roteiros.conversao.ts) (compartilhado,
+  puro): `cenasDoMarkdown` lê o formato canônico **e** o texto livre antigo ("[0:00–0:45] — Título" sem
+  `##`, "[Cena: …]", "[Texto na tela]:", "[Fontes]:" com linhas soltas, ficha "Tom:/Público:" no topo);
+  `markdownDasCenas` gera o canônico — ida e volta sem perda. Usado na migração v1→v2 (o texto antigo
+  fica intacto em `textoLegado`, visível em Versões), no card do Kanban, no modo texto livre, no rascunho
+  da IA e na exportação. O primeiro `getFile` depois da migração grava o arquivo (ids estáveis).
+- Tempo de fala = palavras da fala ÷ ppm (`ppmDe`: briefing ou o do formato — Reels 170, YouTube 150,
+  Live 140). `lerDuracaoTexto` aceita "45s", "8 min", "12–15 minutos" (vale o maior).
+- **Estúdio de roteiro** ([roteiros.estudio.ts](src/renderer/modules/roteiros/roteiros.estudio.ts)) é a
+  tela cheia do módulo (não um painel): topo (título, situação, ações), faixa com a linha do tempo
+  (`roteiros.linhaTempo.ts`) e as ferramentas, e três colunas — Estrutura (índice com sortablejs)/
+  Briefing/Pesquisa · Cartões/Duas colunas (AV)/Texto livre (`roteiros.cartoes.ts`, `roteiros.livre.ts`) ·
+  Prévia/IA/Revisão/Verificação. "Foco" esconde as laterais; o centro usa container query.
+  Partes recebem um `CtxEstudio` (roteiros.comum.ts): `digitou()` salva na pausa (atualizarSilencioso) e
+  atualiza tempos/linha/índice/prévia **sem redesenhar campos**; `mudouEstrutura()` redesenha o centro.
+  Ações que notificam (status, restaurar, duplicar, adaptar) descarregam o pendente antes; o listener
+  chama `sincronizarEstudio`, que recarrega o rascunho do arquivo.
+- **IA** (tarefas `roteiro-angulos/estrutura/cena/acao-cena/variacoes/critica/adaptar`, saída `json`
+  devolvida em `RespostaTexto.json` e conferida campo a campo na tela): Assistente em 4 passos
+  (`roteiros.assistente.ts`, estado por roteiro, "Continuar da cena N" se parar), ✨ de cada cartão
+  (`roteiros.ia.ts`), Revisor (`roteiros.revisor.ts`) e Adaptar (cria roteiro **novo**). Toda troca feita
+  pela IA mostra antes × depois e, ao aplicar, guarda **versão automática antes** (`versaoAntes`).
+- Teleprompter (`roteiros.teleprompter.ts`, rola pelo ppm) e Versões com diff de linhas lado a lado
+  (`roteiros.versoes.ts`; restaurar guarda a atual como "Antes de restaurar").
 
 ## To-do
 
@@ -283,9 +343,13 @@ não seria decifrável em outra máquina.
 
 ## Inteligência artificial
 
-- **Provedores** (catálogo único `PROVEDORES` em [ia.types.ts](src/shared/types/ia.types.ts)):
-  OpenRouter, OpenAI, Anthropic (Claude — **não gera imagem**), Google Gemini e "Compatível com
-  OpenAI" (base URL; Ollama/LM Studio local funciona sem chave). Um adaptador por provedor em
+- **Provedores** (catálogo único `PROVEDORES` em [ia.types.ts](src/shared/types/ia.types.ts), com
+  `grupo` nuvem/local/avançado que Ajustes usa para agrupar): OpenRouter, OpenAI, Anthropic (Claude —
+  **não gera imagem**), Google Gemini, Groq, DeepSeek, Mistral, **Ollama** e **LM Studio** (locais) e
+  "Compatível com OpenAI" (base URL). Groq/DeepSeek/Mistral/locais reusam `criarOpenAi(rotulo, basePadrao)`
+  e só escrevem. **Locais (`semChave`)**: sem chave, ficam prontos pelo `ativo` (botão "Ativar"); endereço
+  editável com `basePadrao` (o padrão não é gravado); `comAvisoLocal` troca o `ErroSemConexao` do
+  `chamarJson` por "abra o Ollama"; "Testar" sem modelo baixado ensina o `ollama pull`. Um adaptador por provedor em
   [src/main/modules/ia/provedores/](src/main/modules/ia/provedores) com a mesma interface
   (`listarModelos`, `gerarTexto`, `gerarImagem?`); o compatível reusa o da OpenAI (`criarOpenAi`).
   Modelos se escolhem por `abrirSeletorModelo` (ui/ia.ts: busca, rolagem, preço do OpenRouter) —
@@ -398,11 +462,21 @@ não seria decifrável em outra máquina.
 - `Video.score` (0–100) vem da planilha (`parseScore` aceita "85", "85%", "8,5");
   informação extra com nome de score é promovida ao campo na migração, com preferência para
   "Score Editorial" (o nome usado nas planilhas dele) sobre outros como "Score Viral".
-  Campo que o mapeamento lembrado de uma aba não cobre recebe o palpite pelo nome da coluna. Faixas em
-  `FAIXAS_SCORE` (videos.conversao.ts): **só duas, corte em `SCORE_META` = 85** — 85 ou mais é
-  positivo (verde), abaixo é negativo (vermelho). A aba Métricas mostra "Pontos positivos" e
-  "Pontos negativos" por esse corte e a linha da meta no gráfico de score médio. Resultados de
-  relatório gravados com as faixas antigas são recontados pelos scores do próprio resultado. A aba **Métricas** (postagens.metricas.ts) usa
+  Campo que o mapeamento lembrado de uma aba não cobre recebe o palpite pelo nome da coluna.
+- **Escalas de score** ([score.types.ts](src/shared/types/score.types.ts), puro, usado pelos dois
+  lados): escalas nomeadas do usuário em `videos.json` (`escalasScore`, `escalaPadraoId`, catálogo
+  único); cada empresa escolhe uma (`TagPostagem.escalaScoreId`; ausente = acompanha a padrão).
+  A faixa guarda **só o início** (`de`) — termina onde a próxima começa, a primeira começa em 0:
+  não há buraco nem sobreposição possível. `sentido` (positivo/mediano/negativo) decide "Pontos
+  positivos / de atenção / negativos" em Métricas; a meta do gráfico = início da primeira faixa
+  positiva (`metaDaEscala`). Cor de faixa vem de `CORES_FAIXA` (gravada em hex, o PDF também pinta).
+  Uma postagem se lê por `escalaDaPostagem` (primeira empresa com escala, na ordem do catálogo);
+  um conjunto por `escalaDoRecorte` — escalas misturadas usam a padrão nas médias e a tela avisa.
+  Nunca comparar com número fixo: sempre `faixaDaEscala`. Arquivo anterior ganha a "Padrão" com o
+  corte antigo em 85 (`ESCALA_LEGADA`). Editor em [postagens.escalas.ts](src/renderer/modules/postagens/postagens.escalas.ts)
+  (Ajustes › Escalas de score e botão na aba Métricas). O bloco de métricas dos Relatórios grava
+  uma **cópia** da escala no `resultado` (a das empresas do filtro); resultado sem escala é lido
+  com `ESCALA_LEGADA`. A aba **Métricas** (postagens.metricas.ts) usa
   gráficos SVG próprios de [postagens.graficos.ts](src/renderer/modules/postagens/postagens.graficos.ts):
   um eixo só, cores validadas contra a superfície escura, tabela alternativa em cada
   gráfico. Mês de um vídeo publicado = `dataAgendada` (não `publicadoEm`, que num lote
@@ -451,6 +525,30 @@ não seria decifrável em outra máquina.
   (token com permissão de escrita no repositório). Sai como release publicada, não rascunho
   (`releaseType: release`) — rascunho não aparece em `releases/latest`. O `nsis.artifactName`
   sem espaços é o que o service procura (`/setup.*\.exe$/i`).
+
+## Backup e exportação
+
+- Um formato só (`ExportBundle`) para o backup completo e para o arquivo de um módulo: todos os módulos
+  opcionais + `escopo`. Backup antigo, sem `escopo`, é lido pelas chaves presentes. Catálogo
+  `EXPORTAVEIS` (export.types.ts): Postagens leva vídeos **e** imagens (o catálogo de tags mora nos vídeos).
+- Importar é em dois passos: `escolherImportacao` (diálogo no main, arquivo guardado **só no main**,
+  devolve a prévia com contagens) → `aplicarImportacao(modulos)`, que grava antes uma cópia do estado
+  atual em `userData/backups/antes-de-importar-*.json` (10 mais recentes) e substitui. "Desfazer última
+  importação" restaura essa cópia (e guarda `antes-de-desfazer-*`). Depois de importar, a janela recarrega.
+- Planilha (.xlsx, `export.planilhas.ts`, xlsx sob demanda) só para ler fora do Iris: Kanban, To-do,
+  Postagens, Roteiros, Tráfego (razões por `calcularMetricas`). Não se importa de volta.
+
+## Tutorial
+
+- Um guia por área do app + os de conexão (IA, n8n, Servidores, GitHub). Conexões em
+  [tutorial.content.ts](src/renderer/modules/tutorial/tutorial.content.ts) (passos com `verificar`
+  que consultam o estado real; provedores de IA são `opcional` — não contam no progresso); áreas em
+  `tutorial.areas.ts`. Só o grupo `conectar` mostra progresso; nos outros o selo fica no passo.
+- Telas: Início (destaque + cartões por grupo da sidebar), guia (índice "Neste guia", anterior/próximo)
+  e busca (abre o guia rolando até o passo). Blocos: texto, lista (`numerada`), aviso
+  (dica/info/atencao), comando, link, `atalhos` (kbd) e `abrir` (leva a um módulo ou seção de Ajustes).
+- Área nova = guia novo em `GUIAS_DAS_AREAS` e o id em `GuiaId` (navegacao.ts); `abrirTutorial(id)`
+  abre direto nele. Ícone vem de `ICONE_DO_MODULO` (sidebar.ts) pelo `modulo` do guia.
 
 ## Eventos push (main → renderer)
 
@@ -506,7 +604,14 @@ Quando a configuração muda na UI, chamar `reaplicarAgendamentos()` em vez de e
   fora valem só para o do topo (um prompt aberto de dentro de outro modal fecha sozinho).
   Atalhos de tela devem checar `haModalAberto()`.
 - Painel de detalhes (postagens, cartão do Kanban): a casca de
-  [painel.ts](src/renderer/ui/painel.ts) — esquerda/centro/direita, fundo no centro.
+  [painel.ts](src/renderer/ui/painel.ts) — esquerda/centro/direita, fundo no centro. O centro é
+  centralizado por `inset: 0; margin: auto`, **nunca** `translate(-50%, -50%)`: numa caixa de medida
+  em vh/min() isso cai em meio pixel e o Chromium borra todo o texto do painel.
+  Duas áreas: `grade` (conteúdo) e `lateral` (propriedades — etapa, datas, tags, configuração). No centro,
+  conteúdo numa coluna à esquerda e propriedades numa coluna fixa à direita (grid via `:has`); nas laterais,
+  propriedades empilhadas antes do conteúdo. Sem nada na `lateral`, a grade volta às duas colunas de jornal.
+  Usam a lateral: Postagens (vídeo, imagem), cartão do Kanban ("Detalhes") e campanha do Tráfego. Seção nova
+  de painel = decidir se é conteúdo ou propriedade. O cabeçalho mostra só o tipo ("Card", "Campanha"), sem código.
 - Reusar as peças compartilhadas em [src/renderer/ui/pagina.ts](src/renderer/ui/pagina.ts)
   (`buildCabecalho`, `buildSelo`, `buildIndicadores`, `buildBusca`, `buildVazio`,
   `buildBotao`, `ICONES`, `svg`, `tempoRelativo`) e

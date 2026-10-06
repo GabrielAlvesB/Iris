@@ -7,7 +7,8 @@ import {
 import { VIDEO_STATUS } from '../../../shared/types/videos.types.js';
 import { buildSelo, svg, type Tom } from '../../ui/pagina.js';
 import { buildLogoRede } from './postagens.logos.js';
-import { faixaDoScore, hashtagsDoTexto } from '../../../shared/types/videos.conversao.js';
+import { hashtagsDoTexto } from '../../../shared/types/videos.conversao.js';
+import { faixaDaEscala, type EscalaScore } from '../../../shared/types/score.types.js';
 import type { Catalogo, Postagem } from './postagens.fonte.js';
 
 /**
@@ -53,6 +54,13 @@ export function somarDias(iso: string, dias: number): string {
   const [a, m, d] = iso.split('-').map(Number);
   const data = new Date(a!, m! - 1, d! + dias);
   return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`;
+}
+
+/** Primeiro dia da semana de `iso` (0 = domingo, 1 = segunda), como o calendário e as Métricas contam. */
+export function inicioDaSemana(iso: string, primeiro: 0 | 1): string {
+  const [a, m, d] = iso.split('-').map(Number);
+  const recuo = (new Date(a!, m! - 1, d!).getDay() - primeiro + 7) % 7;
+  return somarDias(iso, -recuo);
 }
 
 const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -186,12 +194,16 @@ export function tituloExibido(catalogo: Pick<Catalogo, 'preferencias'>, item: Pi
   return item.titulo;
 }
 
-/** Selo do score: o número escrito, a faixa no title; a cor da faixa só reforça. */
-export function buildScore(score: number, compacto = false): HTMLElement {
-  const faixa = faixaDoScore(score);
+/**
+ * Selo do score: o número escrito, a faixa no title; a cor da faixa só reforça.
+ * A escala é a da postagem (`escalaDaPostagem`) — cada empresa tem a sua régua.
+ */
+export function buildScore(score: number, escala: EscalaScore, compacto = false): HTMLElement {
+  const faixa = faixaDaEscala(escala, score);
   const selo = document.createElement('span');
-  selo.className = `vd-score is-${faixa.id}${compacto ? ' is-compacto' : ''}`;
-  selo.title = `Score ${score.toLocaleString('pt-BR')} · ${faixa.rotulo}`;
+  selo.className = `vd-score${compacto ? ' is-compacto' : ''}`;
+  selo.style.setProperty('--c', faixa.cor);
+  selo.title = `Score ${score.toLocaleString('pt-BR')} · ${faixa.rotulo} (escala ${escala.nome})`;
   selo.setAttribute('aria-label', selo.title);
   const valor = document.createElement('b');
   valor.textContent = score.toLocaleString('pt-BR', { maximumFractionDigits: 1 });

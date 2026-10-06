@@ -1,8 +1,19 @@
 import { PRIORIDADES } from '../../../shared/types/postagens.types.js';
-import { FAIXAS_SCORE, SCORE_META, faixaDoScore } from '../../../shared/types/videos.conversao.js';
-import { buildIndicadores, buildSegmentado, buildSelo, buildVazio, svg, type Tom } from '../../ui/pagina.js';
 import {
-  CORES_FAIXA,
+  COR_POR_SENTIDO,
+  SENTIDOS_FAIXA,
+  descreverEscala,
+  escalaDaPostagem,
+  escalaDoRecorte,
+  faixaDaEscala,
+  intervaloDaFaixa,
+  metaDaEscala,
+  type EscalaScore,
+  type SentidoFaixa,
+} from '../../../shared/types/score.types.js';
+import { buildBotao, buildIndicadores, buildSegmentado, buildSelo, buildVazio, svg, type Tom } from '../../ui/pagina.js';
+import { abrirEscalas } from './postagens.escalas.js';
+import {
   COR_SERIE,
   buildCartaoGrafico,
   buildColunas,
@@ -14,7 +25,7 @@ import {
   type LinhaRanking,
 } from './postagens.graficos.js';
 import type { Fonte, Postagem } from './postagens.fonte.js';
-import { ICONES_POSTAGEM, buildPrioridade, buildRedeBadge, buildTagChip, hojeIso, somarDias, tituloExibido } from './postagens.ui.js';
+import { ICONES_POSTAGEM, buildPrioridade, buildRedeBadge, buildTagChip, hojeIso, inicioDaSemana, somarDias, tituloExibido } from './postagens.ui.js';
 
 /**
  * Aba Métricas: números da produção e do score (0–100 que o usuário traz da
@@ -107,12 +118,6 @@ function partesData(iso: string): [number, number, number] {
   return [a!, m!, d!];
 }
 
-function inicioDaSemana(iso: string, primeiro: 0 | 1): string {
-  const [a, m, d] = partesData(iso);
-  const recuo = (new Date(a, m - 1, d).getDay() - primeiro + 7) % 7;
-  return somarDias(iso, -recuo);
-}
-
 function baldesDoPeriodo(fonte: Fonte, datas: string[]): Baldes {
   if (periodo === 'semana' || periodo === 'mes') {
     let dias: string[];
@@ -170,8 +175,19 @@ function scores(videos: Postagem[]): number[] {
   return videos.map((v) => v.score).filter((s): s is number => typeof s === 'number');
 }
 
-function tomDaFaixa(score: number): Tom {
-  return faixaDoScore(score).tom as Tom;
+const TOM_DO_SENTIDO: Record<SentidoFaixa, Tom> = { positivo: 'ok', mediano: 'atencao', negativo: 'erro' };
+
+function tomDaFaixa(escala: EscalaScore, score: number): Tom {
+  return TOM_DO_SENTIDO[faixaDaEscala(escala, score).sentido];
+}
+
+/** Média de um grupo lida pela escala do próprio grupo (a da empresa, se é uma só). */
+function escalaDoGrupo(fonte: Fonte, videos: Postagem[]): EscalaScore {
+  return escalaDoRecorte(fonte.catalogo, videos).escala;
+}
+
+function escalaDe(fonte: Fonte, v: Postagem): EscalaScore {
+  return escalaDaPostagem(fonte.catalogo, v.tagIds);
 }
 
 // ---------- Blocos da tela ----------
@@ -251,10 +267,19 @@ function buildControles(fonte: Fonte, opcoes: MetricasOpcoes): HTMLElement {
       ? 'Conta as postagens publicadas, pelo dia em que foram ao ar.'
       : 'Conta tudo que tem data (publicado, agendado ou em produção).';
   barra.appendChild(dica);
+  const escalas = buildBotao('Escalas de score', {
+    icone: '<path d="M3 3v18h18"/><path d="M7 15h3"/><path d="M7 11h7"/><path d="M7 7h11"/>',
+    variante: 'secundario',
+    titulo: 'Definir as faixas do score (de quanto a quanto é positivo, mediano…) e a escala de cada empresa',
+  });
+  escalas.classList.add('rl-botao-escalas');
+  escalas.addEventListener('click', () => abrirEscalas(opcoes.redesenhar));
+  barra.appendChild(escalas);
   return barra;
 }
 
 function buildRankingPor<T>(
+  fonte: Fonte,
   grupos: Array<{ chave: T; rotulo: HTMLElement; videos: Postagem[] }>,
   descricao: string,
 ): HTMLElement {
@@ -266,7 +291,7 @@ function buildRankingPor<T>(
       return {
         rotulo: g.rotulo,
         valor: m,
-        faixa: m === null ? undefined : faixaDoScore(m).id,
+        cor: m === null ? undefined : faixaDaEscala(escalaDoGrupo(fonte, g.videos), m).cor,
         detalhe: `${g.videos.length} postage${g.videos.length > 1 ? 'ns' : 'm'}${s.length < g.videos.length ? ` · ${g.videos.length - s.length} sem score` : ''}`,
       };
     })
@@ -287,8 +312,11 @@ function buildListaVideos(fonte: Fonte, videos: Postagem[], opcoes: MetricasOpco
     videos.map((v) => ({
       rotulo: rotuloTexto(tituloExibido(fonte.catalogo, v)),
       valor: v.score ?? null,
-      faixa: v.score === undefined ? undefined : faixaDoScore(v.score).id,
-      detalhe: v.dataAgendada ? v.dataAgendada.split('-').reverse().slice(0, 2).join('/') : '—',
+      cor: v.score === undefined ? undefined : faixaDaEscala(escalaDe(fonte, v), v.score).cor,
+      detalhe: [
+        v.dataAgendada ? v.dataAgendada.split('-').reverse().slice(0, 2).join('/') : '—',
+        ...(v.score === undefined ? [] : [faixaDaEscala(escalaDe(fonte, v), v.score).rotulo]),
+      ].join(' · '),
       aoClicar: () => opcoes.abrir(v.id),
     })),
     'Postagens por score',
@@ -324,7 +352,10 @@ function buildConferencia(fonte: Fonte, noPeriodo: Postagem[], opcoes: MetricasO
       Object.assign(document.createElement('span'), { className: 'rl-media-rotulo', textContent: rotulo }),
       Object.assign(document.createElement('strong'), { textContent: m === null ? '—' : formatarNumero(m, 1) }),
     );
-    if (m !== null) bloco.appendChild(buildSelo(faixaDoScore(m).rotulo, tomDaFaixa(m)));
+    if (m !== null) {
+      const escala = escalaDoGrupo(fonte, videos);
+      bloco.appendChild(buildSelo(faixaDaEscala(escala, m).rotulo, tomDaFaixa(escala, m)));
+    }
     const cobertura = videos.length ? s.length / videos.length : 0;
     const trilho = document.createElement('div');
     trilho.className = 'rl-cobertura';
@@ -433,6 +464,11 @@ export function buildMetricas(fonte: Fonte, opcoes: MetricasOpcoes): HTMLElement
     return tela;
   }
 
+  // Régua das médias: a escala das empresas do recorte, se for uma só.
+  const { escala, misturada } = escalaDoRecorte(fonte.catalogo, videosPeriodo);
+  const meta = metaDaEscala(escala);
+  if (misturada) tela.appendChild(buildAvisoMistura(escala));
+
   // Indicadores
   const s = scores(videosPeriodo);
   const notaFinal = media(s);
@@ -444,8 +480,8 @@ export function buildMetricas(fonte: Fonte, opcoes: MetricasOpcoes): HTMLElement
       {
         rotulo: 'Nota final',
         valor: notaFinal === null ? '—' : formatarNumero(notaFinal, 1),
-        detalhe: notaFinal === null ? 'sem scores no período' : faixaDoScore(notaFinal).rotulo,
-        tom: notaFinal === null ? 'neutro' : tomDaFaixa(notaFinal),
+        detalhe: notaFinal === null ? 'sem scores no período' : `${faixaDaEscala(escala, notaFinal).rotulo} · escala ${escala.nome}`,
+        tom: notaFinal === null ? 'neutro' : tomDaFaixa(escala, notaFinal),
       },
       {
         rotulo: base === 'publicados' ? `${fonte.rotulo} publicad${fonte.tipo === 'imagem' ? 'as' : 'os'}` : `${fonte.rotulo} com data`,
@@ -505,14 +541,15 @@ export function buildMetricas(fonte: Fonte, opcoes: MetricasOpcoes): HTMLElement
   grade.appendChild(
     buildCartaoGrafico(
       `Score médio por ${unidade}`,
-      notaFinal === null
-        ? `Ainda sem scores no período · meta ${SCORE_META}`
-        : `Tracejado cinza = nota final do período (${formatarNumero(notaFinal, 1)}) · verde = meta ${SCORE_META}`,
+      [
+        notaFinal === null ? 'Ainda sem scores no período' : `Tracejado cinza = nota final do período (${formatarNumero(notaFinal, 1)})`,
+        meta === undefined ? `a escala ${escala.nome} não tem faixa positiva` : `verde = meta ${meta.toLocaleString('pt-BR')} (escala ${escala.nome})`,
+      ].join(' · '),
       buildLinha(
         rotulos,
         mediasMes,
         [
-          { valor: SCORE_META, rotulo: `meta ${SCORE_META}`, classe: 'is-meta' },
+          ...(meta === undefined ? [] : [{ valor: meta, rotulo: `meta ${meta.toLocaleString('pt-BR')}`, classe: 'is-meta' }]),
           ...(notaFinal === null ? [] : [{ valor: notaFinal, rotulo: 'média' }]),
         ],
         `Score médio por ${unidade}`,
@@ -528,27 +565,36 @@ export function buildMetricas(fonte: Fonte, opcoes: MetricasOpcoes): HTMLElement
     ),
   );
 
-  // 3. Distribuição por faixa
-  const contagemFaixa = FAIXAS_SCORE.map((f) => s.filter((n) => n >= f.min && n <= f.max).length);
-  const rotulosFaixa = FAIXAS_SCORE.map((f) => `${f.rotulo} ${f.min}–${Math.floor(f.max)}`);
+  // 3. Distribuição por faixa. Uma escala só: as faixas dela. Escalas
+  // misturadas não têm faixas em comum — conta pelo sentido (positivo,
+  // mediano, negativo), cada postagem pela faixa da própria escala.
+  const comScoreNoPeriodo = videosPeriodo.filter((v) => v.score !== undefined);
+  const distribuicao = misturada
+    ? SENTIDOS_FAIXA.map((sentido) => ({
+        rotulo: sentido.rotulo,
+        cor: COR_POR_SENTIDO[sentido.id],
+        total: comScoreNoPeriodo.filter((v) => faixaDaEscala(escalaDe(fonte, v), v.score!).sentido === sentido.id).length,
+      })).filter((d, i) => d.total > 0 || i !== 1)
+    : escala.faixas.map((f, i) => ({
+        rotulo: `${f.rotulo} ${intervaloDaFaixa(escala, i)}`,
+        cor: f.cor,
+        total: s.filter((n) => faixaDaEscala(escala, n).id === f.id).length,
+      }));
+  const pct = (n: number): string => `${s.length ? Math.round((n / s.length) * 100) : 0}%`;
   grade.appendChild(
     buildCartaoGrafico(
       'Distribuição dos scores',
-      `Quantas ficaram na meta (${SCORE_META} ou mais) e quantas abaixo dela`,
+      misturada ? 'Por sentido da faixa — cada postagem pela escala da sua empresa' : `Quantas caíram em cada faixa da escala ${escala.nome}`,
       buildColunas(
-        rotulosFaixa,
-        [{ nome: fonte.rotulo, cor: CORES_FAIXA[1], valores: contagemFaixa }],
+        distribuicao.map((d) => d.rotulo),
+        [{ nome: fonte.rotulo, cor: COR_SERIE[0], valores: distribuicao.map((d) => d.total) }],
         'Distribuição dos scores por faixa',
-        (n) => `${n} · ${s.length ? Math.round((n / s.length) * 100) : 0}%`,
-        CORES_FAIXA,
+        (n) => `${n} · ${pct(n)}`,
+        distribuicao.map((d) => d.cor),
       ),
       {
-        colunas: ['Faixa', fonte.rotulo, '%'],
-        linhas: FAIXAS_SCORE.map((_f, i) => [
-          rotulosFaixa[i]!,
-          String(contagemFaixa[i]),
-          `${s.length ? Math.round((contagemFaixa[i]! / s.length) * 100) : 0}%`,
-        ]),
+        colunas: [misturada ? 'Sentido' : 'Faixa', fonte.rotulo, '%'],
+        linhas: distribuicao.map((d) => [d.rotulo, String(d.total), pct(d.total)]),
       },
     ),
   );
@@ -573,50 +619,117 @@ export function buildMetricas(fonte: Fonte, opcoes: MetricasOpcoes): HTMLElement
     ...fonte.catalogo.tags.map((t) => ({ chave: t.id, rotulo: buildTagChip(t, { compacto: true }), videos: videosPeriodo.filter((v) => v.tagIds.includes(t.id)) })),
     { chave: '', rotulo: rotuloTexto('Sem tag'), videos: videosPeriodo.filter((v) => v.tagIds.length === 0) },
   ];
-  grade.appendChild(cartaoRanking('Tags', 'Score médio e quantidade por tag, do maior score ao menor', buildRankingPor(tags, 'Score por tag')));
-
   const prioridades = [
     ...PRIORIDADES.map((p) => ({ chave: p.id, rotulo: buildPrioridade(p.id), videos: videosPeriodo.filter((v) => v.prioridade === p.id) })),
     { chave: '', rotulo: rotuloTexto('Sem prioridade'), videos: videosPeriodo.filter((v) => !v.prioridade) },
   ];
   const redes = fonte.catalogo.redes.map((r) => ({ chave: r.id, rotulo: buildRedeBadge(r, { comNome: true }), videos: videosPeriodo.filter((v) => v.redeIds.includes(r.id)) }));
-  const duplo = document.createElement('div');
-  duplo.className = 'rl-duplo';
-  duplo.append(
-    Object.assign(document.createElement('span'), { className: 'md-rotulo', textContent: 'Prioridades' }),
-    buildRankingPor(prioridades, 'Score por prioridade'),
-    Object.assign(document.createElement('span'), { className: 'md-rotulo', textContent: 'Redes' }),
-    buildRankingPor(redes, 'Score por rede'),
+  // Tags e prioridades (listas curtas) empilhadas ao lado de redes (a mais
+  // comprida): as duas colunas fecham perto da mesma altura, sem buraco.
+  grade.append(
+    buildPilha([
+      cartaoRanking('Tags', 'Score médio e quantidade, do maior score ao menor', buildRankingPor(fonte, tags, 'Score por tag')),
+      cartaoRanking('Prioridades', 'Score médio e quantidade', buildRankingPor(fonte, prioridades, 'Score por prioridade')),
+    ]),
+    cartaoRanking('Redes', 'Score médio e quantidade', buildRankingPor(fonte, redes, 'Score por rede')),
   );
-  grade.appendChild(cartaoRanking('Prioridades e redes', 'Score médio e quantidade', duplo));
 
-  // 6. Pontos positivos (na meta) e negativos (abaixo dela). Antes eram só "os
-  // maiores" e "os menores": um 88 aparecia como ponto fraco num mês bom.
-  const comScore = videosPeriodo.filter((v) => v.score !== undefined).sort((a, b) => b.score! - a.score!);
-  const positivos = comScore.filter((v) => v.score! >= SCORE_META);
-  const negativos = comScore.filter((v) => v.score! < SCORE_META).reverse();
+  // 6. Pontos positivos, de atenção e negativos: pelo sentido da faixa em que
+  // cada postagem caiu, na escala da empresa dela. Antes eram só "os maiores" e
+  // "os menores": um 88 aparecia como ponto fraco num mês bom.
+  const comScore = [...comScoreNoPeriodo].sort((a, b) => b.score! - a.score!);
+  const doSentido = (sentido: SentidoFaixa): Postagem[] => comScore.filter((v) => faixaDaEscala(escalaDe(fonte, v), v.score!).sentido === sentido);
+  const positivos = doSentido('positivo');
+  const medianos = doSentido('mediano');
+  const negativos = doSentido('negativo').reverse();
+  // "Pontos de atenção" só existe quando alguma escala do recorte tem faixa mediana.
+  const temMediano = comScore.some((v) => escalaDe(fonte, v).faixas.some((f) => f.sentido === 'mediano')) || medianos.length > 0;
   const contagem = (n: number): string => `${n} postage${n === 1 ? 'm' : 'ns'}`;
-  grade.appendChild(
-    cartaoRanking(
-      'Pontos positivos',
-      `Score ${SCORE_META} ou mais · ${contagem(positivos.length)}${positivos.length > 10 ? ', os 10 maiores' : ''} — clique para abrir`,
-      buildListaVideos(fonte, positivos.slice(0, 10), opcoes, `Nenhuma postagem com score ${SCORE_META} ou mais no período.`),
-    ),
-  );
-  grade.appendChild(
-    cartaoRanking(
-      'Pontos negativos',
-      `Score abaixo de ${SCORE_META} · ${contagem(negativos.length)}${negativos.length > 10 ? ', os 10 menores' : ''} — do menor para o maior`,
-      buildListaVideos(fonte, negativos.slice(0, 10), opcoes, `Nenhuma postagem abaixo de ${SCORE_META} no período.`),
-    ),
-  );
+  const faixasDoSentido = (sentido: SentidoFaixa): string => {
+    if (misturada) return 'Pela escala da empresa de cada postagem';
+    const nomes = escala.faixas.map((f, i) => ({ f, i })).filter((x) => x.f.sentido === sentido);
+    return nomes.length ? nomes.map((x) => `${x.f.rotulo} (${intervaloDaFaixa(escala, x.i)})`).join(', ') : 'Nenhuma faixa com esse sentido na escala';
+  };
+  const pontos = [
+    {
+      vazio: !positivos.length,
+      cartao: cartaoRanking(
+        'Pontos positivos',
+        `${faixasDoSentido('positivo')} · ${contagem(positivos.length)}${positivos.length > 10 ? ', os 10 maiores' : ''} — clique para abrir`,
+        buildListaVideos(fonte, positivos.slice(0, 10), opcoes, 'Nenhuma postagem em faixa positiva no período.'),
+      ),
+    },
+    ...(temMediano
+      ? [
+          {
+            vazio: !medianos.length,
+            cartao: cartaoRanking(
+              'Pontos de atenção',
+              `${faixasDoSentido('mediano')} · ${contagem(medianos.length)}${medianos.length > 10 ? ', os 10 maiores' : ''}`,
+              buildListaVideos(fonte, medianos.slice(0, 10), opcoes, 'Nenhuma postagem em faixa mediana no período.'),
+            ),
+          },
+        ]
+      : []),
+    {
+      vazio: !negativos.length,
+      cartao: cartaoRanking(
+        'Pontos negativos',
+        `${faixasDoSentido('negativo')} · ${contagem(negativos.length)}${negativos.length > 10 ? ', os 10 menores' : ''} — do menor para o maior`,
+        buildListaVideos(fonte, negativos.slice(0, 10), opcoes, 'Nenhuma postagem em faixa negativa no período.'),
+      ),
+    },
+  ];
+  // Cada lista com postagens ganha uma coluna; as vazias ("Nenhuma postagem…")
+  // vão juntas numa coluna só — esticadas ao lado de uma lista de 10, viravam
+  // caixas enormes sem nada dentro.
+  const cheios = pontos.filter((p) => !p.vazio).map((p) => p.cartao);
+  const vazios = pontos.filter((p) => p.vazio).map((p) => p.cartao);
+  const colunasPontos = [...cheios, ...(vazios.length ? [buildPilha(vazios, false)] : [])];
+  grade.appendChild(buildLinhaCartoes(colunasPontos));
 
   tela.appendChild(grade);
 
   const rodape = document.createElement('p');
   rodape.className = 'rl-rodape';
   rodape.innerHTML = svg(ICONES_POSTAGEM.historico, 12, 2);
-  rodape.append(`Positivo: score ${SCORE_META} ou mais · Negativo: abaixo de ${SCORE_META}. Postagens arquivadas não entram.`);
+  rodape.append(
+    misturada
+      ? `Escalas misturadas: cada postagem é classificada pela escala da sua empresa; as médias, pela escala padrão (${escala.nome}: ${descreverEscala(escala)}). Postagens arquivadas não entram.`
+      : `Escala ${escala.nome}: ${descreverEscala(escala)}. Postagens arquivadas não entram.`,
+  );
   tela.appendChild(rodape);
   return tela;
+}
+
+/**
+ * Cartões um embaixo do outro numa célula da grade. `preencher`: o último
+ * cresce até a altura da coluna vizinha; sem ele, ficam no tamanho do conteúdo.
+ */
+function buildPilha(cartoes: HTMLElement[], preencher = true): HTMLElement {
+  const pilha = document.createElement('div');
+  pilha.className = `rl-pilha${preencher ? ' is-preencher' : ''}`;
+  pilha.append(...cartoes);
+  return pilha;
+}
+
+/** Linha da grade com a largura toda e N cartões iguais lado a lado. */
+function buildLinhaCartoes(cartoes: HTMLElement[]): HTMLElement {
+  const linha = document.createElement('div');
+  linha.className = 'rl-linha';
+  linha.style.setProperty('--colunas', String(cartoes.length));
+  linha.append(...cartoes);
+  return linha;
+}
+
+/** Recorte com empresas de escalas diferentes: a média não tem uma régua só. */
+function buildAvisoMistura(padrao: EscalaScore): HTMLElement {
+  const aviso = document.createElement('div');
+  aviso.className = 'rl-aviso-escala';
+  aviso.setAttribute('role', 'note');
+  aviso.appendChild(buildSelo('Escalas misturadas', 'atencao'));
+  aviso.append(
+    `Este recorte tem empresas com escalas de score diferentes. Cada postagem continua com a faixa da sua empresa, mas as médias são lidas pela escala padrão (${padrao.nome}). Para ver pela escala de uma empresa, filtre por ela em "Todas as tags".`,
+  );
+  return aviso;
 }

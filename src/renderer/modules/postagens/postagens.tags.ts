@@ -1,6 +1,6 @@
 import type { TagPostagem } from '../../../shared/types/postagens.types.js';
 import { buildSecaoModal, openConfirmModal } from '../../ui/modal.js';
-import { input } from '../../ui/campos.js';
+import { input, select } from '../../ui/campos.js';
 import { buildBotao } from '../../ui/pagina.js';
 import * as videosState from './videos/videos.state.js';
 import * as imagensState from './imagens/imagens.state.js';
@@ -25,7 +25,7 @@ export function usos(n: number): string {
 }
 
 /** Seletor de cor em bolinhas; abre ao clicar na amostra. */
-export function buildSeletorCor(atual: string, aoEscolher: (cor: string) => void): HTMLElement {
+export function buildSeletorCor(atual: string, aoEscolher: (cor: string) => void, paleta: readonly string[] = PALETA): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'md-cor';
   const amostra = document.createElement('button');
@@ -34,10 +34,10 @@ export function buildSeletorCor(atual: string, aoEscolher: (cor: string) => void
   amostra.style.setProperty('--cor', atual);
   amostra.title = 'Mudar cor';
   amostra.setAttribute('aria-label', 'Mudar cor');
-  const paleta = document.createElement('div');
-  paleta.className = 'md-cor-paleta';
-  paleta.hidden = true;
-  PALETA.forEach((cor) => {
+  const caixa = document.createElement('div');
+  caixa.className = 'md-cor-paleta';
+  caixa.hidden = true;
+  paleta.forEach((cor) => {
     const opcao = document.createElement('button');
     opcao.type = 'button';
     opcao.className = 'md-cor-opcao';
@@ -45,19 +45,19 @@ export function buildSeletorCor(atual: string, aoEscolher: (cor: string) => void
     opcao.style.setProperty('--cor', cor);
     opcao.setAttribute('aria-label', cor);
     opcao.addEventListener('click', () => {
-      paleta.hidden = true;
+      caixa.hidden = true;
       amostra.style.setProperty('--cor', cor);
       aoEscolher(cor);
     });
-    paleta.appendChild(opcao);
+    caixa.appendChild(opcao);
   });
   amostra.addEventListener('click', () => {
     document.querySelectorAll<HTMLElement>('.md-cor-paleta').forEach((p) => {
-      if (p !== paleta) p.hidden = true;
+      if (p !== caixa) p.hidden = true;
     });
-    paleta.hidden = !paleta.hidden;
+    caixa.hidden = !caixa.hidden;
   });
-  wrap.append(amostra, paleta);
+  wrap.append(amostra, caixa);
   return wrap;
 }
 
@@ -135,17 +135,43 @@ function linhaTag(tag: TagPostagem, redesenhar: () => void, erro: (e: unknown) =
     }),
     nome,
     previa,
-    contagem,
-    converter,
-    excluir,
   );
+  if (tag.empresa) {
+    linha.classList.add('is-empresa');
+    linha.appendChild(buildEscalaDaEmpresa(tag, redesenhar, erro));
+  }
+  linha.append(contagem, converter, excluir);
   return linha;
+}
+
+/**
+ * Qual régua de score vale para as postagens da empresa. "Padrão" não grava
+ * nada: a empresa acompanha a escala padrão mesmo se ela for trocada depois.
+ */
+function buildEscalaDaEmpresa(tag: TagPostagem, redesenhar: () => void, erro: (e: unknown) => void): HTMLElement {
+  const file = videosState.getCurrentState();
+  const escalas = file?.escalasScore ?? [];
+  const padrao = escalas.find((e) => e.id === file?.escalaPadraoId);
+  const seletor = select(tag.escalaScoreId ?? '', [
+    { value: '', label: `Padrão${padrao ? ` (${padrao.nome})` : ''}` },
+    ...escalas.filter((e) => e.id !== file?.escalaPadraoId).map((e) => ({ value: e.id, label: e.nome })),
+    // A própria padrão escolhida de propósito continua aparecendo como escolha.
+    ...(tag.escalaScoreId && tag.escalaScoreId === file?.escalaPadraoId && padrao ? [{ value: padrao.id, label: padrao.nome }] : []),
+  ]);
+  seletor.classList.add('md-item-escala');
+  seletor.title = 'Escala de score das postagens desta empresa (Métricas e Relatórios)';
+  seletor.setAttribute('aria-label', `Escala de score de "${tag.nome}"`);
+  seletor.addEventListener('change', () => {
+    void videosState.salvarTag({ id: tag.id, nome: tag.nome, cor: tag.cor, escalaScoreId: seletor.value }).then(redesenhar).catch(erro);
+  });
+  return seletor;
 }
 
 const TEXTOS = {
   empresas: {
     titulo: 'Empresas',
-    descricao: 'Clientes e marcas para quem você produz. Nos relatórios, a empresa filtra as postagens e as métricas.',
+    descricao:
+      'Clientes e marcas para quem você produz. Nos relatórios, a empresa filtra as postagens e as métricas. A escala diz como o score das postagens dela é lido (as faixas se definem em Escalas de score).',
     novo: 'Nova empresa (ex.: nome do cliente)',
     vazio: 'Nenhuma empresa cadastrada.',
   },

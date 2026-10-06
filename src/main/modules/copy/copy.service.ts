@@ -46,9 +46,11 @@ export async function getFullFile(): Promise<CopyFile> {
   return loadFile();
 }
 
-export async function replaceFile(file: CopyFile): Promise<CopyFile> {
-  await saveFile(file);
-  return file;
+/** Backup e importação passam pela mesma leitura defensiva do disco: arquivo antigo ou malformado não vai cru. */
+export async function replaceFile(file: unknown): Promise<CopyFile> {
+  const migrado = migrateCopyFile(file);
+  await saveFile(migrado);
+  return migrado;
 }
 
 export async function createSnippet(input: CreateSnippetInput): Promise<CopyFile> {

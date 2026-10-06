@@ -1580,3 +1580,26 @@
   font-size: 11px;
   color: var(--text-faint);
 }
+
+/* Propriedades no cartão "Detalhes" (coluna lateral do painel). */
+.kanban-cp-detalhes .kanban-cp-props {
+  padding: 0;
+  border: none;
+}
+
+.kanban-cp-detalhes .kanban-cp-prop {
+  grid-template-columns: 104px minmax(0, 1fr);
+}
+
+/* Card tem pouco conteúdo: no centro, a altura acompanha o que há (até 88vh). */
+.painel.is-centro.kanban-cp {
+  /* fit-content, não auto: com inset 0, auto estica até o max-height. */
+  height: fit-content;
+  max-height: 88vh;
+}
+
+/* Na coluna de 360px do centro, o seletor de coluna não precisa de largura mínima. */
+.painel.is-centro .kanban-cp-detalhes .kanban-cp-select {
+  min-width: 0;
+  width: 100%;
+}

@@ -593,7 +593,9 @@ export async function getFullFile(): Promise<ExploradorFile> {
   return loadFile();
 }
 
-export async function replaceFile(file: ExploradorFile): Promise<ExploradorFile> {
-  await saveFile(file);
-  return file;
+/** Backup e importação passam pela mesma leitura defensiva do disco: arquivo antigo ou malformado não vai cru. */
+export async function replaceFile(file: unknown): Promise<ExploradorFile> {
+  const migrado = migrate(file);
+  await saveFile(migrado);
+  return migrado;
 }

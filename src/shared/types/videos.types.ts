@@ -8,6 +8,7 @@ import type {
   RedeSocial,
   TagPostagem,
 } from './postagens.types.js';
+import type { EscalaScore, FaixaScore } from './score.types.js';
 
 // O que é comum a todos os tipos de postagem mora em postagens.types; os nomes
 // antigos continuam exportados daqui para quem já os usava.
@@ -134,6 +135,15 @@ export interface PreferenciasVideos {
   calendarioPorRede: boolean;
   /** Onde o painel de edição do vídeo abre. */
   posicaoPainel: PosicaoPainel;
+  /** Horários com nome (ex.: "Reels da manhã" 09:00) oferecidos ao agendar qualquer postagem. */
+  horariosPadrao: HorarioPadrao[];
+}
+
+export interface HorarioPadrao {
+  id: string;
+  nome: string;
+  /** "HH:MM". */
+  hora: string;
 }
 
 export type PosicaoPainel = 'centro' | 'direita' | 'esquerda';
@@ -148,6 +158,10 @@ export interface VideosFile {
   importacoes: ImportacaoRegistro[];
   mapeamentos: MapeamentoSheets[];
   preferencias: PreferenciasVideos;
+  /** Escalas de score do usuário; sempre há pelo menos uma (a padrão). */
+  escalasScore: EscalaScore[];
+  /** Escala de quem não tem empresa, ou de empresa sem escala escolhida. */
+  escalaPadraoId: string;
   /**
    * A migração que transformou em empresa as tags usadas como empresa (a
    * "Hora de Codar", as dos relatórios) já rodou. Depois dela, desmarcar uma
@@ -185,6 +199,15 @@ export interface SalvarTagInput {
   cor: string;
   /** Ausente mantém o tipo atual (na criação, tag comum). */
   empresa?: boolean;
+  /** Só para empresa. '' = usar a escala padrão; ausente mantém a atual. */
+  escalaScoreId?: string;
+}
+
+export interface SalvarEscalaInput {
+  /** Ausente = escala nova. */
+  id?: string;
+  nome: string;
+  faixas: Array<Omit<FaixaScore, 'id'> & { id?: string }>;
 }
 
 export interface SalvarRedeInput {

@@ -228,7 +228,11 @@ function textoDoAviso(e: EstadoAtualizacao): string | null {
   return null;
 }
 
-/** Botão acima do rodapé da barra lateral; só existe quando há o que fazer. */
+/**
+ * Ícone no trilho da barra lateral, com ponto de destaque; só existe quando há
+ * o que fazer. O texto vai na dica (o trilho não tem espaço para escrever) e o
+ * download aparece como uma barrinha embaixo do ícone.
+ */
 function desenharAviso(): void {
   const texto = estado ? textoDoAviso(estado) : null;
   if (!texto) {
@@ -237,20 +241,18 @@ function desenharAviso(): void {
     return;
   }
   if (!aviso) {
-    const rodape = document.querySelector('#sidebar .sidebar-footer');
-    if (!rodape) return;
+    const vaga = document.querySelector('#sidebar .trilho-aviso');
+    if (!vaga) return;
     aviso = document.createElement('button');
     aviso.type = 'button';
-    aviso.className = 'sidebar-atualizacao';
+    aviso.className = 'trilho-item trilho-atualizacao';
     aviso.addEventListener('click', () => abrirAjustes('atualizacoes'));
-    rodape.before(aviso);
+    vaga.appendChild(aviso);
   }
   aviso.classList.toggle('is-erro', estado?.situacao === 'erro');
-  aviso.title = `${texto} — abrir Atualizações`;
-  aviso.innerHTML = svg(ICONE_ATUALIZACAO, 15, 2);
-  const rotulo = document.createElement('span');
-  rotulo.className = 'sidebar-atualizacao-texto';
-  rotulo.textContent = texto;
-  aviso.appendChild(rotulo);
+  aviso.dataset.dica = texto;
+  aviso.setAttribute('aria-label', `${texto} — abrir Atualizações`);
+  aviso.innerHTML = svg(ICONE_ATUALIZACAO, 20, 1.8);
   aviso.style.setProperty('--progresso', String(estado?.situacao === 'baixando' ? (estado.progresso ?? 0) : 0));
+  aviso.classList.toggle('is-baixando', estado?.situacao === 'baixando');
 }

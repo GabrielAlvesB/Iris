@@ -1,4 +1,5 @@
 import {
+  GRUPOS_PROVEDOR,
   PROVEDORES,
   RECOMENDACOES_OPENROUTER,
   descritorDe,
@@ -33,6 +34,15 @@ const ROTULO_CAPACIDADE: Record<Capacidade, string> = {
   imagem: 'Gera imagem',
   imagemComReferencia: 'Imagem com referências',
 };
+
+/**
+ * Cartões abertos/fechados. Fora do cartão porque salvar redesenha a seção
+ * inteira — quem acabou de colar uma chave não pode ver o cartão fechar.
+ * Ausente = aberto só se já está configurado (dez cartões abertos viram um paredão).
+ */
+const abertos = new Map<ProvedorId, boolean>();
+
+const ICONE_SETA_BAIXO = '<path d="m6 9 6 6 6-6"/>';
 
 function mensagemDe(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -105,7 +115,7 @@ function campoModelo(
   const input = p.buildInput('text', valor, sugerido ? `padrão: ${sugerido}` : 'nome do modelo');
   const botao = buildBotao('Escolher', { icone: ICONES.preferencias, variante: 'secundario', titulo: 'Ver todos os modelos do provedor, com busca e preço' });
   botao.disabled = !cfg.configurado;
-  if (!cfg.configurado) botao.title = 'Salve a chave primeiro';
+  if (!cfg.configurado) botao.title = d.semChave ? 'Ative primeiro' : 'Salve a chave primeiro';
   const escolher = (busca = ''): void => {
     void abrirSeletorModelo(d.id, tipo, input.value || sugerido || '', busca).then((id) => {
       if (id) input.value = id;
@@ -187,9 +197,27 @@ function buildCartaoProvedor(p: PecasAjustes, d: DescritorProvedor, cfg: ConfigP
   const cartao = document.createElement('section');
   cartao.className = 'aj-ia-provedor';
   cartao.classList.toggle('is-configurado', cfg.configurado);
+  const aberto = abertos.get(d.id) ?? cfg.configurado;
+  cartao.classList.toggle('is-recolhido', !aberto);
 
   const topo = document.createElement('header');
   topo.className = 'aj-ia-topo';
+  topo.setAttribute('role', 'button');
+  topo.tabIndex = 0;
+  topo.setAttribute('aria-expanded', String(aberto));
+  const alternar = (): void => {
+    const abrir = cartao.classList.contains('is-recolhido');
+    abertos.set(d.id, abrir);
+    cartao.classList.toggle('is-recolhido', !abrir);
+    topo.setAttribute('aria-expanded', String(abrir));
+  };
+  topo.addEventListener('click', alternar);
+  topo.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      alternar();
+    }
+  });
   const titulos = document.createElement('div');
   titulos.className = 'aj-ia-titulos';
   const nome = document.createElement('h3');
@@ -197,7 +225,16 @@ function buildCartaoProvedor(p: PecasAjustes, d: DescritorProvedor, cfg: ConfigP
   titulos.appendChild(nome);
   titulos.appendChild(Object.assign(document.createElement('p'), { textContent: d.descricao }));
   topo.appendChild(titulos);
-  topo.appendChild(cfg.configurado ? buildSelo('Configurado', 'ok') : buildSelo('Sem chave', 'neutro'));
+  const lado = document.createElement('div');
+  lado.className = 'aj-ia-topo-lado';
+  lado.appendChild(
+    cfg.configurado ? buildSelo(d.semChave ? 'Ativado' : 'Configurado', 'ok') : buildSelo(d.semChave ? 'Desativado' : 'Sem chave', 'neutro'),
+  );
+  const seta = document.createElement('span');
+  seta.className = 'aj-ia-seta';
+  seta.innerHTML = svg(ICONE_SETA_BAIXO, 16, 2);
+  lado.appendChild(seta);
+  topo.appendChild(lado);
   cartao.appendChild(topo);
 
   const capacidades = document.createElement('div');
@@ -214,14 +251,18 @@ function buildCartaoProvedor(p: PecasAjustes, d: DescritorProvedor, cfg: ConfigP
   const corpo = document.createElement('div');
   corpo.className = 'aj-ia-campos';
 
-  const campoDaChave = campoChave(p, cfg, d);
-  const chave = campoDaChave.input;
-  corpo.appendChild(campoDaChave.el);
+  // Local não tem chave: o lugar dela fica com o endereço, já preenchido.
+  const campoDaChave = d.semChave ? null : campoChave(p, cfg, d);
+  const chave = campoDaChave?.input ?? null;
+  if (campoDaChave) corpo.appendChild(campoDaChave.el);
 
   let baseUrl: HTMLInputElement | null = null;
-  if (d.exigeBaseUrl) {
-    baseUrl = p.buildInput('url', cfg.baseUrl, 'https://api.groq.com/openai/v1');
-    corpo.appendChild(p.buildCampo('Endereço base', baseUrl, 'Termina em /v1. Ollama: http://localhost:11434/v1 · LM Studio: http://localhost:1234/v1'));
+  if (d.semChave) {
+    baseUrl = p.buildInput('url', cfg.baseUrl || d.basePadrao || '', d.basePadrao ?? '');
+    corpo.appendChild(p.buildCampo('Endereço', baseUrl, `O padrão do app é ${d.basePadrao}. Só troque se mudou a porta.`));
+  } else if (d.exigeBaseUrl) {
+    baseUrl = p.buildInput('url', cfg.baseUrl, 'https://api.together.xyz/v1');
+    corpo.appendChild(p.buildCampo('Endereço base', baseUrl, 'O endereço da API do serviço — normalmente termina em /v1.'));
   }
 
   const texto = campoModelo(p, d, cfg, 'texto', cfg.modeloTexto);
@@ -232,23 +273,37 @@ function buildCartaoProvedor(p: PecasAjustes, d: DescritorProvedor, cfg: ConfigP
   cartao.appendChild(corpo);
 
   const status = p.buildStatus(`ia.${d.id}`);
+  if (d.semChave) {
+    const passos = document.createElement('ol');
+    passos.className = 'aj-ia-passos';
+    [
+      `Instale o ${d.rotulo} (botão "Baixar ${d.rotulo}" abaixo) e deixe-o aberto.`,
+      d.comandoModelo ? `Baixe um modelo. No terminal: ${d.comandoModelo}` : 'Baixe um modelo pela tela do app e ligue o servidor local (aba Developer).',
+      cfg.ativo ? 'Clique em "Testar" para conferir se está tudo respondendo.' : 'Clique em "Ativar" e depois em "Testar".',
+    ].forEach((t) => passos.appendChild(Object.assign(document.createElement('li'), { textContent: t })));
+    cartao.appendChild(passos);
+  }
   if (d.id === 'openrouter') cartao.appendChild(buildRecomendacoes(cfg, { texto, imagem }, status));
 
   const acoes = document.createElement('div');
   acoes.className = 'aj-acoes';
 
-  const salvar = buildBotao('Salvar', { variante: 'primario', icone: ICONES.check });
+  // Local desligado: o botão principal já liga — salvar sem ativar não serviria para nada.
+  const ativar = Boolean(d.semChave && !cfg.ativo);
+  const salvar = buildBotao(ativar ? 'Ativar' : 'Salvar', { variante: 'primario', icone: ICONES.check });
   salvar.addEventListener('click', () => {
     salvar.disabled = true;
+    abertos.set(d.id, true);
     void ajustesState
       .salvarProvedorIa({
         id: d.id,
-        apiKey: chave.value ? chave.value : undefined,
+        apiKey: chave?.value ? chave.value : undefined,
         baseUrl: baseUrl?.value,
+        ...(ativar ? { ativo: true } : {}),
         modeloTexto: texto.input.value,
         modeloImagem: imagem?.input.value,
       })
-      .then(() => status.mostrar('Salvo', 'ok'))
+      .then(() => status.mostrar(ativar ? 'Ativado — agora clique em Testar' : 'Salvo', 'ok'))
       .catch((error: unknown) => status.mostrar(mensagemDe(error), 'erro'))
       .finally(() => {
         salvar.disabled = false;
@@ -258,7 +313,13 @@ function buildCartaoProvedor(p: PecasAjustes, d: DescritorProvedor, cfg: ConfigP
 
   const testar = buildBotao('Testar', { icone: ICONES.atualizar });
   testar.disabled = !cfg.configurado;
-  testar.title = cfg.configurado ? 'Confere a chave, a lista e os modelos salvos (o de texto recebe um pedido mínimo)' : 'Salve a chave primeiro';
+  testar.title = cfg.configurado
+    ? d.semChave
+      ? 'Confere se o app está aberto, quais modelos tem e se o modelo de texto responde'
+      : 'Confere a chave, a lista e os modelos salvos (o de texto recebe um pedido mínimo)'
+    : d.semChave
+      ? 'Ative primeiro'
+      : 'Salve a chave primeiro';
   testar.addEventListener('click', () => {
     testar.disabled = true;
     status.mostrar('Testando…', 'neutro');
@@ -272,9 +333,30 @@ function buildCartaoProvedor(p: PecasAjustes, d: DescritorProvedor, cfg: ConfigP
   });
   acoes.appendChild(testar);
 
-  const pegar = buildBotao(d.exigeBaseUrl ? 'Referência da API' : 'Onde pegar a chave', { variante: 'fantasma', icone: ICONES.externo });
+  if (d.urlBaixar) {
+    const baixar = buildBotao(`Baixar ${d.rotulo}`, { variante: 'fantasma', icone: ICONES.backup });
+    const url = d.urlBaixar;
+    baixar.addEventListener('click', () => window.irisAPI.system.openExternalLink(url));
+    acoes.appendChild(baixar);
+  }
+
+  const pegar = buildBotao(d.semChave ? 'Ver modelos' : d.exigeBaseUrl ? 'Referência da API' : 'Onde pegar a chave', {
+    variante: 'fantasma',
+    icone: ICONES.externo,
+  });
   pegar.addEventListener('click', () => window.irisAPI.system.openExternalLink(d.urlChave));
   acoes.appendChild(pegar);
+
+  if (d.semChave && cfg.ativo) {
+    const desativar = buildBotao('Desativar', { variante: 'fantasma' });
+    desativar.addEventListener('click', () => {
+      void ajustesState
+        .salvarProvedorIa({ id: d.id, ativo: false })
+        .then(() => status.mostrar('Desativado', 'neutro'))
+        .catch((error: unknown) => status.mostrar(mensagemDe(error), 'erro'));
+    });
+    acoes.appendChild(desativar);
+  }
 
   if (cfg.temChave) {
     const remover = buildBotao('Remover chave', { variante: 'fantasma' });
@@ -383,13 +465,20 @@ export function buildSecaoIa(p: PecasAjustes, ia: IaConfig): HTMLElement {
 
   corpo.appendChild(buildPadroes(p, ia));
 
-  const lista = document.createElement('div');
-  lista.className = 'aj-ia-lista';
-  PROVEDORES.forEach((d) => {
-    const cfg = ia.provedores.find((c) => c.id === d.id);
-    if (cfg) lista.appendChild(buildCartaoProvedor(p, d, cfg));
+  GRUPOS_PROVEDOR.forEach((g) => {
+    const doGrupo = PROVEDORES.filter((d) => d.grupo === g.id);
+    if (!doGrupo.length) return;
+    const cab = document.createElement('header');
+    cab.className = 'aj-ia-grupo';
+    cab.append(Object.assign(document.createElement('h3'), { textContent: g.rotulo }), Object.assign(document.createElement('p'), { textContent: g.descricao }));
+    const lista = document.createElement('div');
+    lista.className = 'aj-ia-lista';
+    doGrupo.forEach((d) => {
+      const cfg = ia.provedores.find((c) => c.id === d.id);
+      if (cfg) lista.appendChild(buildCartaoProvedor(p, d, cfg));
+    });
+    corpo.append(cab, lista);
   });
-  corpo.appendChild(lista);
 
   painel.appendChild(corpo);
   return painel;

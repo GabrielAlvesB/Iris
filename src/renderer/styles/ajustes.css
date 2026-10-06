@@ -353,49 +353,10 @@ select.aj-input {
 
 /* ---- Slider de largura da sidebar em Preferências ---- */
 
-.aj-slider-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-}
 
-.aj-slider {
-  flex: 1;
-  height: 6px;
-  -webkit-appearance: none;
-  appearance: none;
-  background: var(--bg-elevated-3);
-  border-radius: 999px;
-  outline: none;
-  cursor: pointer;
-  accent-color: var(--accent);
-}
 
-.aj-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
-  cursor: pointer;
-  transition: transform 0.1s ease;
-}
 
-.aj-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.15);
-}
 
-.aj-slider-valor {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-muted);
-  min-width: 52px;
-  text-align: right;
-}
 
 /* ---- Assinatura dos relatórios ---- */
 
@@ -753,4 +714,80 @@ select.aj-input {
   font-size: 12.5px;
   line-height: 1.45;
   color: var(--text-muted);
+}
+
+/* ---- IA: grupos e cartões recolhíveis ---- */
+
+.aj-ia-grupo {
+  margin-top: 8px;
+}
+
+.aj-ia-grupo h3 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.aj-ia-grupo p {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.aj-ia-topo {
+  cursor: pointer;
+  border-radius: var(--radius);
+}
+
+.aj-ia-topo:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.aj-ia-topo-lado {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.aj-ia-seta {
+  display: flex;
+  color: var(--text-faint);
+  transition: transform 0.18s ease;
+}
+
+.aj-ia-provedor.is-recolhido .aj-ia-seta {
+  transform: rotate(-90deg);
+}
+
+.aj-ia-provedor.is-recolhido > :not(.aj-ia-topo) {
+  display: none;
+}
+
+.aj-ia-provedor.is-recolhido .aj-ia-titulos p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aj-ia-topo:hover h3 {
+  color: var(--accent);
+}
+
+.aj-ia-passos {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 10px 12px 10px 30px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
 }

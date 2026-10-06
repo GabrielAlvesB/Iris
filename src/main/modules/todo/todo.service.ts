@@ -169,7 +169,7 @@ export async function getFullFile(): Promise<TodoFile> {
   return loadFile();
 }
 
-export async function replaceFile(file: TodoFile): Promise<TodoFile> {
+export async function replaceFile(file: unknown): Promise<TodoFile> {
   const migrado = migrateTodoFile(file);
   await saveFile(migrado);
   return migrado;

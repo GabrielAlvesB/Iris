@@ -210,7 +210,7 @@ export async function getFullFile(): Promise<TrafegoFile> {
   return loadFile();
 }
 
-export async function replaceFile(file: TrafegoFile): Promise<TrafegoFile> {
+export async function replaceFile(file: unknown): Promise<TrafegoFile> {
   return saveFile(migrateFile(file));
 }
 

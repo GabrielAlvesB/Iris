@@ -33,6 +33,18 @@ import { ICONES_RELATORIO, abrirAdicionarPostagens, abrirCategorias, abrirMarcac
 import { MODELOS_SECAO, aplicarModelo, novaSecaoDoModelo, type ModeloSecao } from './relatorios.modelos.js';
 import { abrirMenuIa } from '../../ui/ia.js';
 import { ORIENTACOES_RELATORIO as ORIENTA, comIaRelatorio, resumoDaSecao } from './relatorios.ia.js';
+import {
+  EXEMPLOS_FIXOS,
+  buildGuia,
+  escalaDoRelatorio,
+  exemploConclusao,
+  exemploObjetivos,
+  exemploProximosPassos,
+  exemploResumo,
+  frasesDaPostagem,
+  frasesDoResultado,
+  primeiroResultado,
+} from './relatorios.guias.js';
 import * as relatoriosState from './relatorios.state.js';
 import { ADAPTADORES, carregarPostagens, localMarcacaoImagem, localMarcacaoVideo } from './relatorios.tipos.js';
 
@@ -607,9 +619,10 @@ function buildParteGerais(rel: Relatorio): HTMLElement {
     paraQue: 'A visão rápida: o que foi analisado e o que se descobriu. É o que a maioria das pessoas lê primeiro.',
     noPdf: 'logo depois da capa, com o título "Informações gerais". Só aparece se tiver algo escrito ou ligado aqui.',
   });
-  const resumo = textarea(rel.resumo, 'Ex.: Analisamos 12 vídeos publicados em setembro. O alcance cresceu 18%, puxado pelos tutoriais curtos…', 4);
+  // Os exemplos usam os números do primeiro bloco de métricas, quando há.
+  const resumo = textarea(rel.resumo, exemploResumo(rel), 4);
   ligarTexto(rel, 'resumo', resumo);
-  const objetivos = textarea(rel.objetivos, '- Chegar a 50 mil visualizações no mês\n- Testar vídeos de até 30 segundos', 3);
+  const objetivos = textarea(rel.objetivos, exemploObjetivos(rel), 3);
   ligarTexto(rel, 'objetivos', objetivos);
 
   const automaticas = document.createElement('div');
@@ -642,11 +655,13 @@ function buildParteGerais(rel: Relatorio): HTMLElement {
         comIaRelatorio(resumo, 'Resumo executivo', rel, undefined, ORIENTA.resumo),
         `O que foi analisado e os 2 ou 3 principais achados, com os números. ${DICA_FORMATACAO}`,
       ),
+      buildGuia(resumo, 'resumo', { frases: () => frasesDoResultado(primeiroResultado(rel)), formato: 'texto' }),
       campo(
         'Objetivos (opcional)',
         comIaRelatorio(objetivos, 'Objetivos do período', rel, undefined, ORIENTA.objetivos),
         'As metas do período. Vira o subtítulo "Objetivos".',
       ),
+      buildGuia(objetivos, 'objetivos'),
       campo('Gerado automaticamente', automaticas, 'O Iris monta estas partes com os dados das postagens; é só ligar.'),
     ),
   );
@@ -666,22 +681,28 @@ function buildParteFechamento(rel: Relatorio): HTMLElement {
     ligarTexto(rel, chave, el);
     return el;
   };
+  const conclusao = area('conclusao', exemploConclusao(rel));
+  const passos = area('recomendacoes', exemploProximosPassos(rel));
+  const observacoes = area('observacoesFinais', EXEMPLOS_FIXOS.observacoes);
   const cartao = cartaoDeCampos(
     campo(
       'Conclusão',
-      comIaRelatorio(area('conclusao', 'Ex.: Os vídeos curtos com gancho nos 3 primeiros segundos tiveram o dobro de retenção…'), 'Conclusão do relatório', rel, undefined, ORIENTA.conclusao),
+      comIaRelatorio(conclusao, 'Conclusão do relatório', rel, undefined, ORIENTA.conclusao),
       `A síntese do que a análise mostrou. ${DICA_FORMATACAO}`,
     ),
+    buildGuia(conclusao, 'conclusao', { frases: () => frasesDoResultado(primeiroResultado(rel)), formato: 'texto' }),
     campo(
       'Próximos passos (opcional)',
-      comIaRelatorio(area('recomendacoes', '- O que fazer no próximo período\n- Testes, ajustes, metas'), 'Próximos passos', rel, undefined, ORIENTA.proximosPassos),
+      comIaRelatorio(passos, 'Próximos passos', rel, undefined, ORIENTA.proximosPassos),
       'Ações práticas para o próximo período. Uma por linha fica mais fácil de ler.',
     ),
+    buildGuia(passos, 'proximosPassos'),
     campo(
       'Observações finais (opcional)',
-      comIaRelatorio(area('observacoesFinais', 'Ex.: Dados do Instagram exportados em 01/10; o TikTok não informa salvamentos.'), 'Observações finais', rel, undefined, ORIENTA.observacoes),
+      comIaRelatorio(observacoes, 'Observações finais', rel, undefined, ORIENTA.observacoes),
       'Ressalvas, de onde vieram os dados, combinados. Sai numa caixa em destaque.',
     ),
+    buildGuia(observacoes, 'observacoes'),
   );
 
   const assinaturaWrap = document.createElement('div');
@@ -733,7 +754,7 @@ function buildBotaoNovaSecao(rel: Relatorio): HTMLButtonElement {
   botao.addEventListener('click', () =>
     abrirMenuIa(
       botao,
-      MODELOS_SECAO.map((m) => ({ rotulo: m.titulo, dica: m.dica, icone: ICONE_SECOES, fazer: () => adicionarSecao(rel, m.id) })),
+      MODELOS_SECAO.map((m) => ({ rotulo: m.titulo, dica: m.dica, grupo: m.grupo, icone: ICONE_SECOES, fazer: () => adicionarSecao(rel, m.id) })),
       { titulo: 'Que tipo de seção?' },
     ),
   );
@@ -753,17 +774,21 @@ function buildParteSecoes(rel: Relatorio, categorias: RelatoriosFile['categorias
     const vazio = document.createElement('div');
     vazio.className = 'rel-secoes-vazio';
     vazio.appendChild(Object.assign(document.createElement('p'), { textContent: 'Nenhuma seção ainda. Escolha por onde começar:' }));
-    const opcoes = document.createElement('div');
-    opcoes.className = 'rel-secoes-opcoes';
-    MODELOS_SECAO.forEach((m) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'rel-secao-opcao';
-      b.append(Object.assign(document.createElement('strong'), { textContent: m.titulo }), Object.assign(document.createElement('span'), { textContent: m.dica }));
-      b.addEventListener('click', () => adicionarSecao(rel, m.id));
-      opcoes.appendChild(b);
+    // Os mesmos grupos do menu "Adicionar seção".
+    [...new Set(MODELOS_SECAO.map((m) => m.grupo))].forEach((grupo) => {
+      vazio.appendChild(Object.assign(document.createElement('h4'), { className: 'rel-secoes-grupo', textContent: grupo }));
+      const opcoes = document.createElement('div');
+      opcoes.className = 'rel-secoes-opcoes';
+      MODELOS_SECAO.filter((m) => m.grupo === grupo).forEach((m) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'rel-secao-opcao';
+        b.append(Object.assign(document.createElement('strong'), { textContent: m.titulo }), Object.assign(document.createElement('span'), { textContent: m.dica }));
+        b.addEventListener('click', () => adicionarSecao(rel, m.id));
+        opcoes.appendChild(b);
+      });
+      vazio.appendChild(opcoes);
     });
-    vazio.appendChild(opcoes);
     conteudo.appendChild(vazio);
     return parte;
   }
@@ -782,7 +807,11 @@ function buildParteSecoes(rel: Relatorio, categorias: RelatoriosFile['categorias
 function blocoPreenchido(b: BlocoRelatorio): boolean {
   switch (b.tipo) {
     case 'metricas':
+    case 'ranking':
+    case 'producao':
       return true;
+    case 'comparativo':
+      return Boolean(b.atual && b.anterior);
     case 'tabela':
       return b.linhas.some((linha) => linha.some((c) => c.trim()));
     case 'analise':
@@ -1050,17 +1079,26 @@ function buildItemEditor(secao: SecaoRelatorio, item: ItemRelatorio, indice: num
 
   cartao.appendChild(buildTabelaMarcacoes(item, categorias));
 
-  const anotacoes = textarea(item.anotacoes, 'Análise geral desta postagem', 3);
+  const anotacoes = textarea(item.anotacoes, EXEMPLOS_FIXOS.anotacoes, 3);
   anotacoes.addEventListener('input', () => {
     item.anotacoes = anotacoes.value;
     agendarSalvar();
   });
-  const observacoes = textarea(item.observacoes, 'Recomendações, pendências, próximos passos', 3);
+  const observacoes = textarea(item.observacoes, EXEMPLOS_FIXOS.observacoesPostagem, 3);
   observacoes.addEventListener('input', () => {
     item.observacoes = observacoes.value;
     agendarSalvar();
   });
-  cartao.appendChild(grade2(campo('Anotações', anotacoes), campo('Observações', observacoes)));
+  const colAnotacoes = document.createElement('div');
+  colAnotacoes.className = 'rel-campo-com-guia';
+  colAnotacoes.append(
+    campo('Anotações', anotacoes),
+    buildGuia(anotacoes, 'anotacoes', { frases: () => frasesDaPostagem(item, escalaDoRelatorio(rascunho ?? { tagIds: [] })) }),
+  );
+  const colObservacoes = document.createElement('div');
+  colObservacoes.className = 'rel-campo-com-guia';
+  colObservacoes.append(campo('Observações', observacoes), buildGuia(observacoes, 'observacoesPostagem'));
+  cartao.appendChild(grade2(colAnotacoes, colObservacoes));
   return cartao;
 }
 
@@ -1126,13 +1164,18 @@ function buildSecaoEditor(rel: Relatorio, secao: SecaoRelatorio, indice: number,
   cab.append(numero, titulo, acoes);
   bloco.appendChild(cab);
 
-  const texto = textarea(secao.texto, 'Ex.: Nesta seção, os números de alcance e engajamento do período.', 2);
+  const texto = textarea(secao.texto, EXEMPLOS_FIXOS.secao, 2);
   texto.addEventListener('input', () => {
     secao.texto = texto.value;
     agendarSalvar();
   });
   bloco.appendChild(
-    buildPasso('Introdução', 'Um parágrafo que apresenta a seção. Opcional.', comIaRelatorio(texto, `Introdução da seção "${secao.titulo}"`, rel, () => resumoDaSecao(secao), ORIENTA.secao)),
+    buildPasso(
+      'Introdução',
+      'Um parágrafo que apresenta a seção. Opcional.',
+      comIaRelatorio(texto, `Introdução da seção "${secao.titulo}"`, rel, () => resumoDaSecao(secao), ORIENTA.secao),
+      buildGuia(texto, 'secao'),
+    ),
   );
 
   // Blocos livres (texto, destaque, tabela, métricas, quebra), antes das postagens.

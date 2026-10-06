@@ -250,7 +250,7 @@
   flex: 1;
   min-height: 60px;
   overflow-y: auto;
-  padding: 2px 8px 8px;
+  padding: 8px 8px 8px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -307,6 +307,47 @@
 .vd-card.is-aberto {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* Último card aberto: continua marcado depois que o painel fecha, para saber
+   onde se estava mexendo. Mais discreto que o aberto. */
+.vd-card.is-recente:not(.is-aberto) {
+  border-color: color-mix(in oklch, var(--accent) 55%, transparent);
+  background: color-mix(in oklch, var(--accent) 7%, var(--bg-elevated-2));
+}
+
+.vd-card.is-recente::after,
+.vd-card.is-aberto::after {
+  content: 'editando';
+  position: absolute;
+  top: -7px;
+  right: 10px;
+  padding: 0 6px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 14px;
+  color: var(--accent-text);
+  background: var(--accent);
+  border-radius: 999px;
+}
+
+.vd-card.is-recente:not(.is-aberto)::after {
+  content: 'último aberto';
+  color: var(--accent);
+  background: var(--bg-elevated-3);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 45%, transparent);
+}
+
+/* O card em foco mudou de etapa (ex.: a data o levou para Agendado). */
+.vd-card.is-chegou {
+  animation: vd-card-chegou 1.4s ease-out;
+}
+
+@keyframes vd-card-chegou {
+  0%, 30% { box-shadow: 0 0 0 3px var(--accent), 0 0 22px 2px var(--accent-soft); }
+  100% { box-shadow: 0 0 0 1px transparent; }
 }
 
 .vd-card.is-atrasado {
@@ -568,6 +609,117 @@
   padding-bottom: 20px;
 }
 
+.vd-agenda-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Abas Próximas/Anteriores, períodos e "Só publicadas/Todas" numa faixa só. */
+.vd-agenda-topo {
+  display: flex;
+  align-items: center;
+  gap: 10px 14px;
+  flex-wrap: wrap;
+}
+
+.vd-agenda-periodos {
+  gap: 4px;
+}
+
+.vd-agenda-periodos .md-pilula {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+/* Separador de semana no histórico. */
+.vd-agenda-semana {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  padding-bottom: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+
+.vd-agenda-semana span {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-faint);
+}
+
+/* "Últimos 7 dias" recolhido no topo da aba Próximas. */
+.vd-agenda-recentes {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+}
+
+.vd-agenda-recentes summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.vd-agenda-recentes summary::-webkit-details-marker {
+  display: none;
+}
+
+.vd-agenda-recentes summary strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.vd-agenda-recentes summary::after {
+  content: '';
+  order: 2;
+  width: 6px;
+  height: 6px;
+  margin-left: 4px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+}
+
+.vd-agenda-recentes[open] summary::after {
+  transform: rotate(-135deg);
+}
+
+.vd-agenda-ver-tudo {
+  order: 1;
+  margin-left: auto;
+  padding: 2px 8px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--accent);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.vd-agenda-ver-tudo:hover {
+  background: var(--accent-soft);
+}
+
+.vd-agenda-recentes-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 14px 14px;
+}
+
 .vd-agenda-dia {
   display: flex;
   flex-direction: column;
@@ -753,12 +905,6 @@
   font-weight: 600;
   background: color-mix(in oklch, var(--fase) 20%, transparent);
   border-color: color-mix(in oklch, var(--fase) 55%, transparent);
-}
-
-.vd-agenda-campos {
-  display: grid;
-  grid-template-columns: 1fr 120px;
-  gap: 8px;
 }
 
 .vd-escolhas {
@@ -1085,6 +1231,15 @@
 /* Tag e empresa: a coluna a mais é o "Tornar empresa / Tornar tag". */
 .md-item.is-tag {
   grid-template-columns: auto minmax(0, 1fr) 150px 76px auto auto;
+}
+
+.md-item.is-tag.is-empresa {
+  grid-template-columns: auto minmax(0, 1fr) 130px 150px 76px auto auto;
+}
+
+.md-item .md-item-escala {
+  height: 32px;
+  font-size: 12.5px;
 }
 
 .md-item .md-input {
@@ -1873,10 +2028,6 @@
   background: var(--bg-elevated);
 }
 
-.vd-agenda-campos {
-  grid-template-columns: 1fr 130px;
-}
-
 /* Informações: nome e valor alinhados na mesma altura */
 .vd-extra {
   grid-template-columns: 124px minmax(0, 1fr) auto auto;
@@ -2481,8 +2632,7 @@
   padding: 0 6px;
 }
 
-.vd-score.is-negativo { --c: var(--danger); }
-.vd-score.is-positivo { --c: var(--success); }
+/* A cor da faixa chega inline (--c), da escala da empresa. */
 
 .vd-score-campo {
   display: grid;
@@ -2492,6 +2642,7 @@
 }
 
 .vd-score-trilho {
+  position: relative;
   height: 8px;
   background: var(--bg-elevated-3);
   border-radius: 4px;
@@ -2501,12 +2652,21 @@
 .vd-score-trilho i {
   display: block;
   height: 100%;
+  background: var(--c, var(--text-muted));
   border-radius: 0 4px 4px 0;
   transition: width 0.15s ease;
 }
 
-.vd-score-trilho i.is-negativo { background: var(--danger); }
-.vd-score-trilho i.is-positivo { background: var(--success); }
+/* Onde cada faixa da escala começa: o usuário vê quanto falta para a próxima. */
+.vd-score-corte {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--bg-elevated);
+  pointer-events: none;
+}
 
 .vd-score-faixa {
   min-width: 64px;
@@ -2760,16 +2920,8 @@ button.gf-ranking-linha {
 .gf-ranking-trilho i {
   display: block;
   height: 100%;
-  background: #3987e5;
+  background: var(--c, #3987e5);
   border-radius: 0 4px 4px 0;
-}
-
-.gf-ranking-trilho i.is-negativo {
-  background: var(--danger);
-}
-
-.gf-ranking-trilho i.is-positivo {
-  background: var(--success);
 }
 
 .gf-ranking-valor {
@@ -2808,16 +2960,509 @@ button.gf-ranking-linha {
   color: var(--text-faint);
 }
 
+.rl-botao-escalas {
+  margin-left: auto;
+}
+
+/* ---- Escalas de score (Ajustes e modal da aba Métricas) ---- */
+
+.es-cadastro {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.es-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.es-topo-texto {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.es-como {
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+}
+
+.es-como summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.es-como summary::-webkit-details-marker {
+  display: none;
+}
+
+.es-como summary::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  margin-left: auto;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+}
+
+.es-como[open] summary::after {
+  transform: rotate(-135deg);
+}
+
+.es-como summary:hover {
+  color: var(--text);
+}
+
+.es-como-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px 18px;
+  padding: 2px 14px 14px;
+}
+
+.es-como-grade strong {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.es-como-grade p {
+  margin: 3px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.es-cartao {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.es-cartao.is-padrao {
+  border-color: color-mix(in oklch, var(--success) 35%, var(--border));
+}
+
+.es-cartao.is-sujo {
+  border-color: color-mix(in oklch, var(--accent) 55%, var(--border));
+}
+
+.es-cab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.es-cab .es-nome {
+  flex: 1 1 auto;
+  max-width: 320px;
+  height: 34px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.es-cab-acoes {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+/* Barra 0–100: um segmento por faixa, o início de cada uma escrito embaixo. */
+.es-barra-wrap {
+  padding-bottom: 18px;
+}
+
+.es-barra-wrap.tem-baixo {
+  padding-bottom: 32px;
+}
+
+.es-barra-slot.is-desatualizada {
+  opacity: 0.45;
+}
+
+.es-barra {
+  display: flex;
+  gap: 2px;
+  height: 26px;
+  overflow: hidden;
+  border-radius: 7px;
+}
+
+.es-barra-wrap.is-compacta .es-barra {
+  height: 8px;
+  border-radius: 4px;
+}
+
+.es-segmento {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-basis: 0;
+  min-width: 2px;
+  padding: 0 6px;
+  overflow: hidden;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text);
+  /* srgb: em oklch, misturar vermelho com o fundo azulado puxa para roxo. */
+  background: color-mix(in srgb, var(--c) 32%, var(--bg-elevated));
+  border-bottom: 3px solid var(--c);
+}
+
+.es-marcas {
+  position: relative;
+  height: 0;
+}
+
+.es-marca {
+  position: absolute;
+  top: 3px;
+  transform: translateX(-50%);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+}
+
+.es-marca:first-child {
+  transform: none;
+}
+
+.es-marca.is-fim {
+  transform: translateX(-100%);
+}
+
+/* Segunda linha de marcas, para cortes próximos não se sobreporem. */
+.es-marca.is-baixo {
+  top: 17px;
+}
+
+/* Cada faixa é um bloco: cor · nome · intervalo · conta como · remover. */
+.es-legenda,
+.es-faixa {
+  display: grid;
+  grid-template-columns: 26px minmax(110px, 1fr) auto auto 32px;
+  grid-template-areas: 'cor nome intervalo sentido remover';
+  align-items: center;
+  column-gap: 10px;
+}
+
+.es-c-cor { grid-area: cor; }
+.es-c-nome { grid-area: nome; }
+.es-faixa .es-intervalo { grid-area: intervalo; }
+.es-faixa .es-sentidos { grid-area: sentido; }
+.es-c-remover { grid-area: remover; }
+
+.es-legenda {
+  padding: 0 9px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.es-legenda span:nth-child(3) {
+  grid-area: intervalo;
+}
+
+.es-legenda span:nth-child(4) {
+  grid-area: sentido;
+}
+
+.es-faixas {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.es-faixa {
+  padding: 7px 8px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+}
+
+.es-faixa .md-input {
+  height: 32px;
+}
+
+/* Cartão estreito (Ajustes numa janela menor): "conta como" desce para uma
+   segunda linha dentro do bloco, em vez de empurrar a lixeira para fora. */
+@container (max-width: 700px) {
+  .es-legenda {
+    display: none;
+  }
+
+  .es-faixa {
+    grid-template-columns: 26px minmax(0, 1fr) auto 32px;
+    grid-template-areas:
+      'cor nome intervalo remover'
+      '. sentido sentido sentido';
+    row-gap: 8px;
+  }
+
+  .es-faixa .es-sentidos {
+    justify-self: start;
+  }
+}
+
+@container (max-width: 440px) {
+  .es-faixa {
+    grid-template-columns: 26px minmax(0, 1fr) 32px;
+    grid-template-areas:
+      'cor nome remover'
+      '. intervalo intervalo'
+      '. sentido sentido';
+  }
+}
+
+.es-intervalo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.es-intervalo .es-de {
+  width: 64px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.es-fim {
+  min-width: 64px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.es-sentidos {
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+.es-sentidos .md-pilula {
+  height: 28px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+.md-pilula.es-sentido.is-positivo { --sentido: var(--success); }
+.md-pilula.es-sentido.is-mediano { --sentido: var(--warning); }
+.md-pilula.es-sentido.is-negativo { --sentido: var(--danger); }
+
+.md-pilula.es-sentido.is-ativa {
+  border-color: var(--sentido);
+  background: color-mix(in oklch, var(--sentido) 18%, transparent);
+}
+
+.es-cartao > .pg-botao {
+  align-self: flex-start;
+}
+
+.es-problema[hidden] {
+  display: none;
+}
+
+.es-resumo {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.es-resumo:empty {
+  display: none;
+}
+
+.es-uso {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.es-uso-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.es-uso-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.es-uso-tirar {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-faint);
+  background: none;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.es-uso-tirar:hover {
+  color: var(--text);
+  background: var(--bg-elevated-3);
+}
+
+.es-uso-texto {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.es-uso-ligar.md-input {
+  width: auto;
+  height: 28px;
+  font-size: 12px;
+}
+
+.es-pe {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.es-teste {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.es-teste .es-teste-campo {
+  width: 80px;
+  height: 30px;
+}
+
+.es-teste-resultado {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.es-pe-botoes {
+  display: flex;
+  gap: 6px;
+}
+
+.es-pe-botoes [hidden] {
+  display: none;
+}
+
+.es-sem-empresa {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.rl-aviso-escala {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-muted);
+  background: var(--warning-soft);
+  border: 1px solid color-mix(in oklch, var(--warning) 35%, transparent);
+  border-radius: var(--radius-lg);
+}
+
+.rl-aviso-escala > :first-child {
+  flex-shrink: 0;
+}
+
+/* Cartões da mesma linha com a mesma altura: o espaço sobra dentro do cartão,
+   não como um buraco na grade. */
 .rl-grade {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
-  align-items: start;
+  align-items: stretch;
+}
+
+/* Linha com a largura toda (Tags/Prioridades/Redes, Pontos): N colunas iguais. */
+.rl-linha {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(var(--colunas, 2), minmax(0, 1fr));
+  gap: 14px;
+  align-items: stretch;
+}
+
+.rl-pilha {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.rl-pilha.is-preencher > :last-child {
+  flex-grow: 1;
+}
+
+/* Coluna de listas vazias: no tamanho do conteúdo, alinhada ao topo. */
+.rl-linha > .rl-pilha:not(.is-preencher) {
+  align-self: start;
 }
 
 @media (max-width: 1150px) {
-  .rl-grade {
+  .rl-grade,
+  .rl-linha {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Cartão estreito (três por linha): a informação extra desce para baixo do
+   nome, e nome + barra + número ficam com espaço. */
+.rl-grade .gf-cartao {
+  container-type: inline-size;
+}
+
+@container (max-width: 520px) {
+  .gf-ranking-linha {
+    grid-template-columns: minmax(0, 1fr) minmax(56px, 34%) 40px;
+    row-gap: 2px;
+    column-gap: 10px;
+  }
+
+  .gf-ranking-detalhe {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    font-size: 11px;
   }
 }
 
@@ -3045,4 +3690,613 @@ button.gf-ranking-linha {
 
 .im-slides {
   max-width: 140px;
+}
+
+/* ---- Agendamento: dia e horário (postagens.agendar.ts) ---- */
+
+.vd-agendar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vd-agendar-linha {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.vd-agendar-gatilho {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 12px;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.vd-agendar-gatilho:hover {
+  border-color: color-mix(in oklch, var(--accent) 50%, var(--border));
+}
+
+.vd-agendar-gatilho:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.vd-agendar-gatilho.is-ativo {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.vd-agendar-icone {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.vd-agendar-gatilho.is-vazio .vd-agendar-icone {
+  color: var(--text-muted);
+  background: var(--bg-elevated-3);
+}
+
+.vd-agendar-textos {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.vd-agendar-rotulo {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.vd-agendar-valor {
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vd-agendar-gatilho.is-hora .vd-agendar-valor {
+  font-family: var(--font-mono);
+  font-size: 15px;
+}
+
+.vd-agendar-gatilho.is-vazio .vd-agendar-valor {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.vd-agendar-limpar {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.vd-agendar-limpar:hover {
+  color: var(--danger);
+  border-color: color-mix(in oklch, var(--danger) 45%, transparent);
+  background: var(--danger-soft);
+}
+
+.vd-agendar-limpar[hidden],
+.vd-agendar-pop[hidden] {
+  display: none;
+}
+
+.vd-agendar-resumo {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.vd-agendar-resumo.is-aviso {
+  color: var(--warning);
+}
+
+.vd-agendar-resumo.is-passado {
+  color: var(--danger);
+}
+
+.vd-agendar-pop {
+  padding: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  animation: vd-agendar-entra 0.14s ease-out;
+}
+
+@keyframes vd-agendar-entra {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.vd-agendar-atalhos,
+.vd-agendar-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.vd-agendar-chip {
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.vd-agendar-grupo .vd-agendar-chips {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+}
+
+.vd-agendar-chip.is-hora {
+  padding: 5px 4px;
+  font-family: var(--font-mono);
+  border-radius: var(--radius-sm);
+}
+
+.vd-agendar-chip:hover {
+  border-color: var(--accent);
+}
+
+.vd-agendar-chip.is-marcado {
+  color: var(--accent-text);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Mini calendário */
+.vd-agendar-cal-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 12px 0 6px;
+}
+
+.vd-agendar-cal-titulo {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.vd-agendar-seta {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.vd-agendar-seta:hover {
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.vd-agendar-cal-grade {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.vd-agendar-cal-sem {
+  padding: 4px 0;
+  text-align: center;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+
+.vd-agendar-dia {
+  height: 32px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.vd-agendar-dia:hover {
+  background: var(--bg-elevated-3);
+}
+
+.vd-agendar-dia.is-passado,
+.vd-agendar-dia.is-fora {
+  color: var(--text-faint);
+}
+
+.vd-agendar-dia.is-hoje {
+  border-color: color-mix(in oklch, var(--accent) 60%, transparent);
+  font-weight: 600;
+}
+
+.vd-agendar-dia.is-marcado {
+  color: var(--accent-text);
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+/* Horário */
+.vd-agendar-horas {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.vd-agendar-digitar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.vd-agendar-hora-input {
+  width: 110px;
+  padding: 6px 8px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.vd-agendar-hora-input::selection {
+  color: var(--text);
+  background: var(--accent-soft);
+}
+
+.vd-agendar-hora-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.vd-agendar-hora-input.is-invalido {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px var(--danger-soft);
+}
+
+.vd-agendar-passo {
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.vd-agendar-passo:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.vd-agendar-dica {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.vd-agendar-grupo {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  align-items: start;
+  gap: 8px;
+}
+
+.vd-agendar-grupo-rotulo {
+  padding-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.vd-agendar-sem {
+  align-self: flex-start;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-decoration: underline;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.vd-agendar-sem:hover {
+  color: var(--danger);
+}
+
+/* Horários padrão (com nome) */
+.vd-agendar-padroes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.vd-agendar-padroes-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.vd-agendar-padroes-cab .vd-agendar-grupo-rotulo {
+  padding-top: 0;
+}
+
+.vd-agendar-editar {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.vd-agendar-editar:hover {
+  background: var(--accent-soft);
+}
+
+.vd-agendar-chips.is-padroes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+}
+
+.vd-agendar-padrao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 7px 10px;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+button.vd-agendar-padrao {
+  cursor: pointer;
+}
+
+button.vd-agendar-padrao:hover {
+  border-color: var(--accent);
+}
+
+.vd-agendar-padrao.is-marcado {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.vd-agendar-padrao-nome {
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vd-agendar-padrao-hora {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.vd-agendar-dica.is-esquerda {
+  margin: 0;
+  text-align: left;
+}
+
+/* Modal de cadastro */
+.vd-padroes-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.vd-padroes-linha {
+  display: grid;
+  grid-template-columns: 1fr 90px 34px;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.vd-padroes-hora {
+  text-align: center;
+  font-family: var(--font-mono);
+}
+
+.vd-padroes-hora.is-invalido {
+  border-color: var(--danger);
+}
+
+/* Em Ajustes a lista é só leitura: sem grade fixa, o nome aparece inteiro. */
+.aj-corpo > .vd-agendar-chips.is-padroes {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.aj-corpo > .vd-agendar-chips.is-padroes + .pg-botao {
+  align-self: flex-start;
+}
+
+.vd-agendar-padrao.is-estatico .vd-agendar-padrao-nome {
+  overflow: visible;
+}
+
+/* ---- Painel da postagem: acabamento (casca em base.css) ---- */
+
+/* Rótulos dos campos legíveis, sem gritar: o de antes (faint) sumia no cartão. */
+.painel .vd-p-secao .vd-campo-rotulo,
+.painel .vd-p-secao .md-rotulo {
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+
+.vd-p-secao-icone {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+}
+
+/* O contador do título só aparece ao editar (ou quando passou do limite). */
+.vd-painel-titulo-wrap {
+  position: relative;
+}
+
+.vd-painel-titulo-wrap .vd-contador {
+  position: absolute;
+  right: 0;
+  bottom: -10px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.vd-painel-titulo-wrap:focus-within .vd-contador,
+.vd-painel-titulo-wrap .vd-contador.is-excedido {
+  opacity: 1;
+}
+
+/* Chips desmarcados (tags e redes) continuam legíveis — são opções, não itens apagados. */
+.painel .vd-tag.is-inativo {
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+.painel .vd-rede.is-inativo .vd-logo {
+  opacity: 0.6;
+}
+
+.painel .vd-rede.is-inativo .vd-rede-nome {
+  color: var(--text-muted);
+}
+
+.painel .vd-escolha:hover .vd-tag.is-inativo,
+.painel .vd-escolha:hover .vd-rede.is-inativo {
+  border-color: color-mix(in oklch, var(--accent) 45%, var(--border));
+}
+
+/* Na coluna lateral (360px) a data por extenso não cabe ao lado do horário:
+   o dia ocupa a linha toda e o horário (com o ×) vem embaixo. */
+.painel-lateral .vd-agendar-linha {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.painel-lateral .vd-agendar-gatilho.is-data {
+  grid-column: 1 / -1;
+}
+
+.painel-lateral .vd-agendar-gatilho {
+  padding: 8px 10px;
+  gap: 8px;
+}
+
+.painel-lateral .vd-agendar-icone {
+  width: 28px;
+  height: 28px;
+}
+
+.painel-lateral .vd-agendar-chips.is-padroes {
+  grid-template-columns: 1fr;
+}
+
+/* Título do painel com o botão de copiar ao lado. */
+.vd-painel-titulo-linha {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.vd-painel-titulo-linha .vd-painel-titulo {
+  flex: 1;
+  min-width: 0;
+}
+
+.vd-painel-titulo-copiar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  margin-top: -2px;
+  color: var(--text-muted);
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+
+.vd-painel-titulo-copiar:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.vd-painel-titulo-copiar:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.vd-painel-titulo-copiar.is-copiado {
+  color: var(--success);
+  border-color: color-mix(in oklch, var(--success) 50%, transparent);
+  background: var(--success-soft);
 }

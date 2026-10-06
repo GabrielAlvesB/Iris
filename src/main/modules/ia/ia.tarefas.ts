@@ -11,7 +11,7 @@ import {
   type TarefaIa,
 } from '../../../shared/types/ia.types';
 import * as galeria from './ia.galeria';
-import { lerCard, lerItens, lerVariantes, limparTexto, montarPrompt, montarPromptDeImagem } from './ia.prompts';
+import { extrairJson, lerCard, lerItens, lerVariantes, limparTexto, montarPrompt, montarPromptDeImagem } from './ia.prompts';
 import { carregar } from './ia.referencias';
 import { resolver } from './ia.service';
 
@@ -30,7 +30,8 @@ import { resolver } from './ia.service';
  * que o OpenRouter reservaria no saldo.
  */
 function tetoDe(tarefa: PedidoTexto['tarefa']): number {
-  if (tarefa === 'roteiro-rascunho' || tarefa === 'roteiro-revisar') return 12_000;
+  if (tarefa === 'roteiro-rascunho' || tarefa === 'roteiro-revisar' || tarefa === 'roteiro-adaptar') return 12_000;
+  if (tarefa === 'roteiro-critica' || tarefa === 'roteiro-cena') return 6_000;
   return 4_096;
 }
 
@@ -50,6 +51,7 @@ export async function gerarTexto(pedido: PedidoTexto): Promise<RespostaTexto> {
   const quem = { provedor: provedor.id, modelo: provedor.modelo };
   if (prompt.saida === 'variantes') return { variantes: lerVariantes(bruto), ...quem };
   if (prompt.saida === 'itens') return { itens: lerItens(bruto), ...quem };
+  if (prompt.saida === 'json') return { json: extrairJson(bruto), ...quem };
   if (prompt.saida === 'card') {
     const card = lerCard(bruto);
     return { texto: card.descricao, itens: card.itens, ...quem };
