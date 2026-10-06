@@ -33,7 +33,7 @@ A fonte única dessa lista é [modulos.types.ts](src/shared/types/modulos.types.
 | `npx tsc -p tsconfig.json --noEmit` | checagem de tipos dos dois lados de uma vez, sem emitir |
 | `npm run dist` | instalador NSIS + pasta portátil em .zip em `release/` (apaga `release/` antes: só a versão atual fica) |
 | `npm run dist:portable` | só o .zip portátil |
-| `npm run release` | build + instalador/zip + **publica a release no GitHub** (precisa de `GH_TOKEN`) |
+| `npm run release` | build + instalador/zip + **publica a release no GitHub** (precisa de `GH_TOKEN`). Roda no GitHub Actions — ver Atualização do app |
 
 Não há testes automatizados nem linter no projeto. A verificação é **compilar e rodar**.
 
@@ -521,8 +521,11 @@ não seria decifrável em outra máquina.
 - Verifica 12 s após abrir e a cada 6 h (tarefa `atualizacao:verificar`); estado por push
   `atualizacao:estado`. UI: aviso na barra lateral ([core/atualizacao.ts](src/renderer/core/atualizacao.ts))
   e Ajustes › Atualizações.
-- **Publicar versão nova**: subir `version` no package.json e `npm run release` com `GH_TOKEN`
-  (token com permissão de escrita no repositório). Sai como release publicada, não rascunho
+- **Publicar versão nova**: `npm version X.Y.Z --no-git-tag-version`, commit, push, e `git tag vX.Y.Z` +
+  `git push origin vX.Y.Z`. A tag dispara [release.yml](.github/workflows/release.yml), que roda `npm run release`
+  num Windows do GitHub com o `GITHUB_TOKEN` e recusa tag diferente da versão do package.json. **Não rodar
+  `npm run release` no PC do Gabriel**: o Controle Inteligente de Aplicativos bloqueia o desinstalador sem
+  assinatura que o NSIS executa durante o build (`spawn UNKNOWN` em `computeScriptAndSignUninstaller`). Sai como release publicada, não rascunho
   (`releaseType: release`) — rascunho não aparece em `releases/latest`. O `nsis.artifactName`
   sem espaços é o que o service procura (`/setup.*\.exe$/i`).
 

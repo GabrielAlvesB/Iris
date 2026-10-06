@@ -1,0 +1,44 @@
+# Publica uma versão do Iris quando uma tag v* é enviada (ex.: git push origin v0.1.8).
+#
+# Por que no GitHub e não no PC: o electron-builder executa um desinstalador
+# sem assinatura enquanto monta o instalador NSIS, e o Controle Inteligente de
+# Aplicativos do Windows 11 bloqueia isso ("spawn UNKNOWN"). A máquina do
+# GitHub não tem essa política. O token vem do próprio Actions: nada a configurar.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Tag e package.json precisam concordar: o app compara a versão da
+      # release com app.getVersion(), que vem do package.json.
+      - name: Conferir a versão
+        shell: pwsh
+        run: |
+          $versao = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $tag = "${{ github.ref_name }}".TrimStart('v')
+          if ($versao -ne $tag) {
+            Write-Error "A tag é v$tag, mas o package.json está em $versao. Rode 'npm version $tag --no-git-tag-version', faça commit e envie a tag de novo."
+            exit 1
+          }
+
+      - run: npm ci
+
+      - name: Montar e publicar
+        run: npm run release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
