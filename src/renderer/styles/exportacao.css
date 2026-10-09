@@ -12,9 +12,9 @@
   gap: 16px;
   padding: 18px 20px;
   background:
-    radial-gradient(120% 160% at 0% 0%, oklch(0.7 0.15 292 / 0.16), transparent 60%),
+    radial-gradient(120% 160% at 0% 0%, color-mix(in oklch, var(--accent) 16%, transparent), transparent 60%),
     var(--bg-elevated);
-  border: 1px solid oklch(0.7 0.15 292 / 0.22);
+  border: 1px solid color-mix(in oklch, var(--accent) 22%, transparent);
   border-radius: 14px;
 }
 
@@ -200,7 +200,7 @@
 }
 
 .bk-previa-item:has(input:checked) {
-  border-color: oklch(0.7 0.15 292 / 0.4);
+  border-color: color-mix(in oklch, var(--accent) 40%, transparent);
 }
 
 .bk-previa-item input {

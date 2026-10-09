@@ -1,5 +1,6 @@
 import type { Guia } from './tutorial.types.js';
 import { descritorDe } from '../../../shared/types/ia.types.js';
+import { COFRE, DO_SISTEMA, NO_LINUX } from '../../ui/plataforma.js';
 
 /**
  * Um guia por área do app: o que ela resolve, o caminho do primeiro uso e os
@@ -35,6 +36,7 @@ export const GUIA_COMECAR: Guia = {
           tipo: 'lista',
           itens: [
             'Kanban e To-do abrem direto — o trabalho do dia a dia.',
+            'Relacionamento — Contatos (pessoas, empresas, funil e contratos), Leads do formulário do site, Relatórios de leads e API e n8n.',
             'Conteúdo — Postagens, Estúdio IA, Relatórios, Roteiros e Sheets.',
             'Arquivos — Biblioteca, Quadro, Copy, Pensamentos e Links rápidos.',
             'Sistema — Servidores, n8n e GitHub, para quem cuida de infraestrutura.',
@@ -45,8 +47,11 @@ export const GUIA_COMECAR: Guia = {
         {
           tipo: 'atalhos',
           itens: [
-            { teclas: ['Ctrl', 'P'], texto: 'Busca rápida: digite o nome de uma área, de uma seção de Ajustes ou de um guia' },
-            { teclas: ['Ctrl', 'B'], texto: 'Fixa (ou solta) o painel com todas as áreas ao lado dos ícones' },
+            { acao: 'geral.busca', texto: 'Busca rápida: digite o nome de uma área, de uma seção de Ajustes ou de um guia' },
+            { acao: 'ir.postagens', texto: 'G e depois uma letra abre um módulo (aqui, Postagens)' },
+            { acao: 'geral.fixar', texto: 'Fixa (ou solta) o painel com todas as áreas ao lado dos ícones' },
+            { acao: 'geral.tema', texto: 'Troca entre o tema claro e o escuro' },
+            { acao: 'geral.ajuda', texto: 'Mostra todos os atalhos' },
           ],
         },
         {
@@ -63,7 +68,7 @@ export const GUIA_COMECAR: Guia = {
         {
           tipo: 'texto',
           texto:
-            'Tudo o que você cria fica em arquivos dentro da pasta do Iris no seu usuário do Windows. Não existe login nem nuvem: se o computador quebrar, só o backup traz seus dados de volta.',
+            `Tudo o que você cria fica em arquivos dentro da pasta do Iris no seu usuário ${DO_SISTEMA}. Não existe login nem nuvem: se o computador quebrar, só o backup traz seus dados de volta.`,
         },
         {
           tipo: 'lista',
@@ -107,6 +112,7 @@ export const GUIA_COMECAR: Guia = {
         {
           tipo: 'lista',
           itens: [
+            'Ajustes › Aparência — tema escuro (o padrão), claro ou igual ao Windows. Para trocar rápido, o sol/lua na barra lateral.',
             'Ajustes › Preferências — em qual área o Iris abre ao iniciar, entre outras opções gerais.',
             'Ajustes › Empresas e tags — as empresas que você atende e as tags das postagens.',
             'Ajustes › Relatórios — a assinatura que sai no fim de cada PDF.',
@@ -128,7 +134,9 @@ export const GUIA_COMECAR: Guia = {
           tipo: 'aviso',
           nivel: 'atencao',
           texto:
-            'Se o Windows bloquear o instalador ("Controle Inteligente de Aplicativos"), o Iris explica o que fazer. Em Ajustes › Atualizações também dá para escolher outra versão ou instalar de um arquivo.',
+            NO_LINUX
+              ? 'No Linux, a versão nova vem pelo .deb ou pelo AppImage da página da release; os dados continuam onde estão.'
+              : 'Se o Windows bloquear o instalador ("Controle Inteligente de Aplicativos"), o Iris explica o que fazer. Em Ajustes › Atualizações também dá para escolher outra versão ou instalar de um arquivo.',
         },
         { tipo: 'abrir', rotulo: 'Abrir Ajustes › Atualizações', ajustes: 'atualizacoes' },
       ],
@@ -154,7 +162,7 @@ const GUIA_KANBAN: Guia = {
           texto:
             'Clique em "Novo card" no topo — ele nasce na primeira coluna. No painel que abre, dê um título e, se quiser, descrição, prioridade, prazo e subtarefas.',
         },
-        { tipo: 'atalhos', itens: [{ teclas: ['Ctrl', 'K'], texto: 'Novo card, de qualquer lugar do quadro' }] },
+        { tipo: 'atalhos', itens: [{ acao: 'kanban.novo', texto: 'Novo card, de qualquer lugar do quadro' }] },
       ],
     },
     {
@@ -229,6 +237,221 @@ const GUIA_TODO: Guia = {
             'No menu "⋯" da checklist, "Enviar ao Kanban" cria um card na coluna que você escolher, com os itens como subtarefas. A checklist fica marcada como enviada e mostra em que coluna o card está.',
         },
         { tipo: 'abrir', rotulo: 'Abrir o To-do', modulo: 'todo' },
+      ],
+    },
+  ],
+};
+
+const GUIA_CONTATOS: Guia = {
+  id: 'contatos',
+  titulo: 'Contatos',
+  chamada: 'Pessoas e empresas, o histórico de cada uma, funil e contratos.',
+  grupo: 'relacionamento',
+  modulo: 'contatos',
+  resumo:
+    'Contatos é o CRM do Iris: o cadastro das pessoas e empresas com quem você trabalha, a memória de cada conversa, um funil para ver quem está em que etapa e contratos gerados a partir dos seus modelos.',
+  passos: [
+    {
+      id: 'contatos.seus-dados',
+      titulo: 'Preencha os seus dados',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            'Os contratos têm duas partes: o contato e você. Seu nome (ou razão social), documento e endereço vêm de Ajustes › Seus dados — preencha uma vez e todo contrato e ficha em PDF sai com eles.',
+        },
+        { tipo: 'abrir', rotulo: 'Abrir Ajustes › Seus dados', ajustes: 'perfil' },
+      ],
+      verificar: async () => {
+        const r = await window.irisAPI.ajustes.getAjustes();
+        return r.ok && Boolean(r.data.perfil.nome.trim());
+      },
+    },
+    {
+      id: 'contatos.cadastrar',
+      titulo: 'Cadastre pessoas e empresas',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            '"Nova pessoa" e "Nova empresa" pedem só o essencial e já abrem a ficha. Ela tem abas: Visão geral, Conversa (WhatsApp), Histórico e Contratos. Na Visão geral, cada dado se edita clicando nele — telefones, CPF ou CNPJ, endereço, redes — e é salvo sozinho enquanto você digita.',
+        },
+        {
+          tipo: 'lista',
+          itens: [
+            'Uma pessoa pode ser ligada a uma empresa: a ficha da empresa mostra todas as pessoas dela.',
+            'CPF e CNPJ são conferidos pelos dígitos: se algo não bater, aparece um aviso (sem impedir de salvar).',
+            'Arquivar tira da lista sem apagar; o histórico continua.',
+          ],
+        },
+      ],
+      verificar: async () => {
+        const r = await window.irisAPI.contatos.getFile();
+        return r.ok && r.data.pessoas.length + r.data.empresas.length > 0;
+      },
+    },
+    {
+      id: 'contatos.historico',
+      titulo: 'Registre cada conversa',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            'Na aba Histórico da ficha, escolha o tipo (nota, ligação, reunião, e-mail, WhatsApp), escreva o que foi combinado e registre. Dá para mudar a data e anotar algo que aconteceu antes. Mudanças de etapa, contratos e as mensagens de WhatsApp do dia entram sozinhas.',
+        },
+        { tipo: 'atalhos', itens: [{ teclas: 'Ctrl+Enter', texto: 'Registra o que está escrito' }] },
+      ],
+    },
+    {
+      id: 'contatos.proximo',
+      titulo: 'Marque o próximo contato',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            'Na Visão geral, à direita, "Próximo contato" guarda quando falar de novo e sobre o quê — e o topo da ficha sempre mostra. No dia (ou se atrasar), a pessoa aparece na faixa "Para contatar" no topo de Contatos.',
+        },
+        { tipo: 'aviso', nivel: 'dica', texto: 'Os atalhos "Amanhã", "1 semana", "15 dias" e "1 mês" marcam a data num clique.' },
+      ],
+    },
+    {
+      id: 'contatos.funil',
+      titulo: 'Acompanhe no funil',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            'A aba Funil mostra uma coluna por etapa (Lead, Em conversa, Proposta, Cliente, Perdido), com a soma do valor estimado. Arraste os cartões para mudar de etapa. "Editar etapas" troca nomes, cores e ordem.',
+        },
+      ],
+    },
+    {
+      id: 'contatos.contratos',
+      titulo: 'Gere contratos a partir dos seus modelos',
+      blocos: [
+        {
+          tipo: 'lista',
+          numerada: true,
+          itens: [
+            'Na aba Modelos de Contatos, crie um modelo para cada ocasião, diga para que ele serve e escreva o seu texto. "Inserir campo" coloca {nome}, {documento}, {endereco}, {meu_nome}…',
+            'Qualquer outro campo entre chaves, como {valor} ou {prazo}, vira um campo a preencher na hora de gerar.',
+            '"Novo contrato" na aba Contratos (escolhendo o contato), "Usar num contrato" no próprio modelo ou, na ficha, aba Contratos: escolha o modelo, preencha o que falta e confira a prévia.',
+            'Um contrato em rascunho que ficou bom vira modelo pelo botão "Salvar como modelo", no topo dele.',
+            'O rascunho ainda pode ser ajustado. Depois, marque como enviado e como assinado; o PDF sai pelo botão PDF.',
+          ],
+        },
+        {
+          tipo: 'aviso',
+          nivel: 'info',
+          texto:
+            'O contrato guarda uma cópia do texto: mudar o modelo depois não altera contratos já feitos. O Iris não escreve cláusulas — o modelo novo vem só com a estrutura, e o texto jurídico é seu.',
+        },
+      ],
+      verificar: async () => {
+        const r = await window.irisAPI.contatos.getFile();
+        return r.ok && r.data.modelos.length > 0;
+      },
+    },
+    {
+      id: 'contatos.ficha-pdf',
+      titulo: 'Ficha em PDF',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            'No menu ⋯ do topo da ficha, "Ficha em PDF" monta um documento do contato — dados, empresa, histórico (de um período, se quiser), contratos e observações — com a prévia ao lado e a sua assinatura de Ajustes.',
+        },
+        { tipo: 'aviso', nivel: 'dica', texto: 'Ctrl+P encontra qualquer pessoa ou empresa pelo nome e abre a ficha direto, de qualquer lugar do app.' },
+        { tipo: 'abrir', rotulo: 'Abrir Contatos', modulo: 'contatos' },
+      ],
+    },
+  ],
+};
+
+const GUIA_WHATSAPP: Guia = {
+  id: 'whatsapp',
+  titulo: 'WhatsApp',
+  chamada: 'Escreva no Iris e envie exatamente aquele texto.',
+  grupo: 'relacionamento',
+  modulo: 'whatsapp',
+  resumo:
+    'A conversa com cada contato fica na ficha dele (aba Conversa) e na caixa de entrada do módulo WhatsApp. O que você vê na prévia é exatamente o que sai — campos como {primeiro_nome} já preenchidos. Envie pela API oficial da Meta, pela Evolution API, pelo WAHA, pelo n8n ou abrindo o WhatsApp do computador.',
+  passos: [
+    {
+      id: 'whatsapp.caminho',
+      titulo: 'Escolha por onde as mensagens saem',
+      blocos: [
+        {
+          tipo: 'lista',
+          itens: [
+            'Abrir no WhatsApp: funciona sem configurar nada — o Iris abre o WhatsApp do PC com o texto escrito; o Enter é seu.',
+            'API oficial (Meta): número comercial, sem risco de bloqueio. Fora das 24 h desde a última mensagem do contato, só templates aprovados.',
+            'Evolution API ou WAHA: servidor seu, ligado ao WhatsApp por QR code. Envia qualquer texto; use os limites de envio para não ser bloqueado.',
+            'n8n: o Iris chama um fluxo pronto, que envia pelo nó de WhatsApp de lá.',
+          ],
+        },
+        { tipo: 'abrir', rotulo: 'Abrir WhatsApp › Conexão', modulo: 'whatsapp' },
+      ],
+      verificar: async () => {
+        const r = await window.irisAPI.whatsapp.status();
+        return r.ok && (['meta', 'evolution', 'waha', 'n8n'] as const).some((p) => r.data.provedores[p].configurado);
+      },
+    },
+    {
+      id: 'whatsapp.enviar',
+      titulo: 'Envie da ficha do contato',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            'Na ficha, o botão WhatsApp (ou a aba Conversa) abre a conversa. Escreva, use um modelo ou "Campo" para inserir {primeiro_nome}, {empresa}… A prévia mostra o texto final; campos que só você sabe ({valor}) viram caixas para preencher. Enviar só libera quando tudo está preenchido.',
+        },
+        { tipo: 'atalhos', itens: [{ teclas: 'Ctrl+Enter', texto: 'Envia a mensagem' }] },
+        {
+          tipo: 'aviso',
+          nivel: 'info',
+          texto: 'Cada mensagem mostra a situação: relógio (enviando), ✓ (enviada), ✓✓ (entregue), ✓✓ azul (lida) ou "Não saiu" com o motivo e "Tentar de novo".',
+        },
+      ],
+      verificar: async () => {
+        const r = await window.irisAPI.whatsapp.getFile();
+        return r.ok && r.data.mensagens.some((m) => m.direcao === 'saida');
+      },
+    },
+    {
+      id: 'whatsapp.receber',
+      titulo: 'Receba as respostas',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            'Em Conexão › Recebimento, gere a chave do WhatsApp. A Evolution e o WAHA o Iris configura sozinho ("Ligar o webhook"). A API oficial precisa de endereço https público: use a caixa na nuvem (código do Worker na versão 2) ou o fluxo "Receber pela API oficial" do n8n.',
+        },
+        {
+          tipo: 'aviso',
+          nivel: 'dica',
+          texto: 'Mensagem de número que não está no cadastro aparece em Conversas › "Sem cadastro", com "Cadastrar" e "Ligar a um contato".',
+        },
+      ],
+      verificar: async () => {
+        const r = await window.irisAPI.whatsapp.status();
+        return r.ok && r.data.webhook.temChave;
+      },
+    },
+    {
+      id: 'whatsapp.varios',
+      titulo: 'Envie para vários',
+      blocos: [
+        {
+          tipo: 'lista',
+          numerada: true,
+          itens: [
+            'Em Envio para vários, filtre por etapa do funil, tag ou nome e desmarque quem não deve receber.',
+            'Escreva a mensagem ou escolha um modelo e confira a prévia com três contatos reais.',
+            '"Começar envio" manda um por vez, com intervalo sorteado, dentro do horário e do limite do dia (Conexão › Limites de envio). Dá para pausar e cancelar.',
+          ],
+        },
+        { tipo: 'aviso', nivel: 'atencao', texto: 'Quem pediu para não receber (marcado na ficha) nunca entra. Contato sem algum campo do texto é pulado, com o motivo.' },
       ],
     },
   ],
@@ -580,7 +803,7 @@ const GUIA_BIBLIOTECA: Guia = {
           itens: [
             'Recentes — o que você abriu por último.',
             'Busca — procura pelo nome em todas as pastas monitoradas.',
-            'Pastas — navegue pelos arquivos como no Explorador do Windows.',
+            NO_LINUX ? 'Pastas — navegue pelos arquivos como no gerenciador de arquivos.' : 'Pastas — navegue pelos arquivos como no Explorador do Windows.',
           ],
         },
         {
@@ -640,7 +863,7 @@ const GUIA_COPY: Guia = {
       titulo: 'Salve e copie',
       blocos: [
         { tipo: 'texto', texto: 'Crie um texto com um nome fácil de reconhecer. Um clique no cartão copia o conteúdo inteiro.' },
-        { tipo: 'atalhos', itens: [{ teclas: ['Ctrl', '1…9'], texto: 'Copia o 1º ao 9º texto da lista, sem usar o mouse' }] },
+        { tipo: 'atalhos', itens: [{ teclas: 'Ctrl+1…9', texto: 'Copia o 1º ao 9º texto da lista, sem usar o mouse' }] },
       ],
     },
   ],
@@ -662,9 +885,9 @@ const GUIA_PENSAMENTOS: Guia = {
         {
           tipo: 'atalhos',
           itens: [
-            { teclas: ['N'], texto: 'Novo post-it' },
-            { teclas: ['Ctrl', 'Enter'], texto: 'Termina a edição' },
-            { teclas: ['Esc'], texto: 'Sai da edição' },
+            { acao: 'pensamentos.novo', texto: 'Novo post-it' },
+            { teclas: 'Ctrl+Enter', texto: 'Termina a edição' },
+            { teclas: 'Esc', texto: 'Sai da edição' },
           ],
         },
         { tipo: 'aviso', nivel: 'dica', texto: 'Mude a cor do papel para separar assuntos; o texto ajusta o contraste sozinho.' },
@@ -753,6 +976,87 @@ const GUIA_TRAFEGO: Guia = {
   ],
 };
 
+const GUIA_ATALHOS: Guia = {
+  id: 'atalhos',
+  titulo: 'Atalhos de teclado',
+  chamada: 'Ande pelo Iris sem tirar a mão do teclado.',
+  grupo: 'app',
+  icone:
+    '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01"/><path d="M10 9h.01"/><path d="M14 9h.01"/><path d="M18 9h.01"/><path d="M6 13h.01"/><path d="M18 13h.01"/><path d="M10 13h4"/><path d="M8 16h8"/>',
+  resumo:
+    'Quase tudo no Iris tem uma tecla: abrir qualquer módulo, buscar, voltar para a tela anterior. Todas aparecem com Shift+? e todas podem ser trocadas em Ajustes.',
+  passos: [
+    {
+      id: 'atalhos.ir',
+      titulo: 'G e uma letra abre um módulo',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto: 'Aperte G, solte e aperte a letra do módulo. Um aviso no canto mostra que o Iris está esperando a segunda tecla.',
+        },
+        {
+          tipo: 'atalhos',
+          itens: [
+            { acao: 'ir.kanban', texto: 'Kanban' },
+            { acao: 'ir.todo', texto: 'To-do' },
+            { acao: 'ir.contatos', texto: 'Contatos' },
+            { acao: 'ir.leads', texto: 'Leads' },
+            { acao: 'ir.postagens', texto: 'Postagens' },
+            { acao: 'ir.roteiros', texto: 'Roteiros' },
+            { acao: 'ir.relatorios', texto: 'Relatórios' },
+          ],
+        },
+        {
+          tipo: 'aviso',
+          nivel: 'dica',
+          texto: 'A lista completa, com a letra de cada módulo, está na ajuda (Shift+?) e na busca rápida, ao lado de cada nome.',
+        },
+      ],
+    },
+    {
+      id: 'atalhos.gerais',
+      titulo: 'Os que valem em qualquer tela',
+      blocos: [
+        {
+          tipo: 'atalhos',
+          itens: [
+            { acao: 'geral.busca', texto: 'Busca rápida: módulos, contatos, seções de Ajustes e guias' },
+            { acao: 'geral.ajuda', texto: 'Todos os atalhos, com busca' },
+            { acao: 'geral.voltar', texto: 'Volta ao módulo anterior' },
+            { acao: 'geral.avancar', texto: 'Avança de novo, depois de voltar' },
+            { acao: 'geral.fixar', texto: 'Fixa ou solta o painel da barra lateral' },
+            { acao: 'geral.tema', texto: 'Troca entre o tema claro e o escuro' },
+            { acao: 'ir.ajustes', texto: 'Ajustes' },
+            { acao: 'ir.tutorial', texto: 'Tutorial' },
+          ],
+        },
+        {
+          tipo: 'aviso',
+          nivel: 'info',
+          texto: 'Escrevendo num campo de texto, as letras são texto: só valem os atalhos com Ctrl ou Alt. Com uma janela aberta por cima, nenhum dispara.',
+        },
+      ],
+    },
+    {
+      id: 'atalhos.trocar',
+      titulo: 'Troque qualquer tecla',
+      blocos: [
+        {
+          tipo: 'lista',
+          numerada: true,
+          itens: [
+            'Abra Ajustes › Atalhos de teclado.',
+            'Clique em "Trocar" ao lado do atalho e aperte a combinação nova.',
+            'Se ela já for de outra ação, o Iris avisa e, ao salvar, tira a tecla de lá.',
+          ],
+        },
+        { tipo: 'abrir', rotulo: 'Abrir Atalhos de teclado', ajustes: 'atalhos' },
+        { tipo: 'aviso', nivel: 'atencao', texto: `Copiar, colar, desfazer, recarregar e as teclas ${DO_SISTEMA} não podem virar atalho.` },
+      ],
+    },
+  ],
+};
+
 const GUIA_AJUSTES: Guia = {
   id: 'ajustes',
   titulo: 'Ajustes',
@@ -768,9 +1072,11 @@ const GUIA_AJUSTES: Guia = {
         {
           tipo: 'lista',
           itens: [
+            'Seus dados — quem você é nos contratos e nas fichas em PDF.',
             'n8n, GitHub e Inteligência artificial — as conexões com serviços externos.',
             'Empresas e tags, Escalas de score e Horários padrão — o catálogo usado por Postagens e Relatórios.',
-            'Segurança — o cofre do Windows onde ficam senhas e chaves.',
+            `Segurança — o ${COFRE} onde ficam senhas e chaves.`,
+            'Aparência — tema escuro, claro ou igual ao Windows.',
             'Preferências — comportamento geral, como a área que abre ao iniciar.',
             'Relatórios — a assinatura do PDF.',
             'Atualizações — versão nova, outra versão ou instalar de um arquivo.',
@@ -787,7 +1093,7 @@ const GUIA_AJUSTES: Guia = {
         {
           tipo: 'texto',
           texto:
-            'Tokens, chaves de IA e senhas de chave SSH são cifrados pelo próprio Windows e nunca voltam para a tela inteiros — o Iris mostra só se estão salvos (e, nas chaves de IA, os 4 últimos caracteres para você reconhecer qual é).',
+            `Tokens, chaves de IA e senhas de chave SSH são cifrados pelo ${COFRE} e nunca voltam para a tela inteiros — o Iris mostra só se estão salvos (e, nas chaves de IA, os 4 últimos caracteres para você reconhecer qual é).`,
         },
       ],
     },
@@ -795,9 +1101,185 @@ const GUIA_AJUSTES: Guia = {
 };
 
 /** Na ordem da barra lateral. n8n, Servidores e GitHub são os próprios guias de conexão. */
+const GUIA_LEADS: Guia = {
+  id: 'leads',
+  titulo: 'Leads',
+  chamada: 'Quem chegou pelo formulário do site: caixa de entrada e painel.',
+  grupo: 'relacionamento',
+  modulo: 'leads',
+  resumo:
+    'Leads é onde aparece quem preencheu o formulário do seu site (ou chegou por um fluxo do n8n): na hora, com o horário de chegada, de onde veio e uma pontuação de quanto vale a pena. Cada lead já é uma pessoa em Contatos.',
+  passos: [
+    {
+      id: 'leads.caixa',
+      titulo: 'A caixa de entrada',
+      blocos: [
+        {
+          tipo: 'lista',
+          itens: [
+            'Do mais novo ao mais antigo, com filtros: não vistos, quentes, mornos, frios e sem resposta há mais de 24 h.',
+            'Clicar abre a ficha aqui mesmo (e marca como visto). "Voltar" volta para Leads.',
+            '"Descartar" leva para a etapa perdida do funil, com o motivo no histórico. O contato continua cadastrado.',
+            'Quem manda o formulário de novo (mesmo e-mail ou telefone) não vira outra pessoa: entra no histórico como "Voltou pelo formulário" e volta para o topo.',
+          ],
+        },
+        {
+          tipo: 'aviso',
+          nivel: 'dica',
+          texto: `Lead novo dispara uma notificação ${DO_SISTEMA} (clicar abre a ficha) e um número no ícone de Leads com os ainda não vistos.`,
+        },
+      ],
+      verificar: async () => {
+        const r = await window.irisAPI.contatos.getFile();
+        return r.ok && r.data.pessoas.some((p) => p.entrada);
+      },
+    },
+    {
+      id: 'leads.pontuacao',
+      titulo: 'Entenda a pontuação',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            'Cada lead ganha uma nota de 0 a 100 somando critérios — empresa ou CNPJ informado, e-mail profissional, mensagem preenchida, origem de anúncio. Na ficha, o cartão "Como chegou" mostra o porquê de cada ponto, as UTMs e quanto tempo levou até o primeiro contato.',
+        },
+        { tipo: 'abrir', rotulo: 'Ajustar os pesos em API e n8n', modulo: 'api-leads' },
+      ],
+    },
+    {
+      id: 'leads.painel',
+      titulo: 'O Painel',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            'Em "Painel": leads por dia, por hora e por dia da semana, por origem e campanha, a conversão de cada origem e o funil. "O que está acontecendo" resume os fatos do período — só números, sem opinião.',
+        },
+        { tipo: 'abrir', rotulo: 'Abrir Leads', modulo: 'leads' },
+      ],
+    },
+  ],
+};
+
+const GUIA_RELATORIOS_LEADS: Guia = {
+  id: 'relatorios-leads',
+  titulo: 'Relatórios de leads',
+  chamada: 'PDFs de quantos leads chegaram, de onde e quantos viraram clientes.',
+  grupo: 'relacionamento',
+  modulo: 'relatorios-leads',
+  resumo:
+    'Um relatório de leads é uma configuração guardada — período, o que entra e os seus comentários. Os números são sempre os do dia em que o PDF é gerado.',
+  passos: [
+    {
+      id: 'relatorios-leads.criar',
+      titulo: 'Crie e exporte',
+      blocos: [
+        {
+          tipo: 'lista',
+          numerada: true,
+          itens: [
+            '"Novo relatório" abre o editor: escolha o período (este mês, 7, 30 ou 90 dias, ou datas) e o que entra — resumo, origens e campanhas, horários e a lista de leads.',
+            'Escreva os comentários: o que você leu nos números e o que vai fazer.',
+            'A prévia ao lado é exatamente o PDF. "Salvar" guarda; "Exportar PDF" salva o arquivo e guarda também.',
+            'Na lista, "PDF" gera de novo com um clique, com os números de hoje.',
+          ],
+        },
+        { tipo: 'aviso', nivel: 'dica', texto: 'Preencha Ajustes › Seus dados e a assinatura para o documento sair com o seu cabeçalho.' },
+      ],
+      verificar: async () => {
+        const r = await window.irisAPI.contatos.getFile();
+        return r.ok && r.data.relatoriosLeads.length > 0;
+      },
+    },
+  ],
+};
+
+const GUIA_API_LEADS: Guia = {
+  id: 'api-leads',
+  titulo: 'API e n8n',
+  chamada: 'Conecte o formulário do site e o n8n ao Iris.',
+  grupo: 'relacionamento',
+  modulo: 'api-leads',
+  resumo:
+    'O Iris roda só no seu computador. O que vem da internet (um site publicado, um n8n num servidor) passa por uma "caixa na nuvem" gratuita; o que roda no próprio computador (testes, um n8n instalado aqui) fala direto com o servidor local.',
+  passos: [
+    {
+      id: 'api-leads.nuvem',
+      titulo: 'Crie a caixa na nuvem',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            'Em "Caixa na nuvem", siga o passo a passo pelo painel da Cloudflare (sem terminal, sem cartão): criar o Worker, colar o código, criar o KV e preencher as variáveis. Depois cole o endereço, "Testar conexão" e ligue "Buscar a cada minuto".',
+        },
+        {
+          tipo: 'aviso',
+          nivel: 'info',
+          texto: 'A chave do formulário é pública (só envia). A chave do Iris é secreta: fica cifrada neste computador e nunca aparece na tela — gerar e copiar mandam direto para a área de transferência.',
+        },
+      ],
+      verificar: async () => {
+        const r = await window.irisAPI.contatos.getFile();
+        return r.ok && Boolean(r.data.leadsConfig.nuvem.url) && r.data.leadsConfig.nuvem.ativo;
+      },
+    },
+    {
+      id: 'api-leads.site',
+      titulo: 'Coloque o formulário no site',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            'Em "No seu site", copie o formulário pronto (HTML simples ou com JavaScript): ele já sai com o seu endereço e a sua chave. A tabela mostra os campos — nome, e-mail e telefone obrigatórios; o resto opcional.',
+        },
+      ],
+    },
+    {
+      id: 'api-leads.n8n',
+      titulo: 'Ligue o n8n',
+      blocos: [
+        {
+          tipo: 'lista',
+          itens: [
+            'Neste computador (n8n Desktop ou npx n8n): o n8n chama o servidor local pelo 127.0.0.1.',
+            'Em Docker neste computador: chama pelo host.docker.internal, com "aceitar da rede local" ligado.',
+            'Num servidor ou n8n Cloud: envia para a caixa na nuvem — de lá não se alcança o seu PC.',
+          ],
+        },
+        {
+          tipo: 'texto',
+          texto:
+            'Na seção n8n, escolha onde ele roda: o fluxo pronto (Webhook → Campos do Iris → Enviar ao Iris) sai com o endereço certo. "Copiar fluxo" para colar no editor, ou "Criar no meu n8n" com a conexão de Ajustes › n8n. Ative o fluxo e teste de ponta a ponta.',
+        },
+        { tipo: 'abrir', rotulo: 'Abrir Ajustes › n8n', ajustes: 'n8n' },
+      ],
+      verificar: async () => {
+        const r = await window.irisAPI.n8n.getConfig();
+        return r.ok && Boolean(r.data.baseUrl) && r.data.temApiKey;
+      },
+    },
+    {
+      id: 'api-leads.testar',
+      titulo: 'Teste sem publicar nada',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto: 'Em "Servidor local", ligue o servidor e use "Testar agora": um lead de exemplo entra pelo mesmo caminho de um formulário e aparece em Leads.',
+        },
+        { tipo: 'abrir', rotulo: 'Abrir API e n8n', modulo: 'api-leads' },
+      ],
+    },
+  ],
+};
+
 export const GUIAS_DAS_AREAS: Guia[] = [
   GUIA_KANBAN,
   GUIA_TODO,
+  GUIA_CONTATOS,
+  GUIA_LEADS,
+  GUIA_RELATORIOS_LEADS,
+  GUIA_API_LEADS,
+  GUIA_WHATSAPP,
   GUIA_POSTAGENS,
   GUIA_ESTUDIO,
   GUIA_RELATORIOS,
@@ -809,5 +1291,6 @@ export const GUIAS_DAS_AREAS: Guia[] = [
   GUIA_PENSAMENTOS,
   GUIA_LINKS,
   GUIA_TRAFEGO,
+  GUIA_ATALHOS,
   GUIA_AJUSTES,
 ];

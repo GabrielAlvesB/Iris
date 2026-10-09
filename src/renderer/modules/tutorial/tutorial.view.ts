@@ -2,7 +2,8 @@ import * as tutorialState from './tutorial.state.js';
 import type { TutorialViewState } from './tutorial.state.js';
 import { GUIAS } from './tutorial.content.js';
 import type { Bloco, EstadoPasso, Guia, GrupoGuia, Passo } from './tutorial.types.js';
-import { ICONES, buildBotao, buildBusca, buildCabecalho, buildSelo, buildVazio, focarBusca, svg } from '../../ui/pagina.js';
+import { ICONES, buildBotao, buildBusca, buildCabecalho, buildSelo, buildTeclas, buildVazio, focarBusca, svg } from '../../ui/pagina.js';
+import { comboDe } from '../../core/atalhos.js';
 import { ICONE_DO_MODULO } from '../../core/sidebar.js';
 import { abrirAjustes, abrirModulo } from '../../core/navegacao.js';
 import { CATEGORIAS, MODULOS } from '../../../shared/types/modulos.types.js';
@@ -29,11 +30,12 @@ const ROTULO_DO_GRUPO: Record<GrupoGuia, string> = {
 };
 
 /** Ordem dos grupos no índice e no Início. 'sistema' fica vazio: seus guias são as conexões. */
-const ORDEM_GRUPOS: GrupoGuia[] = ['comecar', 'conectar', 'dia', 'conteudo', 'arquivos', 'trafego', 'app'];
+const ORDEM_GRUPOS: GrupoGuia[] = ['comecar', 'conectar', 'dia', 'relacionamento', 'conteudo', 'arquivos', 'trafego', 'app'];
 
 const DESCRICAO_DO_GRUPO: Partial<Record<GrupoGuia, string>> = {
   conectar: 'Passo a passo para ligar o Iris a outros serviços. As marcas de feito vêm da sua configuração real.',
   dia: 'Tarefas e checklists do dia a dia.',
+  relacionamento: 'Pessoas e empresas com quem você trabalha: histórico, funil e contratos.',
   conteudo: 'Da pauta à publicação, e do resultado ao relatório.',
   arquivos: 'Materiais, ideias e atalhos à mão.',
   trafego: 'Anúncios e o retorno de cada campanha.',
@@ -59,6 +61,11 @@ function progresso(state: TutorialViewState, guia: Guia): { feitos: number; tota
   return { feitos: contam.filter((p) => state.estados[p.id] === 'ok').length, total: contam.length };
 }
 
+/** A tecla de agora, quando o item aponta uma ação do catálogo; senão, a escrita no guia. */
+function teclasDoItem(item: { acao?: string; teclas?: string }): string {
+  return item.acao ? comboDe(item.acao) : (item.teclas ?? '');
+}
+
 function textoDoBloco(bloco: Bloco): string {
   switch (bloco.tipo) {
     case 'texto':
@@ -69,7 +76,7 @@ function textoDoBloco(bloco: Bloco): string {
     case 'comando':
       return `${bloco.comando} ${bloco.legenda ?? ''}`;
     case 'atalhos':
-      return bloco.itens.map((i) => `${i.teclas.join(' ')} ${i.texto}`).join(' ');
+      return bloco.itens.map((i) => `${teclasDoItem(i)} ${i.texto}`).join(' ');
     case 'link':
     case 'abrir':
       return bloco.rotulo;
@@ -164,10 +171,7 @@ function buildBloco(bloco: Bloco): HTMLElement {
       bloco.itens.forEach((item) => {
         const linha = el('div', 'tut-atalho');
         const teclas = el('span', 'tut-teclas');
-        item.teclas.forEach((t, i) => {
-          if (i > 0) teclas.appendChild(el('span', 'tut-mais', '+'));
-          teclas.appendChild(el('kbd', undefined, t));
-        });
+        teclas.appendChild(buildTeclas(teclasDoItem(item)));
         linha.append(teclas, el('span', 'tut-atalho-texto', item.texto));
         lista.appendChild(linha);
       });

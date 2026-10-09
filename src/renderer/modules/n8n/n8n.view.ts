@@ -10,7 +10,6 @@ import {
   buildBotaoAjuda,
   buildBusca,
   buildCabecalho,
-  buildIndicadores,
   buildSegmentado,
   buildSelo,
   buildVazio,
@@ -87,34 +86,6 @@ function buildTopo(state: N8nViewState): HTMLElement {
     extras: [selo],
     acoes: [atualizar, buildBotaoAjuda(() => abrirTutorial('n8n'))],
   });
-}
-
-function buildResumo(state: N8nViewState): HTMLElement {
-  const { workflows, execucoes } = state.snapshot;
-  const ativos = workflows.filter((w) => w.ativo).length;
-  const falhas = execucoes.filter((e) => e.status === 'erro').length;
-  const concluidas = execucoes.filter((e) => e.status === 'sucesso' || e.status === 'erro').length;
-  const taxa = concluidas > 0 ? Math.round(((concluidas - falhas) / concluidas) * 100) : null;
-
-  return buildIndicadores([
-    { rotulo: 'Workflows', valor: String(workflows.length), detalhe: `${ativos} ativo${ativos === 1 ? '' : 's'}` },
-    {
-      rotulo: 'Execuções recentes',
-      valor: String(execucoes.length),
-      detalhe: execucoes[0] ? `última ${tempoRelativo(execucoes[0].iniciadaEm)}` : 'nenhuma ainda',
-    },
-    {
-      rotulo: 'Falhas',
-      valor: String(falhas),
-      detalhe: falhas > 0 ? 'precisa de atenção' : 'tudo em ordem',
-      tom: falhas > 0 ? 'erro' : 'ok',
-    },
-    {
-      rotulo: 'Taxa de sucesso',
-      valor: taxa === null ? '—' : `${taxa}%`,
-      detalhe: concluidas > 0 ? `em ${concluidas} execuções` : 'sem dados',
-    },
-  ]);
 }
 
 async function disparar(workflow: N8nWorkflow): Promise<void> {
@@ -299,8 +270,6 @@ export function render(container: HTMLElement, state: N8nViewState): void {
   if (!state.snapshot.conectado && state.snapshot.erro) {
     view.appendChild(buildAviso(state.snapshot.erro, 'erro'));
   }
-
-  view.appendChild(buildResumo(state));
 
   const barra = document.createElement('div');
   barra.className = 'pg-barra';

@@ -1,6 +1,6 @@
 import type { CopyFile, CopySnippet } from '../../../shared/types/copy.types';
 import * as copyState from './copy.state.js';
-import { promptText, openConfirmModal, openCustomModal, buildSecaoModal } from '../../ui/modal.js';
+import { promptText, openConfirmModal, openCustomModal, buildSecaoModal, haModalAberto } from '../../ui/modal.js';
 import { campo, erroInline, input, textarea } from '../../ui/campos.js';
 import { buildBotao } from '../../ui/pagina.js';
 
@@ -75,7 +75,7 @@ function buildSnippetCard(snippet: CopySnippet, shortcutIndex: number | null): H
   if (shortcutIndex !== null) {
     const shortcut = document.createElement('span');
     shortcut.className = 'copy-card-shortcut';
-    shortcut.textContent = `⌘${shortcutIndex}`;
+    shortcut.textContent = `Ctrl+${shortcutIndex}`;
     header.appendChild(shortcut);
   }
   card.appendChild(header);
@@ -257,7 +257,7 @@ async function handleImportTxt(): Promise<void> {
 function attachShortcuts(): void {
   if (shortcutsHandler) return;
   shortcutsHandler = (e: KeyboardEvent) => {
-    if (!(e.metaKey || e.ctrlKey)) return;
+    if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey || haModalAberto()) return;
     const digit = Number.parseInt(e.key, 10);
     if (Number.isNaN(digit) || digit < 1 || digit > 9) return;
     const visible = (copyState.getCurrentState()?.snippets ?? [])

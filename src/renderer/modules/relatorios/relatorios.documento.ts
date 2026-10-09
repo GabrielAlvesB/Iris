@@ -13,6 +13,10 @@ import {
 } from '../../../shared/types/relatorios.types.js';
 import { ESCALA_LEGADA, descreverEscala, faixaDaEscala, intervaloDaFaixa, type EscalaScore } from '../../../shared/types/score.types.js';
 import { svg } from '../../ui/pagina.js';
+import { buildAssinatura, dataPorExtenso, paragrafos } from '../../ui/documento.js';
+
+// Quem já importava daqui continua funcionando; a casa delas agora é ui/documento.ts.
+export { buildAssinatura, dataPorExtenso, paragrafos };
 import { formatarData } from '../postagens/postagens.ui.js';
 import {
   descreverPeriodoFiltro,
@@ -45,60 +49,6 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, classe?: string, text
   return e;
 }
 
-/** `**trecho**` vira negrito; o resto entra como texto puro. */
-function comNegrito(destino: HTMLElement, linha: string): void {
-  linha.split(/(\*\*[^*]+\*\*)/g).forEach((parte) => {
-    if (/^\*\*[^*]+\*\*$/.test(parte)) destino.appendChild(el('strong', undefined, parte.slice(2, -2)));
-    else if (parte) destino.append(parte);
-  });
-}
-
-const MARCADOR_LISTA = /^\s*[-•*]\s+/;
-const MARCADOR_NUMERO = /^\s*\d+[.)]\s+/;
-
-/**
- * Texto livre em parágrafos, sem innerHTML. Uma formatação mínima, que se
- * escreve sem barra de ferramentas: linhas com "- " viram lista, "1. " lista
- * numerada, e **trecho** fica em negrito.
- */
-export function paragrafos(texto: string, classe = 'rd-texto'): HTMLElement {
-  const wrap = el('div', classe);
-  texto
-    .split(/\n{2,}/)
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .forEach((p) => {
-      let par: HTMLElement | null = null;
-      let lista: HTMLElement | null = null;
-      p.split('\n').forEach((linha) => {
-        const marcador = MARCADOR_LISTA.test(linha) ? 'ul' : MARCADOR_NUMERO.test(linha) ? 'ol' : null;
-        if (marcador) {
-          par = null;
-          if (!lista || lista.tagName.toLowerCase() !== marcador) {
-            lista = el(marcador);
-            wrap.appendChild(lista);
-          }
-          const li = el('li');
-          comNegrito(li, linha.replace(marcador === 'ul' ? MARCADOR_LISTA : MARCADOR_NUMERO, ''));
-          lista.appendChild(li);
-          return;
-        }
-        lista = null;
-        if (par) par.appendChild(document.createElement('br'));
-        else {
-          par = el('p');
-          wrap.appendChild(par);
-        }
-        comNegrito(par, linha);
-      });
-    });
-  return wrap;
-}
-
-export function dataPorExtenso(iso: string): string {
-  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
-}
-
 export function descreverPeriodo(rel: Pick<Relatorio, 'periodoInicio' | 'periodoFim'>): string {
   if (rel.periodoInicio && rel.periodoFim) return `${formatarData(rel.periodoInicio)} a ${formatarData(rel.periodoFim)}`;
   if (rel.periodoInicio) return `A partir de ${formatarData(rel.periodoInicio)}`;
@@ -116,22 +66,6 @@ function rotuloTipoMarcacao(id: string): string {
 
 function rotuloStatusMarcacao(id: string): string {
   return STATUS_MARCACAO.find((s) => s.id === id)?.rotulo ?? id;
-}
-
-// ---------- Assinatura ----------
-
-/**
- * O único lugar que desenha a assinatura. Nome, linhas e formato vêm dos
- * Ajustes: mudar a identificação não mexe no gerador.
- */
-export function buildAssinatura(assinatura: AssinaturaRelatorio, dataEmissao = new Date().toISOString()): HTMLElement | null {
-  if (!assinatura.nome.trim()) return null;
-  const bloco = el('footer', `rd-assinatura is-${assinatura.formato}`);
-  if (assinatura.formato === 'com-linha') bloco.appendChild(el('span', 'rd-assinatura-linha'));
-  bloco.appendChild(el('strong', 'rd-assinatura-nome', assinatura.nome));
-  assinatura.linhas.forEach((linha) => bloco.appendChild(el('span', 'rd-assinatura-texto', linha)));
-  if (assinatura.mostrarData) bloco.appendChild(el('span', 'rd-assinatura-data', `Emitido em ${dataPorExtenso(dataEmissao)}`));
-  return bloco;
 }
 
 // ---------- Blocos ----------

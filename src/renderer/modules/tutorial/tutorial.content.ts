@@ -1,5 +1,6 @@
 import type { Guia } from './tutorial.types.js';
 import { GUIAS_DAS_AREAS, GUIA_COMECAR } from './tutorial.areas.js';
+import { COFRE, NO_LINUX } from '../../ui/plataforma.js';
 
 /**
  * Conteúdo dos guias em TypeScript, e não em markdown solto, porque o
@@ -99,7 +100,7 @@ const GUIA_N8N: Guia = {
           tipo: 'aviso',
           nivel: 'atencao',
           texto:
-            'Copie a key na hora: o n8n mostra o valor completo uma vez só. A key fica guardada cifrada no cofre do Windows e nunca mais volta para a tela — nem entra no arquivo de backup.',
+            `Copie a key na hora: o n8n mostra o valor completo uma vez só. A key fica guardada cifrada no ${COFRE} e nunca mais volta para a tela — nem entra no arquivo de backup.`,
         },
       ],
       verificar: async () => {
@@ -211,14 +212,14 @@ const GUIA_SERVIDORES: Guia = {
       id: 'srv.ssh.chave',
       titulo: 'Criar a chave (se ainda não tiver)',
       blocos: [
-        { tipo: 'texto', texto: 'Abra o PowerShell no seu computador e rode:' },
+        { tipo: 'texto', texto: NO_LINUX ? 'Abra o Terminal e rode:' : 'Abra o PowerShell no seu computador e rode:' },
         { tipo: 'comando', comando: 'ssh-keygen -t ed25519 -C "iris"', legenda: 'Pode aceitar todos os padrões apertando Enter' },
         {
           tipo: 'texto',
           texto:
             'Isso cria dois arquivos na pasta .ssh dentro do seu usuário: id_ed25519 (o privado, que fica só aqui) e id_ed25519.pub (o público, que vai para o servidor).',
         },
-        { tipo: 'comando', comando: 'type $env:USERPROFILE\\.ssh\\id_ed25519.pub', legenda: 'Mostra o conteúdo da chave pública para copiar' },
+        { tipo: 'comando', comando: NO_LINUX ? 'cat ~/.ssh/id_ed25519.pub' : 'type $env:USERPROFILE\\.ssh\\id_ed25519.pub', legenda: 'Mostra o conteúdo da chave pública para copiar' },
         {
           tipo: 'aviso',
           nivel: 'atencao',
@@ -354,7 +355,7 @@ const GUIA_GITHUB: Guia = {
         {
           tipo: 'texto',
           texto:
-            'Em Ajustes → GitHub, cole o token e salve. Assim como a key do n8n, ele fica cifrado no cofre do Windows, nunca volta para a tela e não entra no backup.',
+            `Em Ajustes → GitHub, cole o token e salve. Assim como a key do n8n, ele fica cifrado no ${COFRE}, nunca volta para a tela e não entra no backup.`,
         },
         { tipo: 'abrir', rotulo: 'Abrir Ajustes › GitHub', ajustes: 'github' },
       ],
@@ -650,7 +651,7 @@ const GUIA_IA: Guia = {
           numerada: true,
           itens: [
             'Baixe e instale o Ollama (ollama.com/download) e deixe-o aberto',
-            'No PowerShell, baixe um modelo com o comando abaixo',
+            NO_LINUX ? 'No Terminal, baixe um modelo com o comando abaixo' : 'No PowerShell, baixe um modelo com o comando abaixo',
             'No Iris: Ajustes → Inteligência artificial → No seu computador → Ollama → Ativar → Testar',
           ],
         },

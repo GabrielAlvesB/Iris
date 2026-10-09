@@ -59,7 +59,12 @@ async function saveFile(file: SecretsFile): Promise<void> {
 /** Nunca chamar no topo do módulo: safeStorage só é confiável após whenReady(). */
 export function isEncryptionAvailable(): boolean {
   try {
-    return safeStorage.isEncryptionAvailable();
+    if (!safeStorage.isEncryptionAvailable()) return false;
+    // Linux sem chaveiro (GNOME Keyring, KWallet): o safeStorage diz que cifra,
+    // mas o "basic_text" usa uma senha fixa no código do Chromium — só ofusca.
+    // Tratar como sem cofre faz a tela avisar em vez de fingir proteção.
+    if (process.platform === 'linux' && safeStorage.getSelectedStorageBackend() === 'basic_text') return false;
+    return true;
   } catch {
     return false;
   }

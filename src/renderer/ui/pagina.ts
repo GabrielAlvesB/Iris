@@ -279,3 +279,44 @@ export function tempoRelativo(iso?: string): string {
   const anos = Math.floor(segundos / 31536000);
   return anos === 1 ? 'há 1 ano' : `há ${anos} anos`;
 }
+
+// ---------- Teclas de atalho ----------
+
+const NOME_VISIVEL_DA_TECLA: Record<string, string> = {
+  Left: '←',
+  Right: '→',
+  Up: '↑',
+  Down: '↓',
+  Space: 'Espaço',
+  Delete: 'Del',
+  PageUp: 'PgUp',
+  PageDown: 'PgDn',
+};
+
+/**
+ * Uma combinação desenhada como teclas: "Ctrl+P" vira [Ctrl] [P] e a
+ * sequência "G K" vira [G] depois [K]. Sempre "Ctrl", nunca "⌘" — o app é
+ * Windows. Vazio = "sem atalho".
+ */
+export function buildTeclas(combo: string): HTMLElement {
+  const wrap = document.createElement('span');
+  wrap.className = 'pg-teclas';
+  if (!combo) {
+    wrap.classList.add('is-vazio');
+    wrap.textContent = 'sem atalho';
+    return wrap;
+  }
+  combo.split(' ').forEach((passo, i) => {
+    if (i > 0) wrap.appendChild(Object.assign(document.createElement('span'), { className: 'pg-teclas-depois', textContent: 'depois' }));
+    // "Ctrl++": a tecla é o próprio "+".
+    const teclas = passo.endsWith('++') ? [...passo.slice(0, -2).split('+'), '+'] : passo.split('+');
+    teclas.forEach((t) => {
+      const kbd = document.createElement('kbd');
+      kbd.className = 'pg-kbd';
+      kbd.textContent = NOME_VISIVEL_DA_TECLA[t] ?? t;
+      wrap.appendChild(kbd);
+    });
+  });
+  wrap.setAttribute('aria-label', combo.replace(' ', ' depois '));
+  return wrap;
+}

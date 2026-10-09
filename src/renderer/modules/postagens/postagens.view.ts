@@ -8,7 +8,6 @@ import {
   buildBotao,
   buildBusca,
   buildCabecalho,
-  buildIndicadores,
   buildSegmentado,
   buildVazio,
   focarBusca,
@@ -381,39 +380,6 @@ function buildBarra(fonte: Fonte): HTMLElement {
   }
 
   return barra;
-}
-
-// ---------- Indicadores ----------
-
-function buildResumo(fonte: Fonte): HTMLElement {
-  const hoje = hojeIso();
-  const fimSemana = somarDias(hoje, 7);
-  const itens = fonte.itens;
-  const etapasDa = (fase: string): string[] => fonte.etapas.filter((s) => s.fase === fase).map((s) => s.id);
-  const contar = (status: string[]): number => itens.filter((v) => status.includes(v.status)).length;
-  const descrever = (status: string[]): string => status.map((s) => rotuloEtapa(fonte, s).toLowerCase()).join(' e ');
-  const pre = etapasDa('pre');
-  const producao = etapasDa('producao');
-  const agendadosSemana = itens.filter(
-    (v) => v.status === 'agendado' && v.dataAgendada && v.dataAgendada >= hoje && v.dataAgendada <= fimSemana,
-  ).length;
-  const mesAtual = hoje.slice(0, 7);
-  const publicadosMes = itens.filter((v) => v.status === 'publicado' && v.publicadoEm?.slice(0, 7) === mesAtual).length;
-  const atrasados = itens.filter((v) => atrasado(v, hoje)).length;
-
-  return buildIndicadores([
-    { rotulo: 'A produzir', valor: String(contar(pre)), detalhe: descrever(pre) },
-    { rotulo: 'Em produção', valor: String(contar(producao)), detalhe: descrever(producao) },
-    { rotulo: 'Prontos', valor: String(contar(['pronto'])), detalhe: 'esperando agenda' },
-    // Atraso é uma questão de agenda (data vencida sem publicar), qualquer que seja a etapa.
-    {
-      rotulo: 'Agendados',
-      valor: String(contar(['agendado'])),
-      detalhe: atrasados ? `${atrasados} com data vencida` : `${agendadosSemana} nos próximos 7 dias`,
-      tom: atrasados ? 'erro' : 'neutro',
-    },
-    { rotulo: 'Publicados', valor: String(contar(['publicado'])), detalhe: `${publicadosMes} este mês`, tom: publicadosMes ? 'ok' : 'neutro' },
-  ]);
 }
 
 // ---------- Card ----------
@@ -963,27 +929,6 @@ function buildAnteriores(fonte: Fonte, topo: HTMLElement): HTMLElement {
     return corpo;
   }
 
-  // Resumo: quanto saiu, em quantos dias, em que horário costuma sair.
-  const publicadas = lista.filter((x) => x.item.status === 'publicado');
-  const naoSairam = lista.length - publicadas.length;
-  const dias = new Set(publicadas.map((x) => x.dia)).size;
-  const horas = new Map<string, number>();
-  publicadas.forEach((x) => {
-    const h = horaNoHistorico(x.item);
-    if (h) horas.set(`${h.slice(0, 2)}h`, (horas.get(`${h.slice(0, 2)}h`) ?? 0) + 1);
-  });
-  const horaComum = [...horas.entries()].sort((a, b) => b[1] - a[1])[0];
-  corpo.appendChild(
-    buildIndicadores([
-      { rotulo: 'Publicadas', valor: String(publicadas.length), detalhe: descricaoPeriodo, tom: publicadas.length ? 'ok' : 'neutro' },
-      { rotulo: 'Dias com publicação', valor: String(dias), detalhe: dias ? `${(publicadas.length / dias).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} por dia` : '—' },
-      { rotulo: 'Horário mais usado', valor: horaComum ? horaComum[0] : '—', detalhe: horaComum ? `${horaComum[1]} de ${publicadas.length}` : 'sem horários' },
-      prefsAgenda.base === 'todas'
-        ? { rotulo: 'Passaram sem publicar', valor: String(naoSairam), detalhe: naoSairam ? 'data passou, não saiu' : 'nenhuma', tom: naoSairam ? 'erro' : 'ok' }
-        : { rotulo: 'Por semana', valor: (publicadas.length / Math.max(1, semanasNoPeriodo(inicio ?? lista[lista.length - 1]!.dia, fim))).toLocaleString('pt-BR', { maximumFractionDigits: 1 }), detalhe: 'média no período' },
-    ]),
-  );
-
   // Por dia, com separador de semana quando o período passa de uma semana.
   const porDia = new Map<string, Postagem[]>();
   lista.forEach((x) => porDia.set(x.dia, [...(porDia.get(x.dia) ?? []), x.item]));
@@ -1006,13 +951,6 @@ function buildAnteriores(fonte: Fonte, topo: HTMLElement): HTMLElement {
     corpo.appendChild(buildSecaoAgenda(fonte, rotuloDia(dia, hoje), dia === hoje ? 'is-hoje' : '', itens, true));
   });
   return corpo;
-}
-
-function semanasNoPeriodo(inicio: string, fim: string): number {
-  const [a1, m1, d1] = inicio.split('-').map(Number) as [number, number, number];
-  const [a2, m2, d2] = fim.split('-').map(Number) as [number, number, number];
-  const dias = Math.round((new Date(a2, m2 - 1, d2).getTime() - new Date(a1, m1 - 1, d1).getTime()) / 86_400_000) + 1;
-  return Math.max(1, dias / 7);
 }
 
 function buildProximas(fonte: Fonte): HTMLElement {
@@ -1167,13 +1105,10 @@ export function render(container: HTMLElement): void {
   tela.appendChild(buildSeletorTipo());
 
   if (fonte.itens.length === 0) {
-    tela.appendChild(buildResumo(fonte));
     const comecar = buildBotao(`${fonte.novoRotulo}`, { icone: ICONES_POSTAGEM.mais, variante: 'primario' });
     comecar.addEventListener('click', () => novo.click());
     tela.appendChild(buildVazio(fonte.icone, `Nenhuma postagem em ${fonte.rotulo} ainda`, fonte.dicaVazio, comecar));
   } else {
-    // Métricas traz os próprios indicadores; o resumo da pipeline ficaria repetido.
-    if (modo !== 'metricas') tela.appendChild(buildResumo(fonte));
     tela.appendChild(buildBarra(fonte));
     const aviso = fonte.filtroExtra?.aviso?.();
     if (aviso) {

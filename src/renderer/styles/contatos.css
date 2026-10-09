@@ -1,0 +1,1883 @@
+/* Contatos (CRM) — listas, ficha, funil, contratos e os documentos de papel (ficha e contrato). */
+
+.ct-view {
+  gap: 14px;
+}
+
+.ct-barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ct-busca {
+  width: 300px;
+}
+
+.ct-corpo {
+  display: flex;
+  flex-direction: column;
+}
+
+.ct-nada {
+  margin: 18px 4px;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.ct-espaco {
+  flex: 1;
+}
+
+/* ---------- Avatar e etapa ---------- */
+
+.ct-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #16141f;
+  background: var(--c);
+  border-radius: 50%;
+  user-select: none;
+}
+
+/* Empresa é quadrada: dá para distinguir de uma pessoa sem ler o nome. */
+.ct-avatar.is-empresa {
+  border-radius: 10px;
+}
+
+.ct-avatar.is-p {
+  width: 28px;
+  height: 28px;
+  font-size: 11px;
+}
+
+.ct-avatar.is-p.is-empresa {
+  border-radius: 8px;
+}
+
+.ct-avatar.is-g {
+  width: 52px;
+  height: 52px;
+  font-size: 18px;
+}
+
+.ct-avatar.is-g.is-empresa {
+  border-radius: 14px;
+}
+
+.ct-etapa {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 8px;
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--text);
+  background: color-mix(in srgb, var(--c) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c) 32%, transparent);
+  border-radius: 999px;
+}
+
+.ct-etapa-ponto {
+  width: 7px;
+  height: 7px;
+  background: var(--c);
+  border-radius: 50%;
+}
+
+/* ---------- Faixa "Para contatar" ---------- */
+
+.ct-faixa {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px 10px 14px;
+  background: var(--warning-soft);
+  border: 1px solid rgba(245, 158, 11, 0.26);
+  border-radius: 12px;
+}
+
+.ct-faixa-titulo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--warning);
+}
+
+.ct-faixa-lista {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.ct-faixa-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  max-width: 300px;
+  padding: 6px 12px 6px 6px;
+  font-family: var(--font-sans);
+  text-align: left;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.ct-faixa-item:hover {
+  border-color: var(--warning);
+}
+
+.ct-faixa-textos {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ct-faixa-textos strong {
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.ct-faixa-textos span {
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.ct-faixa-item.is-atrasado .ct-faixa-textos span {
+  color: var(--danger);
+}
+
+.ct-faixa-mais {
+  align-self: center;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ---------- Listas ---------- */
+
+.ct-lista-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ct-filtros {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ct-filtro {
+  width: auto;
+  min-width: 150px;
+  height: 32px;
+  padding: 0 10px;
+}
+
+.ct-arquivados {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ct-tabela {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ct-linha {
+  display: grid;
+  grid-template-columns: minmax(220px, 2.2fr) minmax(110px, 0.9fr) minmax(150px, 1.3fr) minmax(90px, 0.8fr) minmax(90px, 0.8fr);
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 10px 16px;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  text-align: left;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--border-soft);
+  cursor: pointer;
+}
+
+.ct-tabela.is-contratos .ct-linha {
+  grid-template-columns: minmax(240px, 2.4fr) minmax(160px, 1.4fr) minmax(100px, 0.8fr) minmax(90px, 0.7fr);
+}
+
+.ct-linha:hover {
+  background: var(--bg-elevated-2);
+}
+
+.ct-linha:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.ct-linha.is-cabecalho {
+  padding-top: 9px;
+  padding-bottom: 9px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  border-top: none;
+  cursor: default;
+}
+
+.ct-linha.is-cabecalho:hover {
+  background: transparent;
+}
+
+.ct-quem {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.ct-quem-textos {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.ct-quem-textos strong {
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.ct-quem-textos > span {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.ct-tags {
+  display: flex;
+  gap: 4px;
+  margin-top: 3px;
+  flex-wrap: wrap;
+}
+
+.ct-tag {
+  padding: 1px 7px;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  background: var(--bg-elevated-3);
+  border-radius: 999px;
+}
+
+.ct-contato-curto {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ct-contato-curto span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.is-vazio {
+  color: var(--text-faint);
+}
+
+/* O selo ocupa só o que o texto pede, não a coluna inteira da grade. */
+.ct-linha > .ct-etapa,
+.ct-linha > .pg-selo {
+  justify-self: start;
+}
+
+.ct-doc-icone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 9px;
+}
+
+/* ---------- Ficha ---------- */
+
+.ct-ficha {
+  gap: 14px;
+}
+
+.ct-ficha-topo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.ct-ficha-quem {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+  min-width: 260px;
+}
+
+.ct-ficha-nomes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ct-ficha-nomes h1 {
+  margin: 0;
+  overflow: hidden;
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.ct-ficha-sub {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.ct-ficha-tipo {
+  padding: 1px 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  background: var(--bg-elevated-2);
+  border-radius: 6px;
+}
+
+.ct-link {
+  padding: 0;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.ct-link:hover {
+  text-decoration: underline;
+}
+
+.ct-arquivado {
+  padding: 1px 8px;
+  font-size: 11px;
+  color: var(--warning);
+  background: var(--warning-soft);
+  border-radius: 6px;
+}
+
+/* Selo da etapa por cima de um select transparente: parece selo, abre como select. */
+.ct-ficha-etapa {
+  position: relative;
+  display: inline-flex;
+  cursor: pointer;
+}
+
+.ct-etapa-select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.ct-ficha-etapa:focus-within .ct-etapa {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ct-ficha-acoes {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ct-salvo {
+  min-width: 60px;
+  font-size: 11.5px;
+  text-align: right;
+  color: var(--text-faint);
+}
+
+.ct-secao {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+}
+
+.ct-secao-titulo,
+.ct-coluna-titulo {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.ct-coluna-titulo {
+  margin: 4px 2px 0;
+}
+
+.ct-secao-corpo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.ct-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ct-campo.is-largo,
+.ct-secao-corpo > .ct-lista-linha,
+.ct-secao-corpo > .ct-adicionar,
+.ct-secao-corpo > .ct-mini-lista {
+  grid-column: 1 / -1;
+}
+
+.ct-campo-rotulo {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.ct-input {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 9px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.14s ease;
+}
+
+.ct-input:focus {
+  border-color: var(--accent);
+}
+
+.ct-input.is-curto {
+  width: auto;
+  flex-shrink: 0;
+}
+
+textarea.ct-input {
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.ct-campo-dica {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--text-faint);
+}
+
+.ct-campo-aviso {
+  font-size: 11.5px;
+  color: var(--warning);
+}
+
+.ct-campo-aviso:empty {
+  display: none;
+}
+
+.ct-lista-linha {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ct-icone-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--text-faint);
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.ct-icone-btn:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--bg-elevated-2);
+}
+
+.ct-icone-btn.is-perigo:hover:not(:disabled) {
+  color: var(--danger);
+}
+
+.ct-icone-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.ct-adicionar {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 6px;
+  padding: 4px 8px 4px 6px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--accent);
+  background: transparent;
+  border: 1px dashed color-mix(in oklch, var(--accent) 40%, transparent);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.ct-adicionar:hover {
+  background: var(--accent-soft);
+}
+
+.ct-mini-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ct-mini {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 8px;
+  font-family: var(--font-sans);
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.ct-mini:hover {
+  background: var(--bg-elevated-2);
+  border-color: var(--border-soft);
+}
+
+.ct-mini-textos {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ct-mini-textos strong {
+  overflow: hidden;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.ct-mini-textos span {
+  overflow: hidden;
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-faint);
+}
+
+/* ---- Histórico ---- */
+
+.ct-registro {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+}
+
+.ct-registro:focus-within {
+  border-color: color-mix(in oklch, var(--accent) 40%, transparent);
+}
+
+.ct-registro-tipos {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.ct-registro-tipo {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.ct-registro-tipo:hover {
+  color: var(--text);
+}
+
+.ct-registro-tipo.is-ativo {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: color-mix(in oklch, var(--accent) 35%, transparent);
+}
+
+.ct-registro-texto {
+  min-height: 70px;
+}
+
+.ct-registro-rodape {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ct-hist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ct-hist-dia {
+  margin: 8px 2px 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.ct-hist-item {
+  display: flex;
+  gap: 11px;
+  padding: 11px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 11px;
+}
+
+.ct-hist-item.is-evento {
+  padding: 6px 12px;
+  background: transparent;
+  border-style: dashed;
+}
+
+.ct-hist-icone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 8px;
+}
+
+.ct-hist-item.is-evento .ct-hist-icone {
+  width: 20px;
+  height: 20px;
+  color: var(--text-faint);
+  background: transparent;
+}
+
+.ct-hist-corpo {
+  flex: 1;
+  min-width: 0;
+}
+
+.ct-hist-cab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ct-hist-cab strong {
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.ct-hist-item.is-evento .ct-hist-cab strong {
+  display: none;
+}
+
+.ct-hist-quando {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.ct-hist-acoes {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.14s ease;
+}
+
+.ct-hist-item:hover .ct-hist-acoes,
+.ct-hist-item:focus-within .ct-hist-acoes {
+  opacity: 1;
+}
+
+.ct-hist-texto {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+}
+
+.ct-hist-item.is-evento .ct-hist-texto {
+  display: inline;
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.ct-hist-item.is-evento .ct-hist-corpo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+}
+
+/* ---- Lateral ---- */
+
+.ct-card {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+}
+
+.ct-card-cab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ct-card-cab h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ct-card-icone {
+  display: flex;
+  color: var(--accent);
+}
+
+.ct-proximo-quando {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ct-proximo-quando.is-atrasado {
+  color: var(--danger);
+}
+
+.ct-proximo-quando.is-hoje {
+  color: var(--warning);
+}
+
+.ct-proximo-quando.is-futuro {
+  color: var(--text);
+}
+
+.ct-atalhos {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.ct-card .pg-botao {
+  align-self: flex-start;
+}
+
+/* ---------- Funil ---------- */
+
+.ct-funil-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.ct-funil-dica {
+  flex: 1;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+.ct-funil {
+  display: grid;
+  grid-auto-columns: minmax(230px, 1fr);
+  grid-auto-flow: column;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.ct-funil-coluna {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 300px;
+  padding: 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-top: 3px solid var(--c);
+  border-radius: 12px;
+}
+
+.ct-funil-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ct-funil-n {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.ct-funil-soma {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+}
+
+.ct-funil-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 60px;
+}
+
+.ct-funil-cartao {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  cursor: grab;
+}
+
+.ct-funil-cartao:hover,
+.ct-funil-cartao:focus-visible {
+  border-color: color-mix(in oklch, var(--accent) 40%, transparent);
+  outline: none;
+}
+
+.ct-funil-cartao-topo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.ct-funil-textos {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ct-funil-textos strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.ct-funil-textos span {
+  overflow: hidden;
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-faint);
+}
+
+.ct-funil-cartao-pe {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.ct-funil-valor {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.ct-funil-vazio {
+  margin: 8px 0 0;
+  font-size: 12px;
+  text-align: center;
+  color: var(--text-faint);
+}
+
+.ct-etapas {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0;
+}
+
+.ct-etapa-linha {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) 140px 28px 28px 28px 28px;
+  align-items: center;
+  gap: 6px;
+}
+
+.ct-etapa-cor {
+  font-size: 16px;
+}
+
+.ct-etapa-uso {
+  font-size: 11.5px;
+  text-align: center;
+  color: var(--text-faint);
+}
+
+/* ---------- Contratos ---------- */
+
+.ct-modelos-modal .modal-custom-corpo,
+.ct-novo-modal .modal-custom-corpo,
+.ct-pdf-modal .modal-custom-corpo {
+  padding-bottom: 0;
+}
+
+.ct-modelos {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 16px;
+  min-height: 60vh;
+}
+
+.ct-modelos-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-right: 12px;
+  border-right: 1px solid var(--border-soft);
+}
+
+.ct-modelos-lista .pg-botao {
+  margin-bottom: 8px;
+}
+
+.ct-modelo-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  font-family: var(--font-sans);
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.ct-modelo-item strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.ct-modelo-item span {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.ct-modelo-item:hover {
+  background: var(--bg-elevated-2);
+}
+
+.ct-modelo-item.is-ativo {
+  background: var(--accent-soft);
+  border-color: color-mix(in oklch, var(--accent) 30%, transparent);
+}
+
+.ct-modelos-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.ct-modelo-duas,
+.ct-novo,
+.ct-contrato-grade {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  min-height: 0;
+}
+
+.ct-modelo-col,
+.ct-novo-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ct-modelo-nome {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.ct-modelo-barra {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ct-inserir {
+  width: auto;
+  height: 32px;
+  padding: 0 10px;
+}
+
+.ct-modelo-dica,
+.ct-modelo-rotulo {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.ct-modelo-texto {
+  flex: 1;
+  min-height: 420px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.ct-modelo-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ct-modelo-sujo {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 0 6px;
+  font-size: 10.5px !important;
+  font-weight: 600;
+  color: var(--warning-texto) !important;
+  background: var(--warning-soft);
+  border-radius: 999px;
+}
+
+/* ---------- Aba Modelos ----------
+   O editor na tela, com a barra de ações fixa embaixo (como o rodapé do modal). */
+
+.ct-corpo.is-modelos {
+  padding-bottom: 0;
+}
+
+.ct-modelos-aba {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.ct-modelos-aba .ct-modelos {
+  flex: 1;
+  padding-bottom: 16px;
+}
+
+.ct-modelos-acoes {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  background: var(--bg);
+  border-top: 1px solid var(--border-soft);
+}
+
+.ct-filtros-acoes {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* ---------- Novo contrato ---------- */
+
+.ct-novo-quando {
+  margin: -2px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ct-novo-links {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+/* ---------- Escolher o contato ---------- */
+
+.ct-escolher-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 50vh;
+  margin: 10px 0 14px;
+  overflow-y: auto;
+}
+
+.ct-escolher-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  font-family: var(--font-sans);
+  text-align: left;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.ct-escolher-item:hover,
+.ct-escolher-item:focus-visible {
+  background: var(--bg-elevated-2);
+  outline: none;
+}
+
+.ct-escolher-item:first-child {
+  border-color: var(--border-soft);
+}
+
+.ct-escolher-item strong {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ct-escolher-item span:last-child {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.ct-modelo-manuais {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* A prévia é o documento de papel, numa folha que rola. */
+.ct-modelo-previa {
+  max-height: 64vh;
+  overflow-y: auto;
+  background: #ffffff;
+  /* No tema claro a folha branca precisa de contorno para não sumir no fundo. */
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px -14px rgb(0 0 0 / calc(0.7 * var(--sombra-k)));
+}
+
+.ct-modelo-previa .rd-documento {
+  padding: 10mm 11mm 12mm;
+  font-size: 9.5pt;
+}
+
+.ct-novo-sub {
+  margin: 8px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.ct-novo-campos {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ct-faltando {
+  margin: 0;
+  padding: 9px 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--warning);
+  background: var(--warning-soft);
+  border-radius: 9px;
+}
+
+.ct-faltando[hidden] {
+  display: none;
+}
+
+.ct-contrato {
+  gap: 14px;
+}
+
+.ct-contrato-titulo {
+  width: 100%;
+  padding: 2px 4px;
+  margin-left: -4px;
+  font-family: var(--font-sans);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  outline: none;
+}
+
+.ct-contrato-titulo:not([readonly]):hover,
+.ct-contrato-titulo:not([readonly]):focus {
+  border-color: var(--border);
+}
+
+.ct-contrato-grade {
+  flex: 1;
+}
+
+.ct-contrato-grade .ct-modelo-texto {
+  min-height: 60vh;
+}
+
+.ct-contrato-previa {
+  max-height: none;
+  height: 100%;
+  min-height: 0;
+}
+
+.ct-contrato-travado {
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 11px;
+}
+
+.ct-contrato-hist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ct-contrato-hist li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+/* ---------- Ficha em PDF (modal) ---------- */
+
+.ct-pdf-grade {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 18px;
+}
+
+.ct-pdf-opcoes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ct-pdf-ajuda {
+  margin: 0 0 6px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.ct-pdf-opcao {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 10px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.ct-pdf-opcao input {
+  margin-top: 3px;
+  accent-color: var(--accent);
+}
+
+.ct-pdf-opcao-textos {
+  display: flex;
+  flex-direction: column;
+}
+
+.ct-pdf-opcao-textos strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.ct-pdf-opcao-textos span {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.ct-pdf-desde {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 4px 32px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.ct-pdf-previa {
+  max-height: 66vh;
+  overflow-y: auto;
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px -14px rgb(0 0 0 / calc(0.7 * var(--sombra-k)));
+}
+
+.ct-pdf-previa .rd-documento {
+  padding: 10mm 12mm 12mm;
+  font-size: 9.5pt;
+}
+
+.ct-pdf-aviso {
+  margin: 6px 0 0;
+  padding: 9px 11px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--warning);
+  background: var(--warning-soft);
+  border-radius: 9px;
+}
+
+/* ---------- Documentos de papel (ficha e contrato) ---------- */
+
+.ct-doc {
+  padding-top: 12mm;
+}
+
+.ct-doc-emissor {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-bottom: 10px;
+  margin-bottom: 18px;
+  font-size: 8.5pt;
+  color: var(--rd-suave);
+  border-bottom: 2px solid var(--rd-acento);
+}
+
+.ct-doc-emissor strong {
+  font-size: 11pt;
+  color: var(--rd-tinta);
+}
+
+.ct-doc-capa {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 18px;
+}
+
+.ct-doc-sobre {
+  font-size: 8pt;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--rd-acento-escuro);
+}
+
+.ct-doc-capa h1 {
+  margin: 0;
+  font-size: 20pt;
+  letter-spacing: -0.02em;
+  color: var(--rd-tinta);
+}
+
+.ct-doc-data {
+  font-size: 9pt;
+  color: var(--rd-fraca);
+}
+
+.ct-doc-secao {
+  margin-bottom: 16px;
+}
+
+.ct-doc-titulo {
+  margin: 0 0 8px;
+  padding-bottom: 4px;
+  font-size: 10.5pt;
+  font-weight: 700;
+  color: var(--rd-tinta);
+  border-bottom: 1px solid var(--rd-linha);
+}
+
+.ct-doc-grade {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 18px;
+}
+
+.ct-doc-par {
+  display: flex;
+  flex-direction: column;
+}
+
+.ct-doc-rotulo {
+  font-size: 7.5pt;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rd-fraca);
+}
+
+.ct-doc-valor {
+  font-size: 10pt;
+  color: var(--rd-tinta);
+  overflow-wrap: anywhere;
+}
+
+.ct-doc-lista {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 10pt;
+  line-height: 1.6;
+}
+
+.ct-doc-hist {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--rd-linha);
+}
+
+.ct-doc-hist strong {
+  margin-left: 8px;
+  font-size: 9pt;
+  color: var(--rd-acento-escuro);
+}
+
+.ct-doc-hist-quando {
+  font-size: 8.5pt;
+  font-variant-numeric: tabular-nums;
+  color: var(--rd-fraca);
+}
+
+.ct-doc-hist p {
+  margin: 3px 0 0;
+  font-size: 10pt;
+  white-space: pre-wrap;
+}
+
+.ct-doc-texto {
+  font-size: 10.5pt;
+  line-height: 1.65;
+}
+
+.ct-doc-texto p {
+  margin: 0 0 9px;
+}
+
+.ct-doc-texto ul,
+.ct-doc-texto ol {
+  margin: 0 0 9px;
+  padding-left: 20px;
+}
+
+.ct-doc-texto .rd-texto-titulo {
+  margin: 0 0 16px;
+  font-size: 14pt;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--rd-tinta);
+}
+
+.ct-doc-texto .rd-texto-subtitulo {
+  margin: 16px 0 6px;
+  font-size: 11pt;
+  color: var(--rd-tinta);
+}
+
+.ct-doc-assinaturas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  margin-top: 46px;
+}
+
+.ct-doc-assina {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+  font-size: 9.5pt;
+  color: var(--rd-suave);
+}
+
+.ct-doc-assina strong {
+  font-size: 10pt;
+  color: var(--rd-tinta);
+}
+
+.ct-doc-assina-linha {
+  align-self: stretch;
+  margin-bottom: 6px;
+  border-top: 1px solid var(--rd-tinta);
+}
+
+@media print {
+  .ct-doc-hist,
+  .ct-doc-par,
+  .ct-doc-assinaturas,
+  .ct-doc-texto li {
+    break-inside: avoid;
+  }
+
+  .ct-doc-texto .rd-texto-subtitulo {
+    break-after: avoid;
+  }
+}
+
+/* ---------- Documento do relatório de leads (papel) ---------- */
+
+.ct-doc-leads .ct-doc-subtitulo {
+  display: block;
+  margin: 10px 0 5px;
+  font-size: 8pt;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rd-fraca);
+}
+
+.ct-doc-vazio,
+.ct-doc-nota {
+  margin: 6px 0;
+  font-size: 9pt;
+  color: var(--rd-suave);
+}
+
+.ct-doc-numeros {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ct-doc-numero {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 9px 11px;
+  background: var(--rd-fundo);
+  border: 1px solid var(--rd-linha);
+  border-radius: 8px;
+}
+
+.ct-doc-numero-rotulo {
+  font-size: 7.5pt;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rd-fraca);
+}
+
+.ct-doc-numero strong {
+  font-size: 17pt;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  color: var(--rd-tinta);
+}
+
+.ct-doc-numero-detalhe {
+  font-size: 8pt;
+  line-height: 1.35;
+  color: var(--rd-suave);
+}
+
+.ct-doc-barra {
+  display: grid;
+  grid-template-columns: 34mm minmax(0, 1fr) 24mm;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 9pt;
+}
+
+.ct-doc-barra-rotulo {
+  color: var(--rd-tinta);
+}
+
+.ct-doc-barra-trilho {
+  display: block;
+  height: 8px;
+  background: var(--rd-linha);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.ct-doc-barra-trilho i {
+  display: block;
+  height: 100%;
+  background: var(--rd-acento);
+  border-radius: 4px;
+}
+
+.ct-doc-barra.is-quente i {
+  background: #e8590c;
+}
+
+.ct-doc-barra.is-morno i {
+  background: #e0a100;
+}
+
+.ct-doc-barra.is-frio i {
+  background: #3b7dd8;
+}
+
+.ct-doc-barra-valor {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--rd-suave);
+}
+
+.ct-doc-duas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10mm;
+}
+
+.ct-doc-duas .ct-doc-barra {
+  grid-template-columns: 36mm minmax(0, 1fr) 8mm;
+}
+
+.ct-doc-origens,
+.ct-doc-leads {
+  display: flex;
+  flex-direction: column;
+  font-size: 9pt;
+}
+
+.ct-doc-origem,
+.ct-doc-lead {
+  display: grid;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--rd-linha);
+}
+
+.ct-doc-origem {
+  grid-template-columns: minmax(0, 1fr) 24mm 16mm 16mm 18mm;
+}
+
+.ct-doc-lead {
+  grid-template-columns: 31mm minmax(0, 1.4fr) minmax(0, 1fr) 24mm 22mm;
+}
+
+.ct-doc-lead > span:first-child {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ct-doc-origem.is-cabecalho,
+.ct-doc-lead.is-cabecalho {
+  font-size: 7.5pt;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rd-fraca);
+  border-bottom: 1.5px solid var(--rd-tinta);
+}
+
+.ct-doc-origem > span:not(:first-child) {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.ct-doc-origem-nome {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ct-doc-origem-nome .ct-doc-barra-trilho {
+  height: 5px;
+}
+
+.ct-doc-lead > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ct-doc-lead strong {
+  display: block;
+  font-weight: 600;
+}
+
+.ct-doc-lead-empresa {
+  display: block;
+  font-size: 8pt;
+  color: var(--rd-suave);
+}
+
+.ct-doc-faixa {
+  font-weight: 600;
+}
+
+.ct-doc-faixa.is-quente {
+  color: #c2410c;
+}
+
+.ct-doc-faixa.is-morno {
+  color: #a16207;
+}
+
+.ct-doc-faixa.is-frio {
+  color: #1d5fbf;
+}
+
+@media print {
+  .ct-doc-numero,
+  .ct-doc-barra,
+  .ct-doc-origem,
+  .ct-doc-lead,
+  .ct-doc-lista li,
+  .ct-doc-duas {
+    break-inside: avoid;
+  }
+
+  .ct-doc-titulo,
+  .ct-doc-subtitulo {
+    break-after: avoid;
+  }
+}
+
+/* ---------- Telas estreitas ---------- */
+
+@media (max-width: 980px) {
+  .ct-linha {
+    grid-template-columns: minmax(180px, 1fr) auto;
+  }
+
+  .ct-linha > :nth-child(n + 3) {
+    display: none;
+  }
+
+  .ct-modelo-duas,
+  .ct-novo,
+  .ct-contrato-grade,
+  .ct-pdf-grade {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -1,7 +1,8 @@
 /// <reference path="../../types/sortablejs-global.d.ts" />
 import type { LinksFile, QuickLink } from '../../../shared/types/links.types';
 import * as linksState from './links.state.js';
-import { promptText, openConfirmModal, openCustomModal, openAvisoModal, buildSecaoModal } from '../../ui/modal.js';
+import { promptText, openConfirmModal, openCustomModal, openAvisoModal, buildSecaoModal, haModalAberto } from '../../ui/modal.js';
+import { comboDe, ligarAtalhos, textoDoCombo } from '../../core/atalhos.js';
 import { campo, erroInline, input } from '../../ui/campos.js';
 import { buildBotao } from '../../ui/pagina.js';
 
@@ -104,6 +105,7 @@ const VIEW_MODE_STORAGE_KEY = 'iris-links-view-mode';
 
 let activeSortables: Array<InstanceType<typeof Sortable>> = [];
 let shortcutsHandler: ((e: KeyboardEvent) => void) | null = null;
+let desligarAtalhos: (() => void) | null = null;
 let searchInputEl: HTMLInputElement | null = null;
 let currentSearchQuery = '';
 let currentViewMode: 'grid' | 'list' =
@@ -204,7 +206,7 @@ function buildLinkCard(link: QuickLink, shortcutIndex: number | null): HTMLEleme
   if (shortcutIndex !== null) {
     const shortcut = document.createElement('span');
     shortcut.className = 'link-shortcut';
-    shortcut.textContent = `⌘${shortcutIndex}`;
+    shortcut.textContent = `Ctrl+${shortcutIndex}`;
     badgeArea.appendChild(shortcut);
   }
 
@@ -529,14 +531,15 @@ function applyViewMode(root: HTMLElement, gridBtn: HTMLElement, listBtn: HTMLEle
 
 function attachShortcuts(): void {
   if (shortcutsHandler) return;
-  shortcutsHandler = (e: KeyboardEvent) => {
-    if (!(e.metaKey || e.ctrlKey)) return;
-    if (e.key.toLowerCase() === 'k') {
-      e.preventDefault();
+  // Ctrl+K pelo registro central (core/atalhos.ts); Ctrl+1…9 é a lista de agora, fixo.
+  desligarAtalhos = ligarAtalhos({
+    'links.buscar': () => {
       searchInputEl?.focus();
       searchInputEl?.select();
-      return;
-    }
+    },
+  });
+  shortcutsHandler = (e: KeyboardEvent) => {
+    if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey || haModalAberto()) return;
     const digit = Number.parseInt(e.key, 10);
     if (Number.isNaN(digit) || digit < 1 || digit > 9) return;
     const currentLinks = (linksState.getCurrentState()?.links ?? []).slice().sort((a, b) => a.order - b.order);
@@ -580,7 +583,8 @@ export function render(container: HTMLElement, state: LinksFile): void {
 
   const searchKbd = document.createElement('span');
   searchKbd.className = 'links-search-kbd';
-  searchKbd.textContent = '⌘K';
+  searchKbd.textContent = textoDoCombo(comboDe('links.buscar'));
+  searchKbd.hidden = !comboDe('links.buscar');
   searchWrap.appendChild(searchKbd);
 
   header.appendChild(searchWrap);
@@ -718,5 +722,7 @@ export function destroy(): void {
     document.removeEventListener('keydown', shortcutsHandler);
     shortcutsHandler = null;
   }
+  desligarAtalhos?.();
+  desligarAtalhos = null;
   searchInputEl = null;
 }

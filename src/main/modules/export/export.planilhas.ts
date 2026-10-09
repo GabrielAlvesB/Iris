@@ -5,6 +5,14 @@ import * as videosService from '../videos/videos.service';
 import * as imagensService from '../imagens/imagens.service';
 import * as roteirosService from '../roteiros/roteiros.service';
 import * as trafegoService from '../trafego/trafego.service';
+import * as contatosService from '../contatos/contatos.service';
+import * as whatsappService from '../whatsapp/whatsapp.service';
+import { PROVEDORES_WHATSAPP, STATUS_MENSAGEM_WA, SITUACOES_LOTE } from '../../../shared/types/whatsapp.types';
+import { formatarNumeroWa } from '../../../shared/types/whatsapp.numero';
+import { acharContato, nomeDoContato } from '../../../shared/types/contatos.types';
+import { SITUACOES_CONTRATO, TIPOS_TELEFONE } from '../../../shared/types/contatos.types';
+import { FAIXAS_LEAD } from '../../../shared/types/leads.types';
+import { enderecoPorExtenso } from '../../../shared/types/brasil';
 import type { ModuloExportavel } from '../../../shared/types/export.types';
 import { VIDEO_STATUS } from '../../../shared/types/videos.types';
 import { IMAGEM_STATUS, FORMATOS_IMAGEM } from '../../../shared/types/imagens.types';
@@ -155,7 +163,135 @@ async function abasTrafego(): Promise<Aba[]> {
   ];
 }
 
+/** Uma linha por pessoa e por empresa, com o último contato; e os contratos. */
+async function abasContatos(): Promise<Aba[]> {
+  const file = await contatosService.getFullFile();
+  const etapas = new Map(file.etapas.map((e) => [e.id, e.nome]));
+  const empresas = new Map(file.empresas.map((e) => [e.id, e.nomeFantasia || e.razaoSocial]));
+  const ultimo = (tipo: string, id: string): string =>
+    file.interacoes
+      .filter((i) => i.contato.tipo === tipo && i.contato.id === id && i.tipo !== 'evento' && i.tipo !== 'formulario')
+      .map((i) => i.data.slice(0, 10))
+      .sort()
+      .pop() ?? '';
+  const telefones = (lista: Array<{ numero: string; tipo: string }>): string =>
+    lista.map((t) => `${t.numero} (${rotulo(TIPOS_TELEFONE, t.tipo)})`).join('; ');
+  const comuns = (c: (typeof file.pessoas)[number] | (typeof file.empresas)[number], tipo: string): Record<string, Celula> => ({
+    'E-mails': c.emails.join('; '),
+    Telefones: telefones(c.telefones),
+    Endereço: enderecoPorExtenso(c.endereco),
+    Etapa: etapas.get(c.etapaId) ?? '',
+    Origem: c.origem,
+    Tags: c.tags.join(', '),
+    'Valor estimado': c.valorEstimado,
+    'Último contato': ultimo(tipo, c.id),
+    'Próximo contato': c.proximoContato?.data ?? '',
+    'Sobre o próximo': c.proximoContato?.nota ?? '',
+    Arquivado: SIM_NAO(c.arquivado),
+    Observações: c.observacoes,
+  });
+  return [
+    {
+      nome: 'Pessoas',
+      linhas: file.pessoas.map((p) => ({
+        Nome: p.nome,
+        Apelido: p.apelido,
+        CPF: p.cpf,
+        RG: p.rg,
+        Nascimento: p.nascimento ?? '',
+        Empresa: p.empresaId ? (empresas.get(p.empresaId) ?? '') : '',
+        Cargo: p.cargo,
+        ...comuns(p, 'pessoa'),
+        // Leads por API: como e quando chegou, com a pontuação.
+        'Chegou pelo formulário em': p.entrada ? p.entrada.recebidoEm.replace('T', ' ') : '',
+        Canal: p.entrada ? (p.entrada.canal === 'nuvem' ? 'Caixa na nuvem' : 'Servidor local') : '',
+        Formulário: p.entrada?.formulario ?? '',
+        Página: p.entrada?.pagina ?? '',
+        Pontuação: p.entrada?.pontos,
+        Faixa: p.entrada ? (FAIXAS_LEAD.find((f) => f.id === p.entrada!.faixa)?.rotulo ?? '') : '',
+        'Motivos da pontuação': p.entrada?.motivos.join('; ') ?? '',
+        'UTM source': p.entrada?.utm.source ?? '',
+        'UTM medium': p.entrada?.utm.medium ?? '',
+        'UTM campaign': p.entrada?.utm.campaign ?? '',
+        'UTM term': p.entrada?.utm.term ?? '',
+        'UTM content': p.entrada?.utm.content ?? '',
+        Interesse: p.entrada?.interesse ?? '',
+        'Voltou pelo formulário': p.entrada ? p.entrada.retornos : undefined,
+      })),
+    },
+    {
+      nome: 'Empresas',
+      linhas: file.empresas.map((e) => ({
+        'Razão social': e.razaoSocial,
+        'Nome fantasia': e.nomeFantasia,
+        CNPJ: e.cnpj,
+        'Inscrição estadual': e.inscricaoEstadual,
+        Segmento: e.segmento,
+        Pessoas: file.pessoas.filter((p) => p.empresaId === e.id).length,
+        ...comuns(e, 'empresa'),
+      })),
+    },
+    {
+      nome: 'Contratos',
+      linhas: file.contratos.map((c) => ({
+        Título: c.titulo,
+        Contato: c.contatoNome,
+        Modelo: c.modeloNome,
+        Situação: rotulo(SITUACOES_CONTRATO, c.situacao),
+        'Criado em': c.criadoEm.slice(0, 10),
+        'Atualizado em': c.atualizadoEm.slice(0, 10),
+      })),
+    },
+  ];
+}
+
+/** As conversas, uma linha por mensagem (data local), e os envios para vários. */
+async function abasWhatsapp(): Promise<Aba[]> {
+  const [file, contatos] = await Promise.all([whatsappService.getFullFile(), contatosService.getFullFile()]);
+  const nome = (ref: { tipo: 'pessoa' | 'empresa'; id: string } | undefined): string => {
+    const c = ref ? acharContato(contatos, ref) : undefined;
+    return c ? nomeDoContato(c) : '';
+  };
+  const local = (iso: string): string => {
+    const d = new Date(iso);
+    const p = (n: number): string => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  };
+  return [
+    {
+      nome: 'Mensagens',
+      linhas: file.mensagens.map((m) => ({
+        Quando: local(m.criadaEm),
+        Contato: nome(m.contato) || m.nomePerfil || '',
+        Número: formatarNumeroWa(m.numero),
+        Direção: m.direcao === 'saida' ? 'Enviada' : 'Recebida',
+        Texto: m.texto,
+        Caminho: rotulo(PROVEDORES_WHATSAPP, m.provedor),
+        Situação: rotulo(STATUS_MENSAGEM_WA, m.status),
+        Modelo: m.modelo?.nome ?? '',
+        Erro: m.erro ?? '',
+      })),
+    },
+    {
+      nome: 'Envios para vários',
+      linhas: file.lotes.flatMap((l) =>
+        l.destinos.map((d) => ({
+          Envio: l.nome,
+          'Criado em': local(l.criadoEm),
+          Situação: rotulo(SITUACOES_LOTE, l.situacao),
+          Contato: d.nome,
+          Número: formatarNumeroWa(d.numero),
+          Resultado: d.situacao === 'pendente' ? 'Na fila' : d.situacao === 'enviado' ? 'Enviado' : d.situacao === 'falhou' ? 'Não saiu' : 'Pulado',
+          Motivo: d.motivo ?? '',
+        })),
+      ),
+    },
+  ];
+}
+
 const GERADORES: Partial<Record<ModuloExportavel, () => Promise<Aba[]>>> = {
+  contatos: abasContatos,
+  whatsapp: abasWhatsapp,
   kanban: abasKanban,
   todo: abasTodo,
   postagens: abasPostagens,

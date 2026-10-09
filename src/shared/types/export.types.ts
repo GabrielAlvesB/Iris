@@ -15,6 +15,8 @@ import type { RelatoriosFile } from './relatorios.types';
 import type { RoteirosFile } from './roteiros.types';
 import type { TrafegoFile } from './trafego.types';
 import type { TodoFile } from './todo.types';
+import type { ContatosFile } from './contatos.types';
+import type { WhatsappFile } from './whatsapp.types';
 import type { ModuloId } from './modulos.types';
 
 /**
@@ -45,6 +47,9 @@ export interface ExportBundle {
   roteiros?: RoteirosFile;
   trafego?: TrafegoFile;
   todo?: TodoFile;
+  contatos?: ContatosFile;
+  /** Conversas, modelos e envios do WhatsApp; as credenciais ficam no cofre, fora do backup. */
+  whatsapp?: WhatsappFile;
   /** Config das IAs, sem as chaves (ficam no cofre, fora do backup). */
   ia?: unknown;
   /** @deprecated O módulo Arquivos virou Explorador. Só existe em backups antigos. */
@@ -55,6 +60,8 @@ export interface ExportBundle {
 export type ChaveBundle = Exclude<keyof ExportBundle, 'schemaVersion' | 'exportedAt' | 'escopo' | 'arquivos'>;
 
 export type ModuloExportavel =
+  | 'contatos'
+  | 'whatsapp'
   | 'kanban'
   | 'todo'
   | 'postagens'
@@ -88,6 +95,22 @@ export interface DescritorExportavel {
 
 /** Catálogo único: a tela de Backup, a exportação e a importação derivam daqui. */
 export const EXPORTAVEIS: readonly DescritorExportavel[] = [
+  {
+    id: 'contatos',
+    rotulo: 'Contatos',
+    modulo: 'contatos',
+    chaves: ['contatos'],
+    planilha: true,
+    observacao: 'Tem dados pessoais (CPF, endereço, telefone): guarde o arquivo com o mesmo cuidado que os cadastros.',
+  },
+  {
+    id: 'whatsapp',
+    rotulo: 'WhatsApp',
+    modulo: 'whatsapp',
+    chaves: ['whatsapp'],
+    planilha: true,
+    observacao: 'Tem as conversas com os contatos. Token e apikeys não vão no arquivo; as conversas só se ligam aos contatos se Contatos for junto (ou já estiver aqui).',
+  },
   { id: 'kanban', rotulo: 'Kanban', modulo: 'kanban', chaves: ['kanban'], planilha: true },
   { id: 'todo', rotulo: 'To-do', modulo: 'todo', chaves: ['todo'], planilha: true },
   {

@@ -11,9 +11,11 @@ TypeScript puro, **sem framework de UI e sem bundler**. O DOM é construído à 
 `document.createElement`. As únicas dependências de runtime são `sortablejs` (drag-and-drop),
 `ssh2` (comandos remotos) e `xlsx` (import/export de planilhas).
 
-Dezoito módulos, organizados na sidebar por categoria:
+Vinte e três módulos, organizados na sidebar por categoria:
 
 - **soltos no topo**: Kanban, To-do (id `todo`)
+- **Relacionamento**: Contatos (CRM: pessoas, empresas, funil, contratos), Leads (id `leads`: caixa de entrada e painel),
+  Relatórios de leads (id `relatorios-leads`), API e n8n (id `api-leads`) — a área da 0.2.0 —, WhatsApp (id `whatsapp`)
 - **Conteúdo**: Postagens (pipeline de conteúdo: vídeos, imagens), Estúdio IA (id `ia`), Relatórios (análises com PDF),
   Roteiros (escrever → revisar → aprovar; aprovado vira card no Kanban), Sheets
 - **Arquivos**: Biblioteca (id interno `explorador`), Quadro, Copy, Pensamentos, Links rápidos
@@ -34,6 +36,8 @@ A fonte única dessa lista é [modulos.types.ts](src/shared/types/modulos.types.
 | `npm run dist` | instalador NSIS + pasta portátil em .zip em `release/` (apaga `release/` antes: só a versão atual fica) |
 | `npm run dist:portable` | só o .zip portátil |
 | `npm run release` | build + instalador/zip + **publica a release no GitHub** (precisa de `GH_TOKEN`). Roda no GitHub Actions — ver Atualização do app |
+| `npm run dist:linux` | AppImage + .deb em `release/` — **só numa máquina Linux** (o .deb precisa do fpm). No Windows: Docker, ver "Linux" |
+| `npm run release:linux` | o mesmo, publicando na release. Roda no GitHub Actions, depois do Windows |
 
 Não há testes automatizados nem linter no projeto. A verificação é **compilar e rodar**.
 
@@ -68,9 +72,9 @@ entender o motivo (todas comentadas no arquivo):
   renderer compila para ES modules, e módulos ES são bloqueados em `file://` por falta de
   origem com CORS. O esquema customizado evita precisar de bundler.
 - `app.disableHardwareAcceleration()` — contorna um bug do Chromium no Windows em que o
-  compositor dessincroniza e a janela para de rotear cliques.
+  compositor dessincroniza e a janela para de rotear cliques. **Só no Windows** (no Linux a GPU fica ligada).
 - `disable-features=CalculateNativeWinOcclusion` — pelo mesmo motivo: o Chromium julga a
-  janela ocluída estando visível e estrangula o input.
+  janela ocluída estando visível e estrangula o input. Também só no Windows.
 
 `contextIsolation: true`, `nodeIntegration: false`. A CSP em
 [src/renderer/index.html](src/renderer/index.html) é `default-src 'self'` — nenhum CDN,
@@ -124,14 +128,30 @@ Os passos 1–3 são checados pelo compilador (`Record<ModuloId, …>`); 4 e 5 n
 O `<nav id="sidebar">` do `index.html` é vazio: [sidebar.ts](src/renderer/core/sidebar.ts) gera um
 **trilho de ícones** (64px) e um **painel** ao lado. Kanban/To-do/Tutorial/Ajustes e categorias de um
 módulo só (Tráfego) são atalhos diretos no trilho; as outras categorias abrem o painel flutuante (Esc,
-clique fora ou escolher fecham; entra na pilha de camadas). **Fixado** (Ctrl+B, botão do painel ou
+clique fora ou escolher fecham; entra na pilha de camadas). **Fixado** (atalho `geral.fixar`, botão do painel ou
 Ajustes › Preferências, localStorage `iris.sidebar.fixado`) o painel lista todas as categorias e empurra
 a tela. Classes do painel têm prefixo `sb-` — `.painel` é do painel de detalhes (ui/painel.ts).
-`MODULOS[].descricao` é a linha que aparece no painel e na busca. **Ctrl+P** abre a busca rápida
-([paleta.ts](src/renderer/core/paleta.ts), importada sob demanda): módulos, `SECOES_AJUSTES` (navegacao.ts)
-e guias do Tutorial. Para navegar de um módulo para outro, usar `abrirModulo()` de
+`MODULOS[].descricao` é a linha que aparece no painel e na busca. **Ctrl+P** (`geral.busca`) abre a busca rápida
+([paleta.ts](src/renderer/core/paleta.ts), importada sob demanda): módulos, contatos do CRM, `SECOES_AJUSTES`
+(navegacao.ts) e guias do Tutorial. Para navegar de um módulo para outro, usar `abrirModulo()` de
 [navegacao.ts](src/renderer/core/navegacao.ts); `abrirAjustes(secao)` funciona também com Ajustes já
 aberto (`onSecaoAjustesSolicitada`).
+
+## Tema claro/escuro
+
+- `ajustes.json` v5 › `tema`: `'escuro'` (padrão), `'claro'` ou `'sistema'`. O main aplica com
+  `nativeTheme.themeSource` ([core/tema.ts](src/main/core/tema.ts), chamado antes da janela e no `setTema`) — isso
+  força o `prefers-color-scheme` do renderer. Por isso o CSS do claro é só um
+  `@media (prefers-color-scheme: light)` no [base.css](src/renderer/styles/base.css): sem script na abertura e sem
+  flash. A janela nasce com `corDeFundo()` e a troca o acompanha (o `salvarPdfDaJanela` restaura essa cor).
+- **Cor nova em qualquer CSS sai dos tokens**, nunca literal de superfície, texto ou sombra — senão some num dos dois
+  temas. Além dos de sempre: sombra preta = `rgb(0 0 0 / calc(X * var(--sombra-k)))`; realce de superfície =
+  `rgb(var(--realce) / X)` (branco no escuro, preto no claro); fundo de modal `--veu`; texto a partir de uma cor de
+  dado (tag, etapa, coleção) = `color-mix(in oklch, var(--cor) var(--tinta-texto|--tinta-chip), var(--tinta-forte))`;
+  texto sobre o acento `--texto-sobre-acento`; avisos em texto `--danger-texto`/`--warning-texto`. Literal só no que
+  desenha algo fixo: papel dos documentos, logos de rede, post-its, teleprompter, miniaturas de Ajustes › Aparência.
+- Renderer: [core/tema.ts](src/renderer/core/tema.ts) (`temaEfetivo`, `alternarTema`, `onTemaMudou` pela media query).
+  Trocar: sol/lua no trilho (acima do Tutorial), atalho `geral.tema` (Ctrl+Shift+L), Ctrl+P e Ajustes › Aparência.
 
 ## Persistência
 
@@ -255,12 +275,8 @@ não seria decifrável em outra máquina.
   `orientacaoDoGuia` — perguntas + exemplo como modelo de forma — e `fatosDoGuia` antes do relatório completo).
 - **PDF**: o documento é um DOM só
   ([relatorios.documento.ts](src/renderer/modules/relatorios/relatorios.documento.ts)), usado
-  na prévia e no PDF. Para exportar, o renderer monta-o em `#impressao` e o main chama
-  `printToPDF` na própria janela; [relatorios-impressao.css](src/renderer/styles/relatorios-impressao.css)
-  esconde o resto no `@media print`. Não há janela oculta nem segundo gerador de HTML.
-  O `printToPDF` pinta as margens de cima/baixo com a **cor de fundo da janela** (`#0c0d12`):
-  o handler troca para branco durante a impressão e restaura depois — sem isso cada página
-  sai com faixas pretas no topo e no rodapé.
+  na prévia e no PDF, exportado pela base comum de documentos (ver "Documentos em PDF").
+  [relatorios-impressao.css](src/renderer/styles/relatorios-impressao.css) tem só as quebras de página do relatório.
 - **Empresa por tags** (`relatorios.json` v3): `Relatorio.tagIds` são tags-empresa do catálogo
   único (a criação e o editor listam só `empresa: true`; uma tag comum escolhida antes continua
   visível, marcada, até ser desmarcada);
@@ -285,8 +301,183 @@ não seria decifrável em outra máquina.
   `resultado` gravado com `calculadoEm` — uma fotografia, como o snapshot dos itens; só muda
   quando o filtro muda ou o usuário recalcula. Conta pela mesma regra da aba Métricas
   (`dataParaMetricas` de postagens.metricas.ts). Nomes de rede/tag vão por extenso no resultado.
-- A **assinatura** fica em Ajustes (`ajustes.json` › `assinatura`); `buildAssinatura()` é o
+- A **assinatura** fica em Ajustes (`ajustes.json` › `assinatura`); `buildAssinatura()` (ui/documento.ts) é o
   único lugar que a desenha. Categorias de marcação são editáveis por tipo.
+
+## Documentos em PDF (base comum)
+
+- Qualquer documento de papel (relatório, ficha de contato, contrato) sai pelo mesmo caminho: o renderer monta
+  o DOM e chama `exportarDocumentoPdf(documento, exportar)` de [ui/impressao.ts](src/renderer/ui/impressao.ts), que
+  põe o nó em `#impressao`, chama o canal do módulo e oferece "Abrir PDF" (`documentos:abrirPdf`). O canal do
+  módulo chama `salvarPdfDaJanela(event, { tituloDialogo, nomeArquivo, rodape })` de [core/pdf.ts](src/main/core/pdf.ts):
+  diálogo, `printToPDF` na própria janela, rodapé "Página N de M".
+- O `printToPDF` pinta as margens de cima/baixo com a **cor de fundo da janela** (`#0c0d12`): `salvarPdfDaJanela`
+  troca para branco durante a impressão e restaura depois — sem isso cada página sai com faixas pretas.
+- [impressao.css](src/renderer/styles/impressao.css) esconde a tela e mostra `#impressao` (A4); cada documento
+  tem as próprias regras de quebra. Família visual: `.rd-documento` (variáveis `--rd-*` de relatorios.css).
+- Texto formatado e assinatura: [ui/documento.ts](src/renderer/ui/documento.ts) — `paragrafos(texto, classe,
+  { titulos })` (`- `, `1. `, `**negrito**`; `#`/`##` só com `titulos: true`, para contratos) e `buildAssinatura`.
+  relatorios.documento.ts reexporta as duas para quem já importava de lá.
+- **Documento novo**: montar o DOM com essas peças, um canal `exportarPdf` no IPC do módulo chamando
+  `salvarPdfDaJanela`, e conferir o resultado rasterizando o PDF (o de um relatório real saiu idêntico,
+  pixel a pixel, depois da extração desta base).
+
+## Contatos (CRM)
+
+- `contatos.json` (v1): `pessoas`, `empresas` (cadastros **separados**, sem ligação com as "empresas" de
+  Postagens — lá empresa é tag de conteúdo), `interacoes` (histórico), `etapas` do funil (`tipo`
+  aberta/ganha/perdida; sementes Lead, Em conversa, Proposta, Cliente, Perdido), `modelos` e `contratos`.
+  Pessoa pode ter `empresaId` (empresa do CRM). `RefContato {tipo, id}` aponta qualquer um dos dois.
+- Main em três arquivos: [contatos.arquivo.ts](src/main/modules/contatos/contatos.arquivo.ts) (`migrate` e todas as
+  `migrate*` — tudo que entra passa por elas), `contatos.service.ts` (pessoas, empresas, funil, etapas, histórico)
+  e `contatos.contratos.ts`. `salvarPessoa`/`salvarEmpresa`: sem id cria; com id **mescla** sobre o salvo e
+  migra (`proximoContato: null` limpa). Mudar a etapa (por qualquer caminho) escreve um `evento` no histórico
+  ("Etapa: A → B"); contrato criado/enviado/assinado também. Excluir pessoa leva o histórico; contratos ficam
+  (guardam `contatoNome`). Excluir empresa só desliga as pessoas dela.
+- Tela ([contatos.view.ts](src/renderer/modules/contatos/contatos.view.ts)): abas Pessoas · Empresas · Funil ·
+  Contratos, faixa **"Para contatar"** (próximo contato hoje ou atrasado — `paraContatar`).
+  **Ficha** (tela cheia, prefixo de CSS `cf-` em [contatos-ficha.css](src/renderer/styles/contatos-ficha.css)): topo com
+  identidade, etapa, telefone e WhatsApp, a linha "próximo / último contato / origem" e o menu **⋯** (copiar, PDF, contrato,
+  arquivar, excluir); **abas** Visão geral · Conversa · Histórico · Contratos (`AbaFicha`, localStorage `iris.contatos.fichaAba`;
+  `abrirContato(ref, aba)` abre já numa). Partes: `contatos.ficha.ts` (casca), `.rascunho.ts` (o rascunho, `agendar`,
+  `descarregarFicha`, `salvarERedesenhar`), `.campos.ts` (linha "rótulo | valor", campo que parece texto até o foco),
+  `.dados.ts`, `.lado.ts`, `.historico.ts` e `contatos.conversa.ts`. Dados editados no lugar e salvos na pausa por
+  `salvarSilencioso` (não redesenha — o foco fica); ações estruturais (etapa, empresa, próximo contato, histórico, trocar de
+  aba) descarregam o pendente e redesenham. Cada aba tem a própria chave `data-rolagem`. Voltar ao módulo começa nas abas.
+  Funil (`contatos.funil.ts`, sortablejs) e editor de etapas. Ctrl+P encontra contatos (`abrirContato` em navegacao.ts).
+- **Aba Modelos** (Pessoas · Empresas · Funil · Contratos · Modelos): o editor de modelos direto na tela
+  (`buildAbaModelos`); o mesmo `buildEditorModelos` serve o modal aberto de dentro do Novo contrato ("Editar este
+  modelo" / "Ver todos os modelos", que ao fechar relê o seletor). O texto não salvo fica em `rascunhoModelo` (fora do
+  DOM) e sobrevive ao redesenho; com ele, o push de lead troca o cache sem redesenhar (`emEdicao` da casca).
+  `ModeloContrato.quandoUsar` ("para que serve") aparece na lista e no seletor, que ordena pelo último uso
+  (`modelosPorUso`). "Novo contrato" fora da ficha pede o contato antes (`escolherContato`); "Usar num contrato" já
+  vem com o modelo; "Salvar como modelo" no topo de um contrato em rascunho cria um modelo com o texto dele.
+- **Contratos**: campos em [contratos.campos.ts](src/shared/types/contratos.campos.ts) (puro, dos dois lados):
+  `CAMPOS_CONTRATO` (do contato, da empresa da pessoa, `meu_*` de Ajustes › Seus dados, datas, `{foro}`);
+  campo fora do catálogo = **a preencher ao gerar**; `preencher` deixa `{campo}` sem valor visível e a tela
+  avisa. O contrato guarda a **cópia do texto final** (editar o modelo não muda contrato feito). Texto só muda
+  em rascunho (o main recusa depois de enviado — duplicar vira rascunho novo). O Iris **não escreve cláusula**:
+  o modelo novo é `ESQUELETO_MODELO`, só estrutura. PDF do contrato e da ficha em `contatos.documento.ts`;
+  as linhas de assinatura vêm dos cadastros, não do texto.
+- **Seus dados** (`ajustes.json` v3 › `perfil`: PF/PJ, documento, representante, endereço, foro): a outra parte
+  dos contratos e o cabeçalho dos documentos. Seção `perfil` de Ajustes, em `SECOES_AJUSTES`.
+- [brasil.ts](src/shared/types/brasil.ts) (puro, dos dois lados): CPF/CNPJ por dígito verificador
+  (`problemaDoDocumento` só avisa, nunca bloqueia), telefone/CEP/moeda, `lerEndereco`, `enderecoPorExtenso`,
+  `dataIsoPorExtenso` (monta a data à mão — `new Date('AAAA-MM-DD')` cairia no dia anterior), `hojeLocal`.
+- Backup: `contatos` em `EXPORTAVEIS` (com aviso de dados pessoais) e planilha com abas Pessoas, Empresas e Contratos
+  (a de Pessoas leva também chegada, pontuação e UTMs dos leads).
+
+## Leads por API (módulos Leads, Relatórios de leads e API e n8n)
+
+- **Quatro módulos sobre o mesmo `contatos.json`** (state de Contatos): Contatos (Pessoas · Empresas · Funil · Contratos),
+  Leads, Relatórios de leads e API e n8n — separados como Postagens/Relatórios/Roteiros em Conteúdo. Contatos e Leads usam
+  a mesma **casca** ([contatos.casco.ts](src/renderer/modules/contatos/contatos.casco.ts)): a tela do módulo, a ficha ou o
+  contrato por cima, o push `contatos:mudou`, "visto" ao abrir a ficha e a rolagem. Cada módulo passa `desenharTela` e o
+  `rotuloVoltar` da ficha ("Contatos" ou "Leads"): abrir um lead em Leads fica em Leads. Relatórios de leads e API e n8n não
+  abrem ficha e têm ciclo de vida próprio (state + push).
+- Navegação: `abrirContato(ref)` abre em Contatos (Ctrl+P); `abrirLead(ref)` abre a ficha em Leads (clique na notificação);
+  `abrirApiLeads(secao)` abre API e n8n numa seção (`SecaoApiLeads`). O selo de não vistos é do módulo `leads`
+  (`definirContagem('leads', n)`); o ícone da categoria soma sozinho.
+- **Contrato único** `POST /v1/leads` (JSON, urlencoded de `<form>` e multipart), igual nos dois caminhos. Campos no catálogo
+  `CAMPOS_API` ([leads.types.ts](src/shared/types/leads.types.ts), puro) — ele alimenta a validação e a tabela da aba API.
+  `validarLead` é a validação de verdade (a do Worker é barreira); aceita apelidos comuns (name, phone, company). Especiais:
+  `_chave` (ou cabeçalho `X-Iris-Chave`), isca `_site` (preenchida = robô, responde 201 e descarta), `_redirecionar` (303).
+  Respostas 201/400 (erro por campo)/401/403/413/429; 32 KB e 20 envios/min por IP.
+- **Caixa na nuvem**: o código do Cloudflare Worker é texto em [leads.worker.ts](src/shared/types/leads.worker.ts) (`String.raw`:
+  sem crase nem `${` dentro). KV `LEADS`, variáveis `CHAVE_FORMULARIO`, `CHAVE_IRIS`, `ORIGENS`. O KV grátis só permite 1.000
+  `list`/dia: cada envio grava também a chave `ultimo` e o `GET` só lista se chegou algo até 3 min antes do `desde` que o
+  Iris manda. A tarefa `contatos:leads` (60 s) busca, importa e confirma (`/v1/leads/confirmar` apaga da caixa); os ids
+  importados ficam em `leadsConfig.idsRecebidos` (300) para confirmação falha não duplicar. Mudou o Worker: subir `VERSAO_WORKER`
+  e o comentário do topo do código — quem já colou continua com o antigo até colar de novo.
+- **Servidor local** ([contatos.servidor.ts](src/main/modules/contatos/contatos.servidor.ts), `node:http`): 127.0.0.1, ou
+  0.0.0.0 com "aceitar da rede local". `aplicarServidor` é em fila (salvar + `reaplicarAgendamentos` chamam juntos); fecha no
+  `before-quit`.
+- **Receber** ([contatos.leads.ts](src/main/modules/contatos/contatos.leads.ts) do main): `receberLeads` faz uma leitura e uma
+  gravação por lote, **sem `await` entre ler e gravar**. Mesmo e-mail ou telefone (`telefoneComparavel`) = a mesma pessoa:
+  histórico "Voltou pelo formulário", `retornos`+1, volta a não visto. Lead novo vira Pessoa na primeira etapa com
+  `Pessoa.entrada: EntradaLead` (contatos.json v2); empresa/CNPJ liga a uma `EmpresaCrm` (mesmo CNPJ ou nome) ou cria.
+  A mensagem vira histórico do tipo `formulario` (automático como `evento`: não se edita e não conta como "último contato").
+  `salvarPessoa` nunca aceita `entrada` da tela (o rascunho da ficha teria um `visto` velho).
+- **Pontuação** ([leads.pontuacao.ts](src/shared/types/leads.pontuacao.ts), puro): `CRITERIOS_PONTUACAO` com pesos em
+  `leadsConfig.regras`; teto 100; faixas quente/morno/frio (selo sempre ícone + texto). **Recalculada em toda leitura**
+  (`migrateEntrada`): mudar a regra repontua todos sem passo extra.
+- **Aviso**: `Notification` do Electron (guardar a referência viva, senão o clique se perde) → push `contatos:abrir`;
+  `contatos:mudou` atualiza a tela e o selo de não vistos no trilho (`definirContagem` em sidebar.ts, via
+  [core/leads.ts](src/renderer/core/leads.ts), vivo a sessão toda). Abrir a ficha de um lead por qualquer caminho marca visto.
+  Com ficha ou contrato aberto, o push troca o cache sem redesenhar (`recarregarSilencioso`): quem digita não perde o foco.
+- **Chave do Iris** no cofre (`leads.nuvem.chave`): gerar e copiar acontecem no main (`clipboard.writeText`); a tela só
+  recebe `temChaveIris` e os 4 últimos caracteres. A chave do formulário é pública e fica em `leadsConfig`.
+- **Contas** em [leads.estatisticas.ts](src/shared/types/leads.estatisticas.ts) (puro): Painel, Relatório e as frases de "O que
+  está acontecendo" leem daqui. Datas locais tratadas como relógio de parede (`minutosDe` via `Date.UTC`). Frases só com fatos
+  e com amostra mínima (sem opinião). "Sem resposta" = funil aberto, nenhuma conversa registrada à mão, mais de 24 h.
+- Telas no renderer:
+  - `modules/leads/`: `leads.view.ts` (cabeçalho, Caixa de entrada | Painel em localStorage `iris.leads.visao`, estado vazio
+    único), `leads.caixa.ts`, `leads.painel.ts` (gráficos de postagens.graficos.ts — `buildRanking` aceita `textoValor`) e
+    `leads.chegada.ts` (o cartão "Como chegou", desenhado pela ficha).
+  - `modules/relatorios-leads/`: lista de relatórios guardados + editor em tela cheia (como o módulo Relatórios);
+    `relatorios-leads.documento.ts` é o papel. Guarda só a configuração (`relatoriosLeads`: `atualizadoEm` e `exportadoEm`
+    opcional — "Salvar" sem exportar existe); números sempre recalculados.
+  - `modules/api-leads/`: índice fixo à esquerda e uma seção por vez (Visão geral, Caixa na nuvem, Servidor local, n8n, No seu
+    site, Chaves, Pontuação, Avisos). Peças e o status do main em `api-leads.pecas.ts`; uma seção por arquivo. Os códigos
+    prontos saem com o endereço e a chave reais; o curl usa `\"` para funcionar no Prompt de Comando.
+  - CSS em [leads.css](src/renderer/styles/leads.css) com prefixos `ld-` (Leads), `rl-` (Relatórios de leads) e `la-` (API e
+    n8n); o documento em papel (`ct-doc-*`) fica em contatos.css.
+- **n8n** ([leads.n8n.ts](src/shared/types/leads.n8n.ts), puro): três cenários e o endereço que o n8n chama em cada um —
+  neste PC `127.0.0.1:<porta>`; em Docker `host.docker.internal:<porta>` (exige "aceitar da rede local": o 127.0.0.1 do
+  contêiner é ele mesmo); num servidor/n8n Cloud, a caixa na nuvem (de lá não se alcança o PC). O cenário vem do endereço salvo
+  em Ajustes › n8n (`cenarioPeloEndereco`; Docker não dá para adivinhar). `fluxoN8n` monta o fluxo Webhook (`iris-lead`) →
+  Set "Campos do Iris" (expressões `$json.body.x ?? …`) → HTTP Request com `X-Iris-Chave`: o mesmo JSON para colar
+  (Ctrl+V no editor) e para criar pela API pública (`criarWorkflow` em n8n.service.ts: só `name/nodes/connections/settings`,
+  propriedade a mais é recusada; nasce desligado). `chamarWebhook` testa ponta a ponta no webhook de produção (404 = fluxo
+  desligado).
+- Testar a nuvem sem conta Cloudflare: importar `CODIGO_WORKER` como módulo em Node, com um KV falso em memória, atrás de um
+  `http.createServer`; a URL `http://127.0.0.1` é aceita só para esse teste (na internet, sempre https). Testar o n8n sem
+  n8n: um servidor Node que responde a API de workflows e, no webhook, executa o fluxo salvo (avalia as expressões do Set e
+  faz o HTTP Request dele).
+
+## WhatsApp (módulo WhatsApp + aba Conversa da ficha)
+
+- **O que se vê é o que sai.** O texto passa por [whatsapp.campos.ts](src/shared/types/whatsapp.campos.ts) (puro: os campos dos
+  contratos + `primeiro_nome`, `como_chamar`, `saudacao`) na prévia **e** no main; o pedido leva `textoEsperado` e o main recusa
+  se o texto montado der diferente (`whatsapp.envio.ts`). Campo sem valor bloqueia o envio. O texto nunca é aparado
+  (`textoExato`: só `
+` → `
+`).
+- `whatsapp.json` (próprio, fora de contatos.json): `config` (provedor padrão, Meta, Evolution, WAHA, n8n, limites), `mensagens`
+  (`MensagemWa`, com `idExterno` do provedor), `modelos` (texto com campos + `metaTemplate` opcional) e `lotes` (envio para vários).
+  Credenciais no cofre `whatsapp.*` (`meta.token`, `meta.appSecret`, `evolution.apikey`, `waha.apikey`, `webhook.chave`); a tela
+  recebe `StatusWhatsapp` (booleanos + 4 últimos). Backup: `whatsapp` em `EXPORTAVEIS`, planilha Mensagens/Envios.
+- **Caminhos** = um adaptador por provedor em [provedores/](src/main/modules/whatsapp/provedores) (`AdaptadorWa`: `falta`,
+  `testar`, `enviarTexto`, `enviarTemplate?`, `conferirNumero?`, `listarTemplates?`, `configurarWebhook?`, `buscarConversa?`),
+  catálogo `PROVEDORES_WHATSAPP`. `link` não envia: abre `whatsapp://send` no app do PC (`appDoWhatsapp` — WhatsApp ou WhatsApp Beta da Store, detectado
+  pelo **nome** do protocolo: `getApplicationInfoForProtocol` falha com app da Store) ou `web.whatsapp.com/send`, conforme
+  `config.link.abrirEm`; grava `aberta-no-whatsapp`. O "Testar" abre o app sem número (escolha de conversa — nada sai). Meta fora da
+  janela de 24 h (`dentroDaJanela`, a partir da última mensagem recebida) só aceita template. TLS inseguro por grupo
+  (`setHostsInseguros(hosts, 'whatsapp')` — cada serviço tem a sua lista).
+- **Envio**: grava "enviando" → chama o provedor → grava o resultado (duas gravações; HTTP fora do trecho ler→gravar). Abrir o
+  app com algo "enviando" vira "não saiu" com aviso (`recuperarInterrompidas`, em main.ts antes da janela). Cada envio para um
+  contato atualiza **um registro por dia** no histórico de Contatos (tipo `whatsapp-iris`, somente leitura,
+  `INTERACOES_DO_APP`): é o que faz o WhatsApp contar como contato em "último contato", "Sem resposta" dos leads, planilha e PDF.
+- **Recebimento**: tudo vira `EventoWa` ([whatsapp.eventos.ts](src/shared/types/whatsapp.eventos.ts), tradutores tolerantes de
+  Meta, Evolution v1/v2 — `MESSAGES_UPSERT` e `messages.upsert` —, WAHA e o formato do Iris) e cai em `receberEventos`: dedup
+  por `idExterno` (`idsRecebidos`), status **só avança** (`statusSeguinte`: "lida" antes de "entregue" é comum), eco de envio
+  casa por número+texto, número com e sem o **9** casa (`mesmoNumeroWa`), número fora do cadastro fica em "Sem cadastro".
+  Rotas `/v1/whatsapp/<meta|evolution|waha|iris>/<chave>` no servidor local (contatos.servidor.ts) e no Worker (versão 2, KV
+  `wa:`, variáveis `CHAVE_WHATSAPP` e `META_APP_SECRET`; o GET responde o `hub.challenge` da Meta). A busca na nuvem roda na
+  mesma tarefa dos leads. Evolution/WAHA: "Ligar o webhook" configura pela API; abrir a conversa busca as últimas 50.
+- **Lotes** (`whatsapp.fila.ts`): tarefa `whatsapp:fila` (15 s) só enquanto há lote enviando; um destino por rodada, marcado
+  antes de enviar (fechar no meio não duplica), intervalo sorteado, horário e limite diário. Só campos do cadastro; quem tem
+  `naoEnviarWhatsapp` (ContatoBase) ou falta campo é pulado com motivo.
+- **n8n** ([whatsapp.n8n.ts](src/shared/types/whatsapp.n8n.ts)): fluxos "enviar pela API oficial", "enviar pela Evolution" (o nó
+  confere `X-Iris-Chave` e responde `{ idExterno }`) e "receber pela API oficial". Credenciais nunca vão para o fluxo; a chave
+  aparece mascarada na prévia e só sai inteira pelo "Copiar JSON"/"Criar no n8n" do main.
+- Telas: `modules/whatsapp/` — `whatsapp.view.ts` (índice: Conversas · Envio para vários · Modelos · Conexão), `whatsapp.composer.ts`
+  (caixa de escrever, rascunho por conversa que sobrevive ao redesenho), `whatsapp.ui.ts` (formatação `*negrito*`/`_itálico_`/
+  `~riscado~`, bolha, situação com ícone + texto), state com **vários ouvintes** (`assinar`). Vivo a sessão toda em
+  [core/whatsapp.ts](src/renderer/core/whatsapp.ts): selo de não lidas e o clique na notificação (`whatsapp:abrir` →
+  `abrirConversaWa`). CSS em [whatsapp.css](src/renderer/styles/whatsapp.css), prefixo `wa-` (reusa o layout `la-` de API e n8n).
+- Testar sem conta: uma Evolution falsa em Node (responde `sendText` com `key.id` e devolve `messages.update`/`upsert` ao webhook
+  configurado) e o Worker importado em Node com KV em memória, como nos leads.
 
 ## Roteiros
 
@@ -451,9 +642,16 @@ não seria decifrável em outra máquina.
   lugar do título; use `tituloExibido()` de `postagens.ui.ts` em vez de `video.titulo` em
   qualquer card ou chip.
 - O calendário ([postagens.calendario.ts](src/renderer/modules/postagens/postagens.calendario.ts))
-  usa drag-and-drop nativo do HTML5 (não sortablejs) com o tipo
-  `application/x-iris-postagem`. As linhas do mês usam `grid-template-rows: max-content`: com a grade
-  rolando, `minmax(…, auto)` não cresce e o conteúdo vaza sobre a semana seguinte.
+  usa drag-and-drop nativo do HTML5 (não sortablejs) com o tipo `application/x-iris-postagem`. Mês (só as
+  semanas que o mês usa) ou semana, e um **painel fixo à direita** com duas abas: **Dia** (o dia clicado —
+  `diaSelecionado`, começa em hoje — por horário, com selo da situação) e **Sem data**. Soltar no painel do
+  dia agenda naquele dia; soltar em "Sem data" tira a data; "dia todo" na semana tira a hora. Cada dia do
+  mês mostra no máximo 3 linhas (`MAX_POR_DIA`, o "+N" ocupa a terceira), por isso as semanas podem usar
+  `minmax(112px, 1fr)` sem o conteúdo vazar. Abaixo de 1000px (container query `calendario` e
+  `LARGURA_COM_PAINEL`) o painel desce para baixo da grade e o clique no dia abre o modal. Situação
+  (publicado/agendado/vencido/em produção) é a cor da barra do cartão, sempre com rótulo no title, no painel
+  e na legenda. Visão e aba em localStorage `iris.postagens.calendario`. O navegador ‹ Hoje › e os títulos
+  de período são de [postagens.periodo.ts](src/renderer/modules/postagens/postagens.periodo.ts), dividido com Métricas.
 - Redes têm `logo` opcional do catálogo `REDES_CONHECIDAS` (videos.types.ts); os glifos
   SVG ficam em [postagens.logos.ts](src/renderer/modules/postagens/postagens.logos.ts) — desenhados
   no código, a CSP não permite imagem externa. Para achar uma rede escrita na planilha, use
@@ -476,10 +674,15 @@ não seria decifrável em outra máquina.
   corte antigo em 85 (`ESCALA_LEGADA`). Editor em [postagens.escalas.ts](src/renderer/modules/postagens/postagens.escalas.ts)
   (Ajustes › Escalas de score e botão na aba Métricas). O bloco de métricas dos Relatórios grava
   uma **cópia** da escala no `resultado` (a das empresas do filtro); resultado sem escala é lido
-  com `ESCALA_LEGADA`. A aba **Métricas** (postagens.metricas.ts) usa
-  gráficos SVG próprios de [postagens.graficos.ts](src/renderer/modules/postagens/postagens.graficos.ts):
-  um eixo só, cores validadas contra a superfície escura, tabela alternativa em cada
-  gráfico. Mês de um vídeo publicado = `dataAgendada` (não `publicadoEm`, que num lote
+  com `ESCALA_LEGADA`. A aba **Métricas** (postagens.metricas.ts, prefixo de CSS `mt-` — o `rl-` antigo era
+  dividido com Relatórios de leads e o leads.css sobrescrevia a grade) se lê de cima para baixo: resumo (nota
+  em destaque com `buildMiniLinha` + três números de apoio), Produção (por mês + **"Pipeline agora"**, as
+  etapas por fase — os números que saíram do topo da pipeline; ignora o período), Qualidade, Onde funciona
+  melhor, Destaques (lista vazia vira uma linha de texto) e a Conferência recolhível no fim. Período e base
+  em localStorage `iris.postagens.metricas`. Gráficos SVG próprios de
+  [postagens.graficos.ts](src/renderer/modules/postagens/postagens.graficos.ts): um eixo só, cores validadas
+  contra a superfície escura, tabela alternativa em cada gráfico (`buildCartaoGrafico` com `tabela: null`
+  para os rankings, que já são texto). Mês de um vídeo publicado = `dataAgendada` (não `publicadoEm`, que num lote
   importado é o dia da importação).
 - O painel do vídeo abre na posição de `preferencias.posicaoPainel` (centro = modal com
   fundo e seções em duas colunas; esquerda/direita = lateral sem fundo).
@@ -528,6 +731,10 @@ não seria decifrável em outra máquina.
   assinatura que o NSIS executa durante o build (`spawn UNKNOWN` em `computeScriptAndSignUninstaller`). Sai como release publicada, não rascunho
   (`releaseType: release`) — rascunho não aparece em `releases/latest`. O `nsis.artifactName`
   sem espaços é o que o service procura (`/setup.*\.exe$/i`).
+- O mesmo workflow tem um job `linux` (`needs: release`, para não disputar a criação da release): `dist:linux`, teste de
+  fumaça (abre o app empacotado em `xvfb-run` com `IRIS_SAIR_APOS_ABRIR=1` e exige o marco "primeira tela") e só então
+  publica AppImage + .deb. No Linux o modo de atualização é `linux`: avisa e abre a página da release; "Escolher versão…"
+  e "Instalar de um arquivo…" (NSIS) não aparecem.
 
 ## Backup e exportação
 
@@ -552,6 +759,29 @@ não seria decifrável em outra máquina.
   (dica/info/atencao), comando, link, `atalhos` (kbd) e `abrir` (leva a um módulo ou seção de Ajustes).
 - Área nova = guia novo em `GUIAS_DAS_AREAS` e o id em `GuiaId` (navegacao.ts); `abrirTutorial(id)`
   abre direto nele. Ícone vem de `ICONE_DO_MODULO` (sidebar.ts) pelo `modulo` do guia.
+
+## Atalhos de teclado
+
+- Um ouvinte só, na janela: [core/atalhos.ts](src/renderer/core/atalhos.ts). O que existe e a tecla padrão estão em
+  [atalhos.catalogo.ts](src/renderer/core/atalhos.catalogo.ts) (`CATALOGO_ATALHOS`; `ATALHOS_FIXOS` são as que só
+  aparecem na ajuda, como Ctrl+1…9 e as do teleprompter). Quem executa é ligado por id: os globais em
+  `atalhos.globais.ts` (na abertura), os de um módulo no mount dele — `desligar = ligarAtalhos({ 'kanban.novo': … })`
+  e `desligar()` no destroy. Atalho com `escopo` só vale com aquele módulo aberto (`moduloAtual()` de navegacao.ts).
+  **Não criar `keydown` de documento num módulo**: entrada no catálogo + `ligarAtalhos`.
+- Regras do despacho: com modal aberto nada dispara; com foco num campo só Ctrl/Alt e teclas F
+  (`passoFuncionaDigitando`); "G K" é sequência (1,2 s para a segunda tecla, aviso "G…" no canto). Ctrl+P sempre
+  tem o `preventDefault` (imprimir do Chromium).
+- **Módulo novo = uma letra em `IR_PARA`** (`Record<ModuloId, Combo>`, o compilador cobra). Tutorial é F1, Ajustes
+  Ctrl+,. Alt+←/→ andam no histórico de módulos (`registrarVisita`/`voltarModulo` em navegacao.ts).
+- Combinação em texto, sempre "Ctrl" (nunca "⌘"): `"Ctrl+Shift+K"`, `"Alt+Left"`, `"G K"` —
+  [atalhos.types.ts](src/shared/types/atalhos.types.ts) (puro, dos dois lados: `normalizarCombo`, `TECLAS_RESERVADAS`
+  — copiar/colar/desfazer, recarregar, fechar janela, devtools, zoom, F5, F11, Esc, Enter, Tab).
+- Trocas do usuário em `ajustes.json` v4 › `atalhos` (só o que difere do padrão; `''` = sem atalho; id desconhecido é
+  mantido). Ajustes › Atalhos (`ajustes.atalhos.ts`) captura a combinação nova, avisa conflito (mesma tecla no mesmo
+  escopo, ou "G" sozinho contra "G K") e tira a tecla da outra ação ao salvar.
+- Mostrar a tecla: `buildTeclas(comboDe(id))` (ui/pagina.ts, `.pg-kbd`) ou `comAtalho(texto, id)` num title — nunca
+  escrever a tecla à mão, ela pode ter sido trocada. Ajuda com Shift+? (`atalhos.ajuda.ts`), busca rápida mostra a tecla
+  de cada módulo, blocos `atalhos` do Tutorial com `acao` leem a tecla atual.
 
 ## Eventos push (main → renderer)
 
@@ -617,10 +847,14 @@ Quando a configuração muda na UI, chamar `reaplicarAgendamentos()` em vez de e
   de painel = decidir se é conteúdo ou propriedade. O cabeçalho mostra só o tipo ("Card", "Campanha"), sem código.
 - Reusar as peças compartilhadas em [src/renderer/ui/pagina.ts](src/renderer/ui/pagina.ts)
   (`buildCabecalho`, `buildSelo`, `buildIndicadores`, `buildBusca`, `buildVazio`,
-  `buildBotao`, `ICONES`, `svg`, `tempoRelativo`) e
+  `buildBotao`, `buildTeclas`, `ICONES`, `svg`, `tempoRelativo`) e
   [src/renderer/ui/modal.ts](src/renderer/ui/modal.ts) (`openFormModal`, `promptText`,
   `openConfirmModal`) em vez de recriar variantes.
 - Estado nunca é comunicado só por cor: `buildSelo` sempre emite ícone + texto.
+- **Nada de faixa de números no topo de tela de trabalho** (Contatos, pipeline, To-do, Roteiros, lista de
+  Relatórios, GitHub, n8n…): o usuário achou que tinha "cara de IA". `buildIndicadores` só em tela de análise
+  (Métricas, Leads › Painel, Tráfego › Painel); um número útil vira gráfico lá. Contagem discreta nas abas
+  ("Pessoas · 12") pode.
 - Tokens de cor, raio e fonte no `:root` de
   [base.css](src/renderer/styles/base.css) — usar as variáveis, não valores literais.
 - Navegação entre módulos via [navegacao.ts](src/renderer/core/navegacao.ts). Ele existe
@@ -647,6 +881,36 @@ Quando a configuração muda na UI, chamar `reaplicarAgendamentos()` em vez de e
   servidores.ssh.ts e `xlsx` nos services de Sheets e Tráfego. Não voltar para import no topo.
 - `startBackgroundServices()` roda depois do `did-finish-load` (watchers da Biblioteca e polls
   não disputam com a primeira tela). A janela nasce com `backgroundColor` do tema.
+- **Medir antes de otimizar**: `IRIS_MEDIR_ABERTURA=1` imprime os marcos da abertura (main.js, ready, janela,
+  did-navigate, dom-ready, did-finish-load, primeira tela — avisada pelo `app.ts` via `app:primeiraTela`) e
+  `IRIS_SAIR_APOS_ABRIR=1` fecha quando a primeira tela aparece ([core/abertura.ts](src/main/core/abertura.ts)).
+  Medido em out/2026: ~0,55 s no dev, 0,6–0,85 s empacotado no Windows, ~0,7 s no Ubuntu 24.04. Os requires do
+  main pesam ~85 ms espalhados pela árvore dos services (não há um vilão só). Juntar os CSS num arquivo foi medido
+  e **não** ajudou — não refazer.
+- A janela **não espera** as migrações da abertura (`migrarEmpresas`, `recuperarInterrompidas`): elas viram
+  `dadosProntos`, e `registerAllIpcHandlers` embrulha todo `ipcMain.handle` para esperar essa promessa antes do
+  service. Os serviços de fundo também esperam por ela.
+- O esquema `app://` tem `codeCache: true`: sem ele o Chromium não guarda o bytecode dos módulos do renderer.
+- **Medir sem outra instância aberta no mesmo `--user-data-dir`**: duas instâncias no mesmo perfil fazem a segunda
+  esperar ~6 s pelo bloqueio e a medição sai falsa.
+
+## Linux
+
+- AppImage + .deb x64 (`package.json › build.linux/appImage/deb`). O `.deb` declara `depends` à mão: a lista padrão
+  do electron-builder não traz `libasound2` (no Ubuntu 24.04, `libasound2t64`) e o app nem abre sem ela.
+  `desktopName` + `syncDesktopName` ligam a janela ao `.desktop`.
+- No Ubuntu 23.10+ o AppArmor bloqueia o sandbox do Chromium em AppImage (comum a todo app Electron): o README
+  manda Ubuntu/Debian/Mint para o `.deb`, que deixa o `chrome-sandbox` SUID na instalação. Não desligar o sandbox.
+- Código que muda por sistema: `iconeDoApp()` ([core/icone.ts](src/main/core/icone.ts) — `.ico` no Windows, `.png`
+  no resto, para janela e notificações); `isEncryptionAvailable()` devolve `false` no Linux com o backend
+  `basic_text` (sem chaveiro o safeStorage só ofusca — a tela avisa "sem cofre"); `detectarModo()` da atualização.
+- Na tela: `window.irisAPI.system.plataforma` e [ui/plataforma.ts](src/renderer/ui/plataforma.ts) (`NO_LINUX`,
+  `COFRE`, `DO_SISTEMA`). Texto novo que cite o Windows (cofre, notificação, Lixeira, firewall, PowerShell, Store)
+  usa essas constantes.
+- Testar sem Linux: Docker Desktop. Montar em `electronuserland/builder:20` (copiar o projeto sem `node_modules`,
+  `npm ci && npm run dist:linux`) e rodar o `.deb` num `ubuntu:24.04` com `xvfb-run`, como usuário comum e
+  `--security-opt seccomp=unconfined` (o seccomp padrão do Docker bloqueia o sandbox do Chromium). Capturas: socat
+  repassando o `--remote-debugging-port` para fora do contêiner.
 
 ## Armadilhas
 

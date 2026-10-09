@@ -125,7 +125,7 @@
 .td-cartao:hover,
 .td-cartao:focus-within {
   border-color: var(--border);
-  box-shadow: 0 10px 26px -18px rgba(0, 0, 0, 0.9);
+  box-shadow: 0 10px 26px -18px rgb(0 0 0 / calc(0.9 * var(--sombra-k)));
 }
 
 .td-cartao.is-arquivada {

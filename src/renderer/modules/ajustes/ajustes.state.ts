@@ -1,5 +1,5 @@
 import type { IpcResult } from '../../../shared/types/common.types';
-import type { AjustesInfo, AssinaturaRelatorio, ModuloInicial } from '../../../shared/types/ajustes.types';
+import type { AjustesInfo, AssinaturaRelatorio, ModuloInicial, PerfilUsuario, Tema } from '../../../shared/types/ajustes.types';
 import type { N8nConfig, SalvarN8nConfigInput } from '../../../shared/types/n8n.types';
 import type { GithubConfig, SalvarGithubConfigInput } from '../../../shared/types/github.types';
 import type { IaConfig, ProvedorId, SalvarPadroesInput, SalvarProvedorInput } from '../../../shared/types/ia.types';
@@ -89,6 +89,22 @@ export async function testarIa(id: ProvedorId): Promise<string> {
 
 export async function setModuloInicial(modulo: ModuloInicial): Promise<void> {
   const ajustes = unwrap(await window.irisAPI.ajustes.setModuloInicial(modulo));
+  if (state) applyAndNotify({ ...state, ajustes });
+}
+
+export async function setTema(tema: Tema): Promise<void> {
+  const ajustes = unwrap(await window.irisAPI.ajustes.setTema(tema));
+  if (state) applyAndNotify({ ...state, ajustes });
+}
+
+/** O tema mudou fora de Ajustes (botão do trilho, atalho): relê só os ajustes. */
+export async function recarregarAjustes(): Promise<void> {
+  const ajustes = unwrap(await window.irisAPI.ajustes.getAjustes());
+  if (state) applyAndNotify({ ...state, ajustes });
+}
+
+export async function setPerfil(perfil: PerfilUsuario): Promise<void> {
+  const ajustes = unwrap(await window.irisAPI.ajustes.setPerfil(perfil));
   if (state) applyAndNotify({ ...state, ajustes });
 }
 

@@ -1,5 +1,8 @@
 import { CATEGORIAS, MODULOS, type CategoriaId, type ModuloId } from '../../shared/types/modulos.types.js';
-import { empilharCamada, haModalAberto } from '../ui/modal.js';
+import { empilharCamada } from '../ui/modal.js';
+import { comAtalho, comboDe, onAtalhosMudaram, textoDoCombo } from './atalhos.js';
+import { alternarTema, onTemaMudou, temaEfetivo } from './tema.js';
+import { idIrPara } from './atalhos.catalogo.js';
 
 /**
  * Barra lateral em duas partes: um trilho de ícones sempre visível e um
@@ -13,6 +16,14 @@ import { empilharCamada, haModalAberto } from '../ui/modal.js';
 
 export const ICONE_DO_MODULO: Record<ModuloId, string> = {
   kanban: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/>',
+  contatos:
+    '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  leads:
+    '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+  'relatorios-leads':
+    '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 18v-3"/><path d="M12 18v-6"/><path d="M16 18v-4"/>',
+  'api-leads': '<path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/>',
+  whatsapp: '<path d="M3 21l1.7-5A8.5 8.5 0 1 1 8 19.3z"/><path d="M9 10c.5 2 2.5 4 5 5l1.5-1.5 2 1-1 2c-3.5 0-8.5-5-8.5-8.5l2-1 1 2z"/>',
   todo: '<path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="m3 6 1 1 2-2"/><path d="m3 12 1 1 2-2"/><path d="m3 18 1 1 2-2"/>',
   ia: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
   postagens:
@@ -43,6 +54,7 @@ export const ICONE_DO_MODULO: Record<ModuloId, string> = {
 };
 
 const ICONE_DA_CATEGORIA: Record<CategoriaId, string> = {
+  relacionamento: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M15 8h2"/><path d="M15 12h2"/><path d="M7 16h4"/>',
   conteudo: '<rect x="2" y="4" width="20" height="16" rx="3"/><path d="m10 9 5 3-5 3z"/>',
   arquivos: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
   sistema: '<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3"/><path d="M15 1v3"/><path d="M9 20v3"/><path d="M15 20v3"/><path d="M20 9h3"/><path d="M20 14h3"/><path d="M1 9h3"/><path d="M1 14h3"/>',
@@ -92,16 +104,18 @@ let moduloAtivo: ModuloId | null = null;
 let fixado = lerFixado();
 let categoriaAberta: CategoriaId | null = null;
 let soltarCamada: (() => void) | null = null;
-let atalhosRegistrados = false;
 const ouvintesFixado = new Set<(fixado: boolean) => void>();
+/** Selos de contagem por módulo (leads não vistos em Contatos). */
+const contagens = new Map<ModuloId, number>();
 
 // ---------- Trilho ----------
 
-function itemDoTrilho(icone: string, rotulo: string, aoClicar: (e: MouseEvent) => void): HTMLButtonElement {
+function itemDoTrilho(icone: string, rotulo: string, aoClicar: (e: MouseEvent) => void, atalho?: string): HTMLButtonElement {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'trilho-item';
   btn.dataset.dica = rotulo;
+  if (atalho) btn.dataset.atalho = atalho;
   btn.setAttribute('aria-label', rotulo);
   btn.innerHTML = svg(icone);
   btn.addEventListener('click', aoClicar);
@@ -109,9 +123,57 @@ function itemDoTrilho(icone: string, rotulo: string, aoClicar: (e: MouseEvent) =
 }
 
 function itemDeModulo(id: ModuloId, rotulo: string): HTMLButtonElement {
-  const btn = itemDoTrilho(ICONE_DO_MODULO[id], rotulo, () => escolher(id));
+  const btn = itemDoTrilho(ICONE_DO_MODULO[id], rotulo, () => escolher(id), idIrPara(id));
   btn.dataset.module = id;
   return btn;
+}
+
+/** O número vai num span (o ::before marca o ativo e o ::after é a dica) e também no nome acessível. */
+function aplicarContagem(btn: HTMLElement, n: number, rotulo: string): void {
+  btn.querySelector('.trilho-contagem')?.remove();
+  const texto = n > 0 ? `${rotulo} — ${n} ${n === 1 ? 'lead novo' : 'leads novos'}` : rotulo;
+  if (n > 0) {
+    btn.dataset.contagem = String(n);
+    const selo = document.createElement('span');
+    selo.className = 'trilho-contagem';
+    selo.setAttribute('aria-hidden', 'true');
+    selo.textContent = n > 99 ? '99+' : String(n);
+    btn.appendChild(selo);
+  } else {
+    delete btn.dataset.contagem;
+  }
+  // Os itens do painel têm o nome escrito; só os do trilho dependem do aria-label e da dica.
+  if (btn.classList.contains('trilho-item')) {
+    btn.setAttribute('aria-label', texto);
+    btn.dataset.dica = texto;
+  }
+}
+
+/** A tecla de cada item do trilho, na dica; redesenha quando o usuário troca um atalho. */
+function desenharTeclas(): void {
+  sidebarEl?.querySelectorAll<HTMLElement>('.trilho-item[data-atalho]').forEach((b) => {
+    const combo = comboDe(b.dataset.atalho!);
+    b.dataset.tecla = combo ? `  ·  ${textoDoCombo(combo)}` : '';
+  });
+}
+
+function desenharContagens(): void {
+  if (!sidebarEl) return;
+  MODULOS.forEach((m) => {
+    sidebarEl!.querySelectorAll<HTMLElement>(`[data-module="${m.id}"]`).forEach((b) => aplicarContagem(b, contagens.get(m.id) ?? 0, m.rotulo));
+  });
+  CATEGORIAS.forEach((c) => {
+    const total = modulosDa(c.id).reduce((s, m) => s + (contagens.get(m.id) ?? 0), 0);
+    sidebarEl!.querySelectorAll<HTMLElement>(`.trilho-item[data-categoria="${c.id}"]`).forEach((b) => aplicarContagem(b, total, c.rotulo));
+  });
+}
+
+/** Leads não vistos em Contatos (core/leads.ts). Zero tira o selo. */
+export function definirContagem(modulo: ModuloId, n: number): void {
+  const valor = Math.max(0, n);
+  if ((contagens.get(modulo) ?? 0) === valor) return;
+  contagens.set(modulo, valor);
+  desenharContagens();
 }
 
 function itemDeCategoria(id: CategoriaId, rotulo: string): HTMLButtonElement {
@@ -127,6 +189,24 @@ function itemDeCategoria(id: CategoriaId, rotulo: string): HTMLButtonElement {
   btn.dataset.categoria = id;
   btn.setAttribute('aria-haspopup', 'true');
   btn.setAttribute('aria-expanded', 'false');
+  return btn;
+}
+
+const ICONE_SOL =
+  '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>';
+const ICONE_LUA = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+
+/** Sol/lua: mostra o tema para onde vai, e se redesenha quando o tema muda por qualquer caminho. */
+function buildBotaoTema(): HTMLButtonElement {
+  const btn = itemDoTrilho('', '', () => void alternarTema().catch(() => undefined), 'geral.tema');
+  const desenhar = (tema: 'claro' | 'escuro'): void => {
+    const rotulo = tema === 'escuro' ? 'Tema claro' : 'Tema escuro';
+    btn.dataset.dica = rotulo;
+    btn.setAttribute('aria-label', rotulo);
+    btn.innerHTML = svg(tema === 'escuro' ? ICONE_SOL : ICONE_LUA);
+  };
+  desenhar(temaEfetivo());
+  onTemaMudou(desenhar);
   return btn;
 }
 
@@ -155,10 +235,11 @@ function buildTrilho(): HTMLElement {
 
   const rodape = document.createElement('div');
   rodape.className = 'trilho-grupo';
-  rodape.appendChild(itemDoTrilho(ICONE_BUSCA, 'Ir para… (Ctrl+P)', () => void abrirBuscaRapida()));
+  rodape.appendChild(itemDoTrilho(ICONE_BUSCA, 'Ir para…', () => void abrirBuscaRapida(), 'geral.busca'));
   // O aviso de atualização (core/atualizacao.ts) entra aqui quando há versão nova.
   rodape.appendChild(Object.assign(document.createElement('div'), { className: 'trilho-aviso' }));
   rodape.appendChild(Object.assign(document.createElement('span'), { className: 'trilho-divisor' }));
+  rodape.appendChild(buildBotaoTema());
   MODULOS.filter((m) => m.posicao === 'rodape').forEach((m) => rodape.appendChild(itemDeModulo(m.id, m.rotulo)));
   trilho.appendChild(rodape);
   return trilho;
@@ -190,7 +271,7 @@ function cabecalhoDoPainel(titulo: string): HTMLElement {
   const botao = document.createElement('button');
   botao.type = 'button';
   botao.className = 'sb-painel-fixar';
-  const rotulo = fixado ? 'Soltar o painel (Ctrl+B)' : 'Fixar o painel aberto (Ctrl+B)';
+  const rotulo = comAtalho(fixado ? 'Soltar o painel' : 'Fixar o painel aberto', 'geral.fixar');
   botao.title = rotulo;
   botao.setAttribute('aria-label', rotulo);
   botao.innerHTML = svg(fixado ? ICONE_RECOLHER : ICONE_FIXAR, 15, 2);
@@ -228,6 +309,7 @@ function desenharPainel(): void {
       lista.appendChild(grupo);
     });
     painelEl.appendChild(lista);
+    desenharContagens();
     return;
   }
 
@@ -238,6 +320,7 @@ function desenharPainel(): void {
   lista.className = 'sb-painel-rolagem';
   modulosDa(categoria.id).forEach((m) => lista.appendChild(itemDoPainel(m, true)));
   painelEl.appendChild(lista);
+  desenharContagens();
 }
 
 function aoClicarFora(e: PointerEvent): void {
@@ -306,31 +389,11 @@ export function assinarFixado(cb: (fixado: boolean) => void): () => void {
 
 // ---------- Busca rápida ----------
 
-/** Carregada no primeiro uso: a paleta não pesa na abertura do app. */
-async function abrirBuscaRapida(): Promise<void> {
+/** Carregada no primeiro uso: a paleta não pesa na abertura do app. Ctrl+P, pelos atalhos (atalhos.globais.ts). */
+export async function abrirBuscaRapida(): Promise<void> {
   fecharPainel();
   const { abrirPaleta } = await import('./paleta.js');
   abrirPaleta();
-}
-
-function registrarAtalhos(): void {
-  if (atalhosRegistrados) return;
-  atalhosRegistrados = true;
-  window.addEventListener('keydown', (e: KeyboardEvent) => {
-    if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
-    const tecla = e.key.toLowerCase();
-    if (tecla === 'p') {
-      // Ctrl+P do Chromium é "imprimir": aqui nunca faz sentido.
-      e.preventDefault();
-      if (!haModalAberto()) void abrirBuscaRapida();
-    } else if (tecla === 'b') {
-      const ativo = document.activeElement as HTMLElement | null;
-      // Num campo de texto, Ctrl+B pode ser negrito; não roubar.
-      if (ativo && (ativo.tagName === 'INPUT' || ativo.tagName === 'TEXTAREA' || ativo.isContentEditable)) return;
-      e.preventDefault();
-      definirFixado(!fixado);
-    }
-  });
 }
 
 // ---------- API ----------
@@ -343,7 +406,11 @@ export function montarSidebar(container: HTMLElement, escolherModulo: (modulo: M
   painelEl.setAttribute('aria-label', 'Módulos');
   container.replaceChildren(buildTrilho(), painelEl);
   desenharPainel();
-  registrarAtalhos();
+  desenharTeclas();
+  onAtalhosMudaram(() => {
+    desenharTeclas();
+    desenharPainel();
+  });
 }
 
 export function marcarAtivo(modulo: ModuloId): void {

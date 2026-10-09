@@ -12,12 +12,17 @@ import { net, session, type Session } from 'electron';
 const PARTICAO_INSEGURA = 'iris-tls-inseguro';
 
 let sessaoInsegura: Session | null = null;
-const hostsInseguros = new Set<string>();
+/** Por serviço: cada um troca só a própria lista (antes um apagava a do outro). */
+const hostsInseguros = new Map<string, Set<string>>();
 
 /** Atualizado pelos serviços ao carregar as configurações. */
-export function setHostsInseguros(hostnames: string[]): void {
-  hostsInseguros.clear();
-  hostnames.forEach((host) => hostsInseguros.add(host.toLowerCase()));
+export function setHostsInseguros(hostnames: string[], grupo: string): void {
+  hostsInseguros.set(grupo, new Set(hostnames.map((host) => host.toLowerCase())));
+}
+
+function hostInseguro(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  return [...hostsInseguros.values()].some((lista) => lista.has(h));
 }
 
 /**
@@ -30,7 +35,7 @@ function getSessaoInsegura(): Session {
     sessaoInsegura = session.fromPartition(PARTICAO_INSEGURA);
     sessaoInsegura.setCertificateVerifyProc((request, callback) => {
       // 0 = aceitar apesar do erro de certificado; -3 = verificação padrão.
-      callback(hostsInseguros.has(request.hostname.toLowerCase()) ? 0 : -3);
+      callback(hostInseguro(request.hostname) ? 0 : -3);
     });
   }
   return sessaoInsegura;

@@ -791,3 +791,280 @@ select.aj-input {
   border: 1px solid var(--border-soft);
   border-radius: var(--radius);
 }
+
+.aj-campo-dica.is-aviso {
+  color: var(--warning);
+}
+
+.aj-campo-dica.is-aviso:empty {
+  display: none;
+}
+
+/* ---- Atalhos de teclado ---- */
+
+.aj-at-nota {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.aj-at-barra {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.aj-at-barra .pg-busca {
+  flex: 1;
+  min-width: 220px;
+}
+
+.aj-at-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.aj-at-grupo {
+  display: flex;
+  flex-direction: column;
+}
+
+.aj-at-grupo h3 {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.aj-at-linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.aj-at-linha:hover {
+  background: color-mix(in oklch, var(--bg-elevated-2) 50%, transparent);
+}
+
+.aj-at-nome {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.aj-at-acoes {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.aj-at-acoes > .pg-teclas {
+  min-width: 96px;
+  justify-content: flex-end;
+}
+
+.aj-at-vazio {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Captura de uma combinação nova */
+
+.aj-at-instrucao {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.aj-at-visor {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 84px;
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.aj-at-visor .pg-kbd {
+  min-width: 34px;
+  height: 32px;
+  font-size: 14px;
+}
+
+.aj-at-esperando {
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.aj-at-aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.aj-at-aviso:empty {
+  display: none;
+}
+
+.aj-at-aviso > .pg-selo {
+  flex-shrink: 0;
+}
+
+/* ---------- Aparência ----------
+   As miniaturas desenham cada tema com as cores dele (literais de propósito):
+   o cartão do Claro precisa parecer claro mesmo com o Iris no escuro. */
+
+.aj-temas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+.aj-tema {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.aj-tema:hover {
+  border-color: var(--text-faint);
+}
+
+.aj-tema.is-ativo {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+  background: var(--accent-soft);
+}
+
+.aj-tema:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.aj-tema-mini {
+  --m-fundo: #0c0d12;
+  --m-lado: #14161c;
+  --m-linha: #2a2d38;
+  display: flex;
+  width: 100%;
+  height: 84px;
+  overflow: hidden;
+  background: var(--m-fundo);
+  border: 1px solid var(--border-soft);
+  border-radius: 7px;
+}
+
+.aj-tema.is-claro .aj-tema-mini {
+  --m-fundo: #f5f6f8;
+  --m-lado: #ffffff;
+  --m-linha: #dcdfe5;
+}
+
+/* "Igual ao Windows": metade de cada. */
+.aj-tema.is-sistema .aj-tema-mini {
+  background: linear-gradient(105deg, #0c0d12 0 50%, #f5f6f8 50% 100%);
+  --m-lado: transparent;
+  --m-linha: #8a8f9b;
+}
+
+.aj-tema-lado {
+  width: 26%;
+  background: var(--m-lado);
+  border-right: 1px solid var(--m-linha);
+}
+
+.aj-tema-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px 10px;
+}
+
+.aj-tema-area i {
+  display: block;
+  height: 7px;
+  border-radius: 4px;
+  background: var(--m-linha);
+}
+
+.aj-tema-area i:first-child {
+  width: 46%;
+  background: oklch(0.62 0.17 292);
+}
+
+.aj-tema-area i:nth-child(2) {
+  width: 82%;
+}
+
+.aj-tema-area i:nth-child(3) {
+  width: 64%;
+}
+
+.aj-tema-dica {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.aj-tema-textos {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 2px;
+}
+
+.aj-tema-textos strong {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.aj-tema-textos span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.aj-tema-check {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  color: var(--texto-sobre-acento);
+  background: var(--accent);
+  border-radius: 50%;
+}

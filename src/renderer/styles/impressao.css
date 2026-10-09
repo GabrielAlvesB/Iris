@@ -1,0 +1,29 @@
+/*
+ * Impressão de qualquer documento do app (relatório, ficha, contrato). O main
+ * chama printToPDF na própria janela; ui/impressao.ts põe o documento em
+ * #impressao e esta folha esconde todo o resto. Assim a prévia e o PDF são o
+ * mesmo DOM (ver core/pdf.ts). As regras de cada documento ficam no CSS dele.
+ */
+
+/* As margens de cima e de baixo (onde fica o rodapé com as páginas) vêm do
+   printToPDF; as laterais são o padding do próprio documento. */
+@page {
+  size: A4;
+}
+
+@media print {
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+
+  body > *:not(#impressao) {
+    display: none !important;
+  }
+
+  #impressao {
+    display: block !important;
+  }
+}

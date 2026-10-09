@@ -66,6 +66,3 @@ export async function exportarPdf(input: ExportarPdfInput): Promise<FileOpResult
   return unwrap(await window.irisAPI.relatorios.exportarPdf(input));
 }
 
-export async function abrirPdf(filePath: string): Promise<void> {
-  unwrap(await window.irisAPI.relatorios.abrirPdf(filePath));
-}

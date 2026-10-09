@@ -93,6 +93,8 @@ function ocupado(): boolean {
 
 function detectarModo(): ModoAtualizacao {
   if (!app.isPackaged) return 'desenvolvimento';
+  // O instalador e a troca de versão são do NSIS: no Linux o app só avisa.
+  if (process.platform !== 'win32') return 'linux';
   // O desinstalador só existe na pasta criada pelo instalador NSIS.
   const desinstalador = path.join(path.dirname(process.execPath), `Uninstall ${app.getName()}.exe`);
   return fs.existsSync(desinstalador) ? 'instalado' : 'portatil';
@@ -260,7 +262,11 @@ function mensagemDeBloqueio(codigo: string, erro: unknown): string {
 async function baixarEInstalar(alvo: Pacote): Promise<EstadoAtualizacao> {
   if (ocupado()) return estado;
   if (estado.modo !== 'instalado') {
-    throw new Error('Só a versão instalada se atualiza sozinha. Baixe a versão pela página da release ou use "Instalar de um arquivo".');
+    throw new Error(
+      estado.modo === 'linux'
+        ? 'No Linux o Iris não se atualiza sozinho: baixe o AppImage ou o .deb na página da release.'
+        : 'Só a versão instalada se atualiza sozinha. Baixe a versão pela página da release ou use "Instalar de um arquivo".',
+    );
   }
   if (!alvo.instalador) {
     throw new Error(`A release ${alvo.versao} não tem o instalador (Iris-Setup-….exe). Publique com "npm run release".`);
@@ -369,6 +375,7 @@ function ymlDescreve(yml: string, nome: string): boolean {
  */
 export async function escolherInstalador(janela: BrowserWindow | null): Promise<InstaladorLocal | null> {
   if (ocupado()) throw new Error('Já há uma instalação em andamento.');
+  if (estado.modo === 'linux') throw new Error('No Linux, baixe o AppImage ou o .deb na página da release.');
   const opcoes: OpenDialogOptions = {
     title: 'Escolher o instalador do Iris',
     properties: ['openFile'],

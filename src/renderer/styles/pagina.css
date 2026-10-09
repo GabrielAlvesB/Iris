@@ -27,9 +27,9 @@
   justify-content: center;
   border-radius: 12px;
   color: var(--accent);
-  background: linear-gradient(145deg, var(--accent-soft), rgba(255, 255, 255, 0.02));
-  border: 1px solid rgba(167, 139, 250, 0.22);
-  box-shadow: 0 6px 18px -8px rgba(139, 92, 246, 0.55);
+  background: linear-gradient(145deg, var(--accent-soft), rgb(var(--realce) / 0.02));
+  border: 1px solid color-mix(in oklch, var(--accent) 22%, transparent);
+  box-shadow: 0 6px 18px -8px color-mix(in oklch, var(--accent) 55%, transparent);
 }
 
 .pg-cabecalho-textos {
@@ -189,7 +189,7 @@
 .pg-segmento.is-ativo {
   color: var(--text);
   background: var(--bg-elevated-3);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 1px 2px rgb(0 0 0 / calc(0.35 * var(--sombra-k)));
 }
 
 .pg-busca {
@@ -257,7 +257,7 @@
 .pg-botao.is-primario {
   color: var(--accent-text);
   background: var(--accent);
-  box-shadow: 0 4px 14px -6px rgba(139, 92, 246, 0.7);
+  box-shadow: 0 4px 14px -6px color-mix(in oklch, var(--accent) 70%, transparent);
 }
 
 .pg-botao.is-primario:hover:not(:disabled) {
@@ -432,7 +432,7 @@
 
 .pg-card:hover {
   border-color: var(--border);
-  box-shadow: 0 10px 26px -18px rgba(0, 0, 0, 0.9);
+  box-shadow: 0 10px 26px -18px rgb(0 0 0 / calc(0.9 * var(--sombra-k)));
 }
 
 /* ---- Interruptor ---- */
@@ -475,4 +475,160 @@
 .pg-interruptor:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+/* ---- Teclas de atalho (buildTeclas) ---- */
+
+.pg-teclas {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.pg-teclas.is-vazio {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--text-faint);
+}
+
+.pg-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--text);
+  background: var(--bg-elevated-3);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.pg-teclas-depois {
+  padding: 0 2px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+/* Sequência começada ("G…"): espera a segunda tecla. */
+.at-pendente {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 3000;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  pointer-events: none;
+}
+
+/* ---- Ajuda dos atalhos (Shift+?) ---- */
+
+.at-ajuda-busca {
+  width: 100%;
+  margin-bottom: 14px;
+}
+
+.at-ajuda {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 24px;
+  align-items: start;
+}
+
+.at-ajuda-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+/* Gerais, a tela aberta e o "Ir para" ocupam a largura toda. */
+.at-ajuda-grupo:first-child,
+.at-ajuda-grupo.is-atual,
+.at-ajuda-grupo.is-navegacao {
+  grid-column: 1 / -1;
+}
+
+.at-ajuda-grupo.is-navegacao .at-ajuda-itens {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 18px;
+}
+
+.at-ajuda-grupo h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.at-ajuda-grupo.is-atual h3 {
+  color: var(--accent);
+}
+
+.at-ajuda-aqui {
+  padding: 1px 7px;
+  font-size: 10.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+}
+
+.at-ajuda-linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 32px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.at-ajuda-rotulo {
+  min-width: 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.at-ajuda-teclas {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.at-ajuda-vazio {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+@media (max-width: 760px) {
+  .at-ajuda,
+  .at-ajuda-grupo.is-navegacao .at-ajuda-itens {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

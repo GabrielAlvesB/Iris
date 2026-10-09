@@ -81,7 +81,7 @@ function hostDe(url: string): string | null {
 /** Mantém o httpClient sabendo quais hosts podem ter certificado inválido. */
 function aplicarPoliticaTls(file: N8nFile): void {
   const host = file.permitirTlsInseguro ? hostDe(file.baseUrl) : null;
-  setHostsInseguros(host ? [host] : []);
+  setHostsInseguros(host ? [host] : [], 'n8n');
 }
 
 export async function getConfig(): Promise<N8nConfig> {
@@ -393,4 +393,86 @@ export function getPollConfig(): { ativo: boolean; intervaloMs: number; temBaseU
     intervaloMs: file.pollIntervaloSeg * 1000,
     temBaseUrl: Boolean(file.baseUrl),
   };
+}
+
+// ---------- Fluxos criados por outros módulos (ex.: leads do formulário) ----------
+
+export interface WorkflowCriado {
+  id: string;
+  nome: string;
+  /** Endereço do fluxo no editor do n8n. */
+  link: string;
+}
+
+/**
+ * Cria um workflow pela API do n8n (fica desligado: ativar é decisão de quem
+ * usa). Mesmas mensagens de erro da conexão; a lista do módulo n8n se atualiza.
+ */
+export async function criarWorkflow(definicao: { name: string; nodes: unknown[]; connections: unknown; settings: unknown }): Promise<WorkflowCriado> {
+  const file = loadFile();
+  aplicarPoliticaTls(file);
+  const { baseUrl, apiKey } = exigirConexao(file);
+  const resposta = await request(`${baseUrl}/api/v1/workflows`, {
+    method: 'POST',
+    headers: { ...headers(apiKey), 'Content-Type': 'application/json' },
+    body: JSON.stringify(definicao),
+    timeoutMs: TIMEOUT_MS,
+    permitirTlsInseguro: file.permitirTlsInseguro,
+  });
+  if (isFalha(resposta)) throw new Error(`Não foi possível alcançar o n8n em ${baseUrl}: ${resposta.mensagem}`);
+  if (resposta.status === 401 || resposta.status === 403) throw new Error('A API key foi recusada pelo n8n. Confira em Ajustes › n8n.');
+  if (!resposta.ok) {
+    let detalhe = '';
+    try {
+      const corpo = JSON.parse(resposta.body) as { message?: unknown };
+      if (typeof corpo.message === 'string') detalhe = `: ${corpo.message}`;
+    } catch {
+      // Corpo sem JSON: fica só o código.
+    }
+    throw new Error(`O n8n recusou o fluxo (HTTP ${resposta.status})${detalhe}.`);
+  }
+  let id = '';
+  try {
+    const corpo = JSON.parse(resposta.body) as { id?: unknown };
+    id = typeof corpo.id === 'string' || typeof corpo.id === 'number' ? String(corpo.id) : '';
+  } catch {
+    // Sem id na resposta: o fluxo foi criado, só não dá para montar o link.
+  }
+  void pollOnce().catch(() => undefined);
+  return { id, nome: definicao.name, link: id ? `${baseUrl}/workflow/${encodeURIComponent(id)}` : baseUrl };
+}
+
+export interface RespostaWebhook {
+  ok: boolean;
+  status: number;
+  corpo: string;
+  mensagem: string;
+}
+
+/** POST num webhook de produção do n8n (`{baseUrl}/webhook/{caminho}`): o teste ponta a ponta de um fluxo ativo. */
+export async function chamarWebhook(caminho: string, corpo: unknown, cabecalhos: Record<string, string> = {}): Promise<RespostaWebhook> {
+  const file = loadFile();
+  aplicarPoliticaTls(file);
+  if (!file.baseUrl) throw new Error('Configure o endereço do n8n em Ajustes › n8n antes de testar.');
+  const url = `${file.baseUrl}/webhook/${caminho.split('/').map(encodeURIComponent).join('/')}`;
+  const resposta = await request(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...cabecalhos },
+    body: JSON.stringify(corpo),
+    timeoutMs: 20_000,
+    permitirTlsInseguro: file.permitirTlsInseguro,
+  });
+  if (isFalha(resposta)) return { ok: false, status: 0, corpo: '', mensagem: `Não foi possível alcançar o n8n em ${file.baseUrl}: ${resposta.mensagem}` };
+  const mensagem = resposta.ok
+    ? 'O n8n recebeu e repassou ao Iris.'
+    : resposta.status === 404
+      ? 'O n8n não achou o webhook: o fluxo está desligado (ative no n8n) ou o caminho mudou.'
+      : `O fluxo respondeu com erro (HTTP ${resposta.status}). Abra a execução no n8n para ver em qual nó parou.`;
+  return { ok: resposta.ok, status: resposta.status, corpo: resposta.body.slice(0, 2000), mensagem };
+}
+
+/** Endereço salvo do n8n (sem a chave): a seção de leads usa para escolher o cenário e mostrar o webhook. */
+export function enderecoN8n(): { baseUrl: string; temApiKey: boolean } {
+  const file = loadFile();
+  return { baseUrl: file.baseUrl, temApiKey: hasSecret(SECRET_KEY) };
 }

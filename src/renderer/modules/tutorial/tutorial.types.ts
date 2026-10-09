@@ -34,9 +34,14 @@ export interface BlocoLink {
   rotulo: string;
 }
 
+/**
+ * Atalhos citados num passo. `acao` = id do catálogo de atalhos: mostra a
+ * tecla de agora (o usuário pode ter trocado). `teclas` só para as que não se
+ * trocam (Esc, Ctrl+Enter num campo, Ctrl+1…9).
+ */
 export interface BlocoAtalhos {
   tipo: 'atalhos';
-  itens: Array<{ teclas: string[]; texto: string }>;
+  itens: Array<{ acao?: string; teclas?: string; texto: string }>;
 }
 
 /** Botão que leva direto à tela de que o passo fala. */

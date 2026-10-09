@@ -1,4 +1,8 @@
-import { FORMATOS_ASSINATURA, type AssinaturaRelatorio, type ModuloInicial } from '../../../shared/types/ajustes.types.js';
+import { FORMATOS_ASSINATURA, TEMAS, type AssinaturaRelatorio, type ModuloInicial, type PerfilUsuario } from '../../../shared/types/ajustes.types.js';
+import { formatarCep, formatarDocumento, formatarTelefone, problemaDoDocumento } from '../../../shared/types/brasil.js';
+
+/** Antes do NAV, que é montado ao carregar o módulo. */
+const ICONE_PERFIL = '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/>';
 import { MODULOS, rotuloCompleto } from '../../../shared/types/modulos.types.js';
 import * as ajustesState from './ajustes.state.js';
 import type { AjustesViewState } from './ajustes.state.js';
@@ -15,7 +19,7 @@ import {
   verificarAgora,
 } from '../../core/atualizacao.js';
 import type { EstadoAtualizacao } from '../../../shared/types/atualizacao.types.js';
-import { buildAssinatura } from '../relatorios/relatorios.documento.js';
+import { buildAssinatura } from '../../ui/documento.js';
 import { buildSecaoIa } from './ajustes.ia.js';
 import { buildCadastroTags, contarEmpresas } from '../postagens/postagens.tags.js';
 import { ICONE_ESCALA, buildCadastroEscalas } from '../postagens/postagens.escalas.js';
@@ -24,9 +28,30 @@ import { abrirHorariosPadrao } from '../postagens/postagens.agendar.js';
 import * as videosState from '../postagens/videos/videos.state.js';
 import { ICONE_IA } from '../../ui/ia.js';
 import { assinarFixado, definirFixado, estaFixado } from '../../core/sidebar.js';
+import { comAtalho, foiTrocado } from '../../core/atalhos.js';
+import { onTemaMudou } from '../../core/tema.js';
+import { CATALOGO_ATALHOS } from '../../core/atalhos.catalogo.js';
+import { ICONE_TECLADO, buildSecaoAtalhos } from './ajustes.atalhos.js';
 import { ICONES, buildAviso, buildBotao, buildCabecalho, buildSelo, svg, type Tom } from '../../ui/pagina.js';
+import { COFRE } from '../../ui/plataforma.js';
 
-type Secao = 'n8n' | 'github' | 'ia' | 'empresas' | 'escalas' | 'horarios' | 'credenciais' | 'preferencias' | 'relatorios' | 'atualizacoes' | 'backup';
+const ICONE_APARENCIA = '<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/>';
+
+type Secao =
+  | 'perfil'
+  | 'n8n'
+  | 'github'
+  | 'ia'
+  | 'empresas'
+  | 'escalas'
+  | 'horarios'
+  | 'credenciais'
+  | 'aparencia'
+  | 'preferencias'
+  | 'atalhos'
+  | 'relatorios'
+  | 'atualizacoes'
+  | 'backup';
 
 let secaoAtiva: Secao = 'n8n';
 /** A seção do último desenho, para saber se a rolagem deve ser mantida. */
@@ -43,6 +68,12 @@ interface ItemNav {
 }
 
 const NAV: ItemNav[] = [
+  {
+    id: 'perfil',
+    rotulo: 'Seus dados',
+    icone: ICONE_PERFIL,
+    estado: (s) => (s.ajustes.perfil.nome.trim() ? { texto: 'preenchido', tom: 'ok' } : { texto: 'para os contratos', tom: 'neutro' }),
+  },
   {
     id: 'n8n',
     rotulo: 'n8n',
@@ -101,7 +132,22 @@ const NAV: ItemNav[] = [
     estado: (s) =>
       s.ajustes.criptografiaDisponivel ? { texto: 'cofre ativo', tom: 'ok' } : { texto: 'sem cofre', tom: 'erro' },
   },
+  {
+    id: 'aparencia',
+    rotulo: 'Aparência',
+    icone: ICONE_APARENCIA,
+    estado: (s) => ({ texto: TEMAS.find((t) => t.id === s.ajustes.tema)?.rotulo.toLowerCase() ?? 'escuro', tom: 'neutro' }),
+  },
   { id: 'preferencias', rotulo: 'Preferências', icone: ICONES.preferencias },
+  {
+    id: 'atalhos',
+    rotulo: 'Atalhos de teclado',
+    icone: ICONE_TECLADO,
+    estado: () => {
+      const n = CATALOGO_ATALHOS.filter((d) => foiTrocado(d.id)).length;
+      return n ? { texto: n === 1 ? '1 trocado' : `${n} trocados`, tom: 'ok' } : { texto: 'teclas padrão', tom: 'neutro' };
+    },
+  },
   {
     id: 'relatorios',
     rotulo: 'Relatórios',
@@ -446,7 +492,7 @@ function buildSecaoCredenciais(state: AjustesViewState): HTMLElement {
 
   corpo.appendChild(
     state.ajustes.criptografiaDisponivel
-      ? buildAviso('As credenciais ficam cifradas pelo cofre do Windows, atreladas ao seu usuário. Nem o próprio Iris as mostra de volta na tela.', 'ok')
+      ? buildAviso(`As credenciais ficam cifradas pelo ${COFRE}, atreladas ao seu usuário. Nem o próprio Iris as mostra de volta na tela.`, 'ok')
       : buildAviso('Este sistema não oferece cofre de credenciais: elas seriam gravadas em texto puro. Prefira deixá-las em branco e informar quando precisar.', 'erro'),
   );
 
@@ -474,6 +520,135 @@ function buildSecaoCredenciais(state: AjustesViewState): HTMLElement {
   });
   corpo.appendChild(lista);
 
+  painel.appendChild(corpo);
+  return painel;
+}
+
+/**
+ * Seus dados: a outra parte dos contratos e o cabeçalho dos documentos do
+ * CRM. Um cadastro só para o app — contrato, ficha e propostas leem daqui.
+ */
+function buildSecaoPerfil(state: AjustesViewState): HTMLElement {
+  const painel = buildPainel(
+    'Seus dados',
+    'Quem você é nos documentos: a outra parte dos contratos gerados em Contatos e o cabeçalho das fichas em PDF.',
+    ICONE_PERFIL,
+  );
+  const r: PerfilUsuario = structuredClone(state.ajustes.perfil);
+  const corpo = document.createElement('div');
+  corpo.className = 'aj-corpo';
+
+  const tipo = document.createElement('div');
+  tipo.className = 'md-pilulas';
+  const camposPj: HTMLElement[] = [];
+  const rotuloNome = document.createElement('span');
+  const rotuloDoc = document.createElement('span');
+  const desenharTipo = (): void => {
+    tipo.replaceChildren();
+    (
+      [
+        ['pf', 'Pessoa física'],
+        ['pj', 'Empresa'],
+      ] as const
+    ).forEach(([id, rotulo]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'md-pilula';
+      b.classList.toggle('is-ativa', r.tipo === id);
+      b.setAttribute('aria-pressed', String(r.tipo === id));
+      b.textContent = rotulo;
+      b.addEventListener('click', () => {
+        r.tipo = id;
+        desenharTipo();
+      });
+      tipo.appendChild(b);
+    });
+    camposPj.forEach((c) => (c.hidden = r.tipo !== 'pj'));
+    rotuloNome.textContent = r.tipo === 'pj' ? 'Razão social' : 'Nome completo';
+    rotuloDoc.textContent = r.tipo === 'pj' ? 'CNPJ' : 'CPF';
+    avisoDoc();
+  };
+  const campoTipo = document.createElement('div');
+  campoTipo.className = 'aj-campo';
+  campoTipo.append(Object.assign(document.createElement('span'), { className: 'aj-campo-rotulo', textContent: 'Você contrata como' }), tipo);
+  corpo.appendChild(campoTipo);
+
+  /** Campo de texto ligado ao rascunho; `formatar` roda ao sair do campo (telefone, documento, CEP). */
+  const ligado = (rotulo: string | HTMLElement, valor: string, ph: string, gravar: (v: string) => void, formatar?: (v: string) => string, dica?: string): { el: HTMLElement; input: HTMLInputElement } => {
+    const input = buildInput('text', valor, ph);
+    input.addEventListener('input', () => gravar(input.value));
+    if (formatar) {
+      input.addEventListener('change', () => {
+        input.value = formatar(input.value);
+        gravar(input.value);
+      });
+    }
+    const el = buildCampo(typeof rotulo === 'string' ? rotulo : '', input, dica);
+    if (typeof rotulo !== 'string') el.querySelector('.aj-campo-rotulo')?.replaceChildren(rotulo);
+    return { el, input };
+  };
+  const grade = (...itens: HTMLElement[]): HTMLElement => {
+    const g = document.createElement('div');
+    g.className = 'aj-ia-grade';
+    g.append(...itens);
+    return g;
+  };
+
+  const nome = ligado(rotuloNome, r.nome, 'Como aparece no contrato', (v) => (r.nome = v));
+  const fantasia = ligado('Nome fantasia', r.nomeFantasia, 'Opcional', (v) => (r.nomeFantasia = v));
+  camposPj.push(fantasia.el);
+  const avisoDocEl = document.createElement('span');
+  avisoDocEl.className = 'aj-campo-dica is-aviso';
+  const doc = ligado(rotuloDoc, r.documento, '', (v) => (r.documento = v), formatarDocumento);
+  doc.el.appendChild(avisoDocEl);
+  const avisoDoc = (): void => {
+    avisoDocEl.textContent = problemaDoDocumento(r.documento, r.tipo === 'pj' ? 'cnpj' : 'cpf') ?? '';
+  };
+  doc.input.addEventListener('change', avisoDoc);
+  corpo.append(grade(nome.el, doc.el), grade(fantasia.el));
+
+  const rep = ligado('Representante legal', r.representante, 'Quem assina pela empresa', (v) => (r.representante = v));
+  const repCpf = ligado('CPF do representante', r.representanteCpf, '', (v) => (r.representanteCpf = v), formatarDocumento);
+  const gradeRep = grade(rep.el, repCpf.el);
+  camposPj.push(gradeRep);
+  corpo.appendChild(gradeRep);
+
+  const email = ligado('E-mail', r.email, 'voce@exemplo.com', (v) => (r.email = v));
+  const tel = ligado('Telefone', r.telefone, '(11) 98765-4321', (v) => (r.telefone = v), formatarTelefone);
+  corpo.appendChild(grade(email.el, tel.el));
+
+  const e = r.endereco;
+  corpo.append(
+    grade(
+      ligado('CEP', e.cep, '00000-000', (v) => (e.cep = v), formatarCep).el,
+      ligado('Endereço', e.logradouro, 'Rua, avenida…', (v) => (e.logradouro = v)).el,
+    ),
+    grade(ligado('Número', e.numero, '', (v) => (e.numero = v)).el, ligado('Complemento', e.complemento, 'Sala, apto…', (v) => (e.complemento = v)).el),
+    grade(ligado('Bairro', e.bairro, '', (v) => (e.bairro = v)).el, ligado('Cidade', e.cidade, '', (v) => (e.cidade = v)).el),
+  );
+  const uf = buildInput('text', e.uf, 'SP');
+  uf.maxLength = 2;
+  uf.addEventListener('input', () => (e.uf = uf.value.toUpperCase()));
+  const foro = ligado('Foro dos contratos', r.cidadeForo, 'Em branco usa a cidade do endereço', (v) => (r.cidadeForo = v), undefined, 'A cidade que aparece em {foro} nos modelos de contrato.');
+  corpo.appendChild(grade(buildCampo('UF', uf), foro.el));
+
+  const status = buildStatus('perfil');
+  const acoes = document.createElement('div');
+  acoes.className = 'aj-acoes';
+  const salvar = buildBotao('Salvar', { variante: 'primario', icone: ICONES.check });
+  salvar.addEventListener('click', () => {
+    salvar.disabled = true;
+    void ajustesState
+      .setPerfil(r)
+      .then(() => status.mostrar('Salvo', 'ok'))
+      .catch((error: unknown) => status.mostrar(mensagemDe(error), 'erro'))
+      .finally(() => {
+        salvar.disabled = false;
+      });
+  });
+  acoes.appendChild(salvar);
+  corpo.append(acoes, status.el);
+  desenharTipo();
   painel.appendChild(corpo);
   return painel;
 }
@@ -673,6 +848,58 @@ function buildSecaoRelatorios(state: AjustesViewState): HTMLElement {
 }
 
 let unsubSidebar: (() => void) | null = null;
+let unsubTema: (() => void) | null = null;
+
+/** Claro, escuro ou igual ao Windows — com uma miniatura de cada um. */
+function buildSecaoAparencia(state: AjustesViewState): HTMLElement {
+  const painel = buildPainel('Aparência', 'O tema do Iris. Vale na hora, em todas as telas; os PDFs saem sempre em papel branco.', ICONE_APARENCIA);
+  const corpo = document.createElement('div');
+  corpo.className = 'aj-corpo';
+  const grade = document.createElement('div');
+  grade.className = 'aj-temas';
+  grade.setAttribute('role', 'radiogroup');
+  grade.setAttribute('aria-label', 'Tema');
+  const status = buildStatus('tema');
+  TEMAS.forEach((t) => {
+    const ativo = state.ajustes.tema === t.id;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `aj-tema is-${t.id}${ativo ? ' is-ativo' : ''}`;
+    b.setAttribute('role', 'radio');
+    b.setAttribute('aria-checked', String(ativo));
+    // A miniatura desenha o tema, então usa as cores dele mesmo, não os tokens da tela.
+    const mini = document.createElement('span');
+    mini.className = 'aj-tema-mini';
+    mini.setAttribute('aria-hidden', 'true');
+    mini.innerHTML = '<span class="aj-tema-lado"></span><span class="aj-tema-area"><i></i><i></i><i></i></span>';
+    const textos = document.createElement('span');
+    textos.className = 'aj-tema-textos';
+    const nome = document.createElement('strong');
+    nome.textContent = t.id === 'escuro' ? `${t.rotulo} (padrão)` : t.rotulo;
+    const desc = document.createElement('span');
+    desc.textContent = t.descricao;
+    textos.append(nome, desc);
+    b.append(mini, textos);
+    if (ativo) b.insertAdjacentHTML('beforeend', `<span class="aj-tema-check">${svg('<polyline points="20 6 9 17 4 12"/>', 14, 2.4)}</span>`);
+    b.addEventListener('click', () => {
+      if (ativo) return;
+      void ajustesState.setTema(t.id).catch((error: unknown) => status.mostrar(mensagemDe(error), 'erro'));
+    });
+    grade.appendChild(b);
+  });
+  corpo.appendChild(grade);
+  const dica = document.createElement('p');
+  dica.className = 'aj-tema-dica';
+  dica.textContent = comAtalho('Para trocar rápido entre claro e escuro: o sol/lua na barra lateral, logo acima do Tutorial, ou o atalho', 'geral.tema');
+  corpo.appendChild(dica);
+  corpo.appendChild(status.el);
+  painel.appendChild(corpo);
+
+  // O botão do trilho e o atalho trocam o tema por fora: a escolha marcada acompanha.
+  unsubTema?.();
+  unsubTema = onTemaMudou(() => void ajustesState.recarregarAjustes().catch(() => undefined));
+  return painel;
+}
 
 function buildSecaoPreferencias(state: AjustesViewState): HTMLElement {
   const painel = buildPainel('Preferências', 'Comportamento geral do Iris.', ICONES.preferencias);
@@ -703,7 +930,7 @@ function buildSecaoPreferencias(state: AjustesViewState): HTMLElement {
   // A barra lateral: o painel de categorias abre ao lado (padrão) ou fica fixo.
   const opcaoFixar = buildOpcao(
     'Fixar o painel da barra lateral',
-    'Deixa a lista de módulos sempre aberta ao lado dos ícones, empurrando a tela. Desligado, cada categoria abre num painel por cima e fecha ao escolher. Atalho: Ctrl+B.',
+    comAtalho('Deixa a lista de módulos sempre aberta ao lado dos ícones, empurrando a tela. Desligado, cada categoria abre num painel por cima e fecha ao escolher. Atalho', 'geral.fixar'),
     estaFixado(),
   );
   const interruptorFixar = opcaoFixar.el.querySelector<HTMLButtonElement>('.pg-interruptor');
@@ -809,7 +1036,9 @@ function desenharAtualizacao(corpo: HTMLElement, e: EstadoAtualizacao | null): v
       buildAviso(
         e.modo === 'portatil'
           ? 'Esta é a versão portátil (.zip): ela não se substitui sozinha. Baixe o .zip novo na página da release, ou use o instalador para receber as próximas automaticamente.'
-          : 'Rodando pelo código-fonte (npm run dev): atualize com git pull.',
+          : e.modo === 'linux'
+            ? 'No Linux o Iris não se substitui sozinho: baixe o .deb (Ubuntu, Debian, Mint) ou o AppImage novo na página da release. Os dados continuam onde estão.'
+            : 'Rodando pelo código-fonte (npm run dev): atualize com git pull.',
         'neutro',
       ),
     );
@@ -862,13 +1091,16 @@ function desenharAtualizacao(corpo: HTMLElement, e: EstadoAtualizacao | null): v
   arquivo.addEventListener('click', () => void instalarDeArquivo().catch(falhou));
   acoesManuais.append(versoes, arquivo);
   manual.append(textos, acoesManuais);
-  corpo.appendChild(manual);
+  // Trocar de versão e instalar de um arquivo são do instalador do Windows.
+  if (e.modo !== 'linux') corpo.appendChild(manual);
 }
 
 function buildSecaoAtualizacoes(): HTMLElement {
   const painel = buildPainel(
     'Atualizações',
-    'O Iris procura versão nova no GitHub ao abrir e a cada 6 horas. Atualizar baixa o instalador, confere o arquivo e reinstala por cima — os dados continuam onde estão.',
+    window.irisAPI.system.plataforma === 'linux'
+      ? 'O Iris procura versão nova no GitHub ao abrir e a cada 6 horas e avisa aqui e na barra lateral. A instalação é pelo .deb ou pelo AppImage novo — os dados continuam onde estão.'
+      : 'O Iris procura versão nova no GitHub ao abrir e a cada 6 horas. Atualizar baixa o instalador, confere o arquivo e reinstala por cima — os dados continuam onde estão.',
     ICONE_ATUALIZACAO,
   );
   const corpo = document.createElement('div');
@@ -977,8 +1209,19 @@ export function render(container: HTMLElement, state: AjustesViewState): void {
     escalas: () => buildSecaoEscalas(),
     horarios: () => buildSecaoHorarios(),
     credenciais: () => buildSecaoCredenciais(state),
+    aparencia: () => buildSecaoAparencia(state),
     preferencias: () => buildSecaoPreferencias(state),
+    atalhos: () =>
+      buildSecaoAtalhos(
+        buildPainel(
+          'Atalhos de teclado',
+          'Ande pelo Iris sem o mouse: G e uma letra abre cada módulo, Ctrl+P busca qualquer coisa. Troque qualquer tecla aqui.',
+          ICONE_TECLADO,
+          'atalhos',
+        ),
+      ),
     relatorios: () => buildSecaoRelatorios(state),
+    perfil: () => buildSecaoPerfil(state),
     atualizacoes: () => buildSecaoAtualizacoes(),
     backup: () => buildSecaoBackup(),
   };
@@ -1001,6 +1244,8 @@ export function destroy(): void {
     unsubSidebar();
     unsubSidebar = null;
   }
+  unsubTema?.();
+  unsubTema = null;
   // O statusEl do módulo de exportação sobreviveria ao DOM destruído.
   exportacaoView.destroy();
   pararAtualizacao?.();

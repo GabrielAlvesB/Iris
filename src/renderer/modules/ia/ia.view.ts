@@ -5,10 +5,11 @@ import {
   type ItemGaleriaComMiniatura,
   type TarefaIa,
 } from '../../../shared/types/ia.types.js';
+import { comAtalho, ligarAtalhos } from '../../core/atalhos.js';
 import { carregarConfigIa, iaPode, listarTarefasIa, onTarefaIa } from '../../core/ia.js';
 import { abrirAjustes, abrirTutorial } from '../../core/navegacao.js';
 import { ICONE_IA } from '../../ui/ia.js';
-import { haModalAberto, mensagemDeErro, openAvisoModal, openConfirmModal } from '../../ui/modal.js';
+import { mensagemDeErro, openAvisoModal, openConfirmModal } from '../../ui/modal.js';
 import { ICONES, buildBotao, buildBotaoAjuda, buildBusca, buildCabecalho, buildSelo, buildVazio, focarBusca, svg, tempoRelativo } from '../../ui/pagina.js';
 import { abrirModificacao, abrirVisualizacao, anexarComEscolha, salvarComAviso, type AcoesDaVisualizacao } from './ia.acoes.js';
 import { buildCriador, type Criador } from './ia.criador.js';
@@ -20,6 +21,7 @@ import { buildCriador, type Criador } from './ia.criador.js';
  */
 
 let containerAtual: HTMLElement | null = null;
+let desligarAtalhos: (() => void) | null = null;
 let criador: Criador | null = null;
 let galeria: ItemGaleriaComMiniatura[] = [];
 let tarefas: TarefaIa[] = [];
@@ -42,7 +44,8 @@ export function montar(viewRoot: HTMLElement): void {
     desenharTarefas();
     if (t.situacao === 'pronto') void recarregarGaleria();
   });
-  document.addEventListener('keydown', onAtalho);
+  // Ctrl+Enter gera, de qualquer campo do criador (registro central: core/atalhos.ts).
+  desligarAtalhos = ligarAtalhos({ 'ia.gerar': () => containerAtual?.querySelector<HTMLButtonElement>('.ia-gerar')?.click() });
   void iniciar();
 }
 
@@ -51,18 +54,12 @@ export function destroy(): void {
   pararTarefas = null;
   if (relogio) clearInterval(relogio);
   relogio = null;
-  document.removeEventListener('keydown', onAtalho);
+  desligarAtalhos?.();
+  desligarAtalhos = null;
   containerAtual = null;
   criador = null;
   areaTarefas = null;
   areaGaleria = null;
-}
-
-function onAtalho(e: KeyboardEvent): void {
-  // Ctrl+Enter gera, de qualquer campo do criador.
-  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !haModalAberto()) {
-    containerAtual?.querySelector<HTMLButtonElement>('.ia-gerar')?.click();
-  }
 }
 
 async function iniciar(): Promise<void> {
@@ -131,7 +128,7 @@ function render(container: HTMLElement, temImagem: boolean): void {
   coluna.className = 'ia-coluna pg-rolagem';
   criador = buildCriador({ aoIniciar: acompanharTarefa });
   coluna.appendChild(criador.el);
-  coluna.appendChild(Object.assign(document.createElement('p'), { className: 'md-dica', textContent: 'Ctrl+Enter gera. Você pode sair do Estúdio: a geração continua.' }));
+  coluna.appendChild(Object.assign(document.createElement('p'), { className: 'md-dica', textContent: `${comAtalho('Gerar', 'ia.gerar')}. Você pode sair do Estúdio: a geração continua.` }));
 
   const direita = document.createElement('section');
   direita.className = 'ia-direita pg-rolagem';

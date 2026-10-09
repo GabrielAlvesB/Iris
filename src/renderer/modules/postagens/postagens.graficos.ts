@@ -82,7 +82,8 @@ export function buildCartaoGrafico(
   titulo: string,
   subtitulo: string,
   grafico: HTMLElement | SVGElement,
-  tabela: TabelaDados,
+  /** Sem tabela (listas que já são texto, como os rankings), o cartão não tem o botão Gráfico/Tabela. */
+  tabela: TabelaDados | null,
   extra?: HTMLElement,
 ): HTMLElement {
   const cartao = document.createElement('section');
@@ -96,6 +97,14 @@ export function buildCartaoGrafico(
   p.textContent = subtitulo;
   textos.append(h, p);
   cab.appendChild(textos);
+  cartao.appendChild(cab);
+  if (extra) cartao.appendChild(extra);
+
+  const corpoGrafico = document.createElement('div');
+  corpoGrafico.className = 'gf-corpo';
+  corpoGrafico.appendChild(grafico);
+  cartao.appendChild(corpoGrafico);
+  if (!tabela) return cartao;
 
   const alternar = document.createElement('button');
   alternar.type = 'button';
@@ -103,17 +112,12 @@ export function buildCartaoGrafico(
   alternar.textContent = 'Tabela';
   alternar.setAttribute('aria-pressed', 'false');
   cab.appendChild(alternar);
-  cartao.appendChild(cab);
-  if (extra) cartao.appendChild(extra);
 
-  const corpoGrafico = document.createElement('div');
-  corpoGrafico.className = 'gf-corpo';
-  corpoGrafico.appendChild(grafico);
   const corpoTabela = document.createElement('div');
   corpoTabela.className = 'gf-corpo gf-tabela-wrap';
   corpoTabela.hidden = true;
   corpoTabela.appendChild(buildTabela(tabela));
-  cartao.append(corpoGrafico, corpoTabela);
+  cartao.appendChild(corpoTabela);
 
   alternar.addEventListener('click', () => {
     const tabelaVisivel = corpoTabela.hidden;
@@ -319,6 +323,36 @@ export function buildLinha(
   return svg;
 }
 
+// ---------- Mini linha (sem eixo) ----------
+
+/**
+ * Evolução em miniatura para um número em destaque: só a forma da linha e o
+ * último ponto. Não substitui o gráfico de verdade (que tem eixo e tabela);
+ * mostra se a tendência sobe ou desce. Valores 0–100, nulos quebram a linha.
+ */
+export function buildMiniLinha(valores: Array<number | null>, descricao: string, cor: string = COR_SERIE[0]): SVGSVGElement {
+  const [largura, altura, margem] = [160, 44, 4];
+  const svg = el('svg', { viewBox: `0 0 ${largura} ${altura}`, class: 'gf-mini', role: 'img', 'aria-label': descricao });
+  const validos = valores.filter((v): v is number => v !== null);
+  if (validos.length < 2) return svg;
+  const menor = Math.min(...validos);
+  const maior = Math.max(...validos);
+  // Faixa mínima de 10 pontos: 84 → 85 não pode parecer um penhasco.
+  const folga = Math.max(10, maior - menor);
+  const base = Math.max(0, (maior + menor) / 2 - folga / 2);
+  const x = (i: number): number => margem + ((largura - margem * 2) * i) / Math.max(1, valores.length - 1);
+  const y = (v: number): number => altura - margem - ((v - base) / folga) * (altura - margem * 2);
+  let d = '';
+  valores.forEach((v, i) => {
+    if (v === null) return;
+    d += `${d && valores[i - 1] !== null && i > 0 ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`;
+  });
+  svg.appendChild(el('path', { d, class: 'gf-mini-linha', stroke: cor }));
+  const ultimo = valores.map((v, i) => ({ v, i })).filter((p): p is { v: number; i: number } => p.v !== null).pop()!;
+  svg.appendChild(el('circle', { cx: x(ultimo.i), cy: y(ultimo.v), r: 3.5, fill: cor, class: 'gf-ponto' }));
+  return svg;
+}
+
 // ---------- Barras horizontais (linhas de ranking) ----------
 
 export interface LinhaRanking {
@@ -327,6 +361,8 @@ export interface LinhaRanking {
   valor: number | null;
   /** Texto à direita (ex.: "12 vídeos"). */
   detalhe: string;
+  /** O número escrito no lugar do valor da barra (ex.: "38%", "12"); sem ele, o valor com uma casa. */
+  textoValor?: string;
   /** Cor da faixa de score (da escala): pinta a barra; o número continua escrito. */
   cor?: string;
   aoClicar?: () => void;
@@ -362,7 +398,7 @@ export function buildRanking(linhas: LinhaRanking[], descricao: string, semValor
     }
     const valor = document.createElement('span');
     valor.className = 'gf-ranking-valor';
-    valor.textContent = l.valor === null ? semValor : formatarNumero(l.valor, 1);
+    valor.textContent = l.textoValor ?? (l.valor === null ? semValor : formatarNumero(l.valor, 1));
     const detalhe = document.createElement('span');
     detalhe.className = 'gf-ranking-detalhe';
     detalhe.textContent = l.detalhe;

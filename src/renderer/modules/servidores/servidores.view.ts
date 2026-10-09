@@ -468,11 +468,6 @@ export function render(container: HTMLElement, state: ServidoresFile): void {
   titulo.textContent = 'Servidores';
   header.appendChild(titulo);
 
-  const contagem = document.createElement('span');
-  contagem.className = 'servidores-contagem';
-  contagem.textContent = `${state.servidores.length} cadastrados`;
-  header.appendChild(contagem);
-
   const espaco = document.createElement('div');
   espaco.className = 'servidor-espaco';
   header.appendChild(espaco);

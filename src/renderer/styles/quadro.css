@@ -43,7 +43,7 @@
   padding: 5px 14px;
   cursor: pointer;
   transition: all 0.15s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 6px rgb(0 0 0 / calc(0.2 * var(--sombra-k)));
 }
 
 .quadro-board-badge:hover {
@@ -116,7 +116,7 @@
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-lg);
   cursor: grab;
-  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 2px 8px rgb(0 0 0 / calc(0.4 * var(--sombra-k)));
 }
 
 .quadro-viewport:active {
@@ -154,11 +154,11 @@
   stroke-opacity: 0.75;
   stroke-width: 2.2;
   transition: stroke 0.15s ease, stroke-width 0.15s ease, stroke-opacity 0.15s ease;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
+  filter: drop-shadow(0 2px 6px rgb(0 0 0 / calc(0.6 * var(--sombra-k))));
 }
 
 .quadro-connection-line.is-hovered {
-  stroke: #ffffff;
+  stroke: var(--text);
   stroke-opacity: 1;
   stroke-width: 2.8;
   filter: drop-shadow(0 0 10px var(--accent));
@@ -208,7 +208,7 @@
   border-radius: 50%;
   border: 1px solid var(--border);
   background: var(--bg-elevated);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 4px 12px rgb(0 0 0 / calc(0.6 * var(--sombra-k)));
   font-size: 11px;
   line-height: 1;
   cursor: pointer;
@@ -256,19 +256,19 @@
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 24px rgb(0 0 0 / calc(0.4 * var(--sombra-k))), 0 2px 6px rgb(0 0 0 / calc(0.3 * var(--sombra-k)));
   overflow: hidden;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .quadro-block:hover .quadro-block-inner {
   border-color: var(--border-soft);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 10px 28px rgb(0 0 0 / calc(0.5 * var(--sombra-k)));
 }
 
 .quadro-block.is-selected .quadro-block-inner {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent), 0 12px 36px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 0 2px var(--accent), 0 12px 36px rgb(0 0 0 / calc(0.6 * var(--sombra-k)));
 }
 
 .quadro-block.is-connect-source .quadro-block-inner {
@@ -293,7 +293,7 @@
 /* Nota (Sticky Note) */
 .quadro-block--nota .quadro-block-inner {
   border-top: 3.5px solid var(--warning);
-  background: #181612;
+  background: color-mix(in oklch, var(--warning) 6%, var(--bg-elevated));
   border-color: rgba(245, 158, 11, 0.3);
 }
 
@@ -304,7 +304,7 @@
 /* Rotina (Habit / Routine) */
 .quadro-block--rotina .quadro-block-inner {
   border-top: 3.5px solid var(--success);
-  background: #121815;
+  background: color-mix(in oklch, var(--success) 6%, var(--bg-elevated));
   border-color: rgba(34, 197, 94, 0.28);
 }
 
@@ -322,7 +322,7 @@
   padding: 0;
   background: var(--bg-elevated);
   border: 2px solid var(--accent);
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5), 0 0 8px var(--accent);
+  box-shadow: 0 0 0 2px rgb(0 0 0 / calc(0.5 * var(--sombra-k))), 0 0 8px var(--accent);
   opacity: 0;
   transform: scale(0.6);
   transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease;
@@ -362,7 +362,7 @@
 .quadro-connect-handle:hover {
   background: var(--accent);
   transform: scale(1.35);
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.6), 0 0 14px var(--accent);
+  box-shadow: 0 0 0 2px rgb(0 0 0 / calc(0.6 * var(--sombra-k))), 0 0 14px var(--accent);
 }
 
 .quadro-canvas.connecting .quadro-connect-handle {
@@ -610,7 +610,7 @@
 }
 
 .quadro-block-content-view--nota {
-  color: #fde047;
+  color: var(--warning-texto);
   font-size: 12.5px;
   -webkit-line-clamp: 4;
   line-clamp: 4;
@@ -675,7 +675,7 @@
 .quadro-nota-author {
   background: transparent;
   border: none;
-  color: #fbbf24;
+  color: var(--warning-texto);
   font-size: 10.5px;
   cursor: pointer;
   padding: 0;
@@ -757,7 +757,7 @@
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 6px 10px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 16px 40px rgb(0 0 0 / calc(0.55 * var(--sombra-k)));
   z-index: 20;
 }
 
@@ -822,7 +822,7 @@
   border-radius: var(--radius);
   overflow: hidden;
   z-index: 5;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 8px 24px rgb(0 0 0 / calc(0.45 * var(--sombra-k)));
 }
 
 .quadro-minimap.is-empty {
@@ -849,8 +849,8 @@
 
 .quadro-minimap-viewport {
   position: absolute;
-  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  border: 1.5px solid var(--text);
   border-radius: 2px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgb(var(--realce) / 0.08);
   pointer-events: none;
 }

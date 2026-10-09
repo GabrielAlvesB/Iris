@@ -1,9 +1,15 @@
+// Primeiro import: o marco de início fica antes de todos os requires do main.
+import { marcar, ouvirPrimeiraTela } from './core/abertura';
 import { app, BrowserWindow, net, protocol } from 'electron';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { registerAllIpcHandlers } from './ipc';
 import { startBackgroundServices, stopBackgroundServices } from './core/backgroundServices';
+import { iconeDoApp } from './core/icone';
+import { aplicarTema, corDeFundo } from './core/tema';
+import { getTema } from './modules/ajustes/ajustes.service';
 import { migrarEmpresas } from './modules/relatorios/relatorios.service';
+import { recuperarInterrompidas } from './modules/whatsapp/whatsapp.service';
 
 // Renderer TS compiles to ES modules; ES module scripts require a CORS-capable
 // origin and are blocked when loaded from plain file:// URLs. Serving the
@@ -11,29 +17,39 @@ import { migrarEmpresas } from './modules/relatorios/relatorios.service';
 const RENDERER_ROOT = path.join(__dirname, '..', 'renderer');
 const APP_SCHEME = 'app';
 
+// codeCache: sem ele o Chromium não guarda o bytecode dos scripts de um esquema
+// próprio, e todo o JS do renderer era compilado de novo a cada abertura.
 protocol.registerSchemesAsPrivileged([
-  { scheme: APP_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
+  { scheme: APP_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, codeCache: true } },
 ]);
 
-// Works around a known Electron/Chromium bug on Windows (especially hybrid-GPU
-// laptops) where the compositor desyncs and the window stops routing mouse
-// clicks while still rendering fine — only a forced repaint (e.g. Print Screen)
-// "unsticks" it. Disabling GPU acceleration avoids the desync entirely.
-app.disableHardwareAcceleration();
+// Os dois contornos abaixo são de bugs do Chromium no Windows; no Linux a GPU
+// fica ligada (pinta mais rápido) e a oclusão nativa nem existe.
+if (process.platform === 'win32') {
+  // Works around a known Electron/Chromium bug on Windows (especially hybrid-GPU
+  // laptops) where the compositor desyncs and the window stops routing mouse
+  // clicks while still rendering fine — only a forced repaint (e.g. Print Screen)
+  // "unsticks" it. Disabling GPU acceleration avoids the desync entirely.
+  app.disableHardwareAcceleration();
 
-// Chromium's Native Window Occlusion tracking (Windows-only) can misjudge the
-// window as occluded while it's actually focused and on-screen, throttling
-// input handling until something (like taking a screenshot) forces Windows to
-// recompute occlusion. Disabling it stops input from getting "stuck".
-app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+  // Chromium's Native Window Occlusion tracking (Windows-only) can misjudge the
+  // window as occluded while it's actually focused and on-screen, throttling
+  // input handling until something (like taking a screenshot) forces Windows to
+  // recompute occlusion. Disabling it stops input from getting "stuck".
+  app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+}
+
+marcar('main.js carregado');
 
 let mainWindow: BrowserWindow | null = null;
 let servicosIniciados = false;
+/** As migrações da abertura (whenReady). A fila do WhatsApp não pode rodar antes delas. */
+let dadosProntos: Promise<unknown> = Promise.resolve();
 
 function iniciarServicosUmaVez(): void {
   if (servicosIniciados) return;
   servicosIniciados = true;
-  void startBackgroundServices();
+  void dadosProntos.then(() => startBackgroundServices());
 }
 
 function registerAppProtocol(): void {
@@ -55,9 +71,9 @@ function createMainWindow(): void {
     width: 1280,
     height: 800,
     // A cor do tema (--bg do base.css) desde o primeiro quadro: sem o clarão
-    // branco enquanto o renderer ainda carrega.
-    backgroundColor: '#0c0d12',
-    icon: path.join(__dirname, 'assets', 'icon.ico'),
+    // de outra cor enquanto o renderer ainda carrega.
+    backgroundColor: corDeFundo(),
+    icon: iconeDoApp(),
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
       contextIsolation: true,
@@ -67,7 +83,12 @@ function createMainWindow(): void {
     },
   });
 
+  marcar('janela criada');
   mainWindow.loadURL(`${APP_SCHEME}://app/index.html`);
+  mainWindow.webContents.once('did-start-loading', () => marcar('did-start-loading'));
+  mainWindow.webContents.once('did-navigate', () => marcar('did-navigate'));
+  mainWindow.webContents.once('dom-ready', () => marcar('dom-ready'));
+  mainWindow.webContents.once('did-finish-load', () => marcar('did-finish-load'));
 
   // Watchers da Biblioteca e primeiros polls só depois da primeira tela: na
   // abertura eles disputavam disco e CPU com o carregamento do renderer.
@@ -82,16 +103,24 @@ function createMainWindow(): void {
 }
 
 app.whenReady().then(() => {
+  marcar('ready');
+  ouvirPrimeiraTela();
   if (process.platform === 'win32') {
     app.setAppUserModelId('com.iris.app');
   }
   registerAppProtocol();
-  registerAllIpcHandlers();
-  // Antes da janela: a tela já nasce com as empresas migradas. Depois da
-  // primeira vez é só uma leitura do arquivo (flag), sem escrita.
-  void migrarEmpresas()
-    .catch((erro: unknown) => console.error('[iris] migração de empresas falhou', erro))
-    .finally(createMainWindow);
+  // Antes de qualquer dado chegar à tela: as empresas migradas (depois da primeira
+  // vez é só uma leitura do arquivo, sem escrita) e o WhatsApp que ficou "enviando"
+  // ao fechar — com a tela já usando o arquivo, seria impossível distinguir de um
+  // envio que acabou de começar. A janela não espera: o IPC espera (ipc/index.ts).
+  dadosProntos = Promise.allSettled([
+    migrarEmpresas().catch((erro: unknown) => console.error('[iris] migração de empresas falhou', erro)),
+    recuperarInterrompidas().catch((erro: unknown) => console.error('[whatsapp] recuperar envios', erro)),
+  ]);
+  registerAllIpcHandlers(dadosProntos);
+  aplicarTema(getTema());
+  marcar('IPC registrado');
+  createMainWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

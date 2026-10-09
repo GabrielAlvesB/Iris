@@ -71,7 +71,7 @@ assinatura dos relatórios, atualizações e backup).
 
 ## Baixar e instalar
 
-O Iris é feito para **Windows 10 e 11 (64 bits)**.
+O Iris roda no **Windows 10 e 11** e no **Linux** (64 bits).
 
 1. Abra a [página da última versão](https://github.com/GabrielAlvesB/Iris/releases/latest).
 2. Em **Assets**, baixe um dos arquivos:
@@ -84,6 +84,22 @@ O Iris é feito para **Windows 10 e 11 (64 bits)**.
 3. Rode o instalador. Como o app ainda não tem assinatura digital, o Windows pode mostrar o
    aviso **"O Windows protegeu o computador"**: clique em **Mais informações** → **Executar
    assim mesmo**.
+
+### No Linux
+
+Na mesma página da versão:
+
+| Arquivo | Para quem |
+| --- | --- |
+| `iris_<versão>_amd64.deb` | **Ubuntu, Debian, Linux Mint e derivados.** Instale com `sudo apt install ./iris_<versão>_amd64.deb`; o Iris aparece no menu de aplicativos. |
+| `Iris-<versão>.AppImage` | **Outras distribuições.** Dê permissão de execução (`chmod +x Iris-*.AppImage`) e abra. |
+
+No Ubuntu 24.04 e mais novos, a proteção do sistema (AppArmor) pode impedir o AppImage de
+abrir — isso vale para qualquer app Electron em AppImage. Nesses sistemas, use o `.deb`.
+
+No Linux o Iris avisa quando há versão nova, mas não se troca sozinho: baixe o `.deb` ou o
+AppImage novo. Senhas e chaves ficam no chaveiro do sistema (GNOME Keyring ou KWallet); sem
+um chaveiro, o Iris avisa em **Ajustes › Segurança** que não há onde cifrá-las.
 
 Na primeira abertura, o **Tutorial** (no fim da barra lateral) mostra o passo a passo de cada
 módulo.
@@ -103,10 +119,10 @@ exemplo, para levar o Iris para outro computador.
 
 ## Privacidade
 
-- **Tudo fica no seu computador**, em `%APPDATA%\iris\data`. Não há conta, servidor do Iris
+- **Tudo fica no seu computador**, em `%APPDATA%\iris\data` (no Linux, `~/.config/iris/data`). Não há conta, servidor do Iris
   nem telemetria.
 - **Senhas e chaves** (SSH, n8n, GitHub, provedores de IA) são guardadas cifradas pelo próprio
-  Windows. Elas não entram no arquivo de backup, porque a cifra só vale neste computador — num
+  sistema (no Windows, o cofre do usuário; no Linux, o chaveiro). Elas não entram no arquivo de backup, porque a cifra só vale neste computador — num
   computador novo, é preciso digitá-las de novo.
 - O app só acessa a internet para o que você configurou: seus servidores, o n8n, o GitHub, o
   provedor de IA escolhido e a verificação de atualizações no GitHub.

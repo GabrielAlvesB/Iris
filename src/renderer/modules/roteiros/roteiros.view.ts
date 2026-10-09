@@ -1,8 +1,8 @@
 import { falaCompleta, formatarTempo, tempoTotal } from '../../../shared/types/roteiros.conversao.js';
-import { FORMATOS_ROTEIRO, STATUS_ROTEIRO, type FormatoRoteiro, type Roteiro, type RoteirosFile, type StatusRoteiro } from '../../../shared/types/roteiros.types.js';
+import { FORMATOS_ROTEIRO, STATUS_ROTEIRO, type FormatoRoteiro, type Roteiro, type RoteirosFile } from '../../../shared/types/roteiros.types.js';
 import { campo, erroInline, input, pilulas, textarea } from '../../ui/campos.js';
 import { mensagemDeErro, openAvisoModal, openCustomModal } from '../../ui/modal.js';
-import { buildBotao, buildBusca, buildCabecalho, buildIndicadores, buildSegmentado, buildSelo, buildVazio, focarBusca, svg, tempoRelativo } from '../../ui/pagina.js';
+import { buildBotao, buildBusca, buildCabecalho, buildSegmentado, buildSelo, buildVazio, focarBusca, svg, tempoRelativo } from '../../ui/pagina.js';
 import * as videosState from '../postagens/videos/videos.state.js';
 import { ICONES, TOM_DO_STATUS, catalogoTags, rotuloFormato, rotuloStatus } from './roteiros.comum.js';
 import { abrirEstudio, descarregarEstudio, estudioAberto, fecharEstudio, sincronizarEstudio } from './roteiros.estudio.js';
@@ -241,16 +241,6 @@ function renderLista(container: HTMLElement, file: RoteirosFile): void {
     container.replaceChildren(tela);
     return;
   }
-
-  const conta = (s: StatusRoteiro): number => file.roteiros.filter((r) => r.status === s).length;
-  tela.appendChild(
-    buildIndicadores([
-      { rotulo: 'Roteiros', valor: String(file.roteiros.length), detalhe: `${conta('rascunho')} em rascunho` },
-      { rotulo: 'Em revisão', valor: String(conta('revisao')), detalhe: 'esperando aprovação', tom: conta('revisao') ? 'atencao' : 'neutro' },
-      { rotulo: 'Aprovados', valor: String(conta('aprovado')), detalhe: 'enviados ao Kanban', tom: conta('aprovado') ? 'ok' : 'neutro' },
-      { rotulo: 'Reprovados', valor: String(conta('reprovado')), detalhe: 'precisam de nova versão', tom: conta('reprovado') ? 'erro' : 'neutro' },
-    ]),
-  );
 
   const barra = document.createElement('div');
   barra.className = 'pg-barra';

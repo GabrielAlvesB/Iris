@@ -9,8 +9,9 @@ import {
 } from '../../../shared/types/pensamentos.types.js';
 import * as pensamentosState from './pensamentos.state.js';
 import { ICONE_IA, abrirMenuIa, acoesDeTexto, sugerirItensComIa } from '../../ui/ia.js';
+import { comAtalho, ligarAtalhos } from '../../core/atalhos.js';
 import { abrirModulo } from '../../core/navegacao.js';
-import { haModalAberto, mensagemDeErro, openAvisoModal, openConfirmModal } from '../../ui/modal.js';
+import { mensagemDeErro, openAvisoModal, openConfirmModal } from '../../ui/modal.js';
 import { buildBotao, buildBusca, buildCabecalho, svg, tempoRelativo } from '../../ui/pagina.js';
 
 const MIN_ZOOM = 0.3;
@@ -67,6 +68,7 @@ let arraste: Arraste | null = null;
 let paletaAberta: HTMLElement | null = null;
 let timerViewport: ReturnType<typeof setTimeout> | null = null;
 let ouvintesGlobais: { tipo: string; fn: (e: Event) => void }[] = [];
+let desligarAtalhos: (() => void) | null = null;
 
 function limitar(valor: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, valor));
@@ -583,30 +585,20 @@ function aoPressionarGlobal(e: Event): void {
   if (paletaAberta && !paletaAberta.contains(e.target as Node)) fecharPaleta();
 }
 
-function estaDigitando(alvo: EventTarget | null): boolean {
-  const el = alvo as HTMLElement | null;
-  return Boolean(el?.closest('input, textarea, select, [contenteditable="true"]'));
+/** Esc fecha a paleta de cores; N e Ctrl+K vão pelo registro central (core/atalhos.ts). */
+function aoTeclar(e: Event): void {
+  if ((e as KeyboardEvent).key === 'Escape' && paletaAberta) fecharPaleta();
 }
 
-function aoTeclar(e: Event): void {
-  const k = e as KeyboardEvent;
-  if (k.key === 'Escape' && paletaAberta) {
-    fecharPaleta();
-    return;
-  }
-  if (haModalAberto()) return;
-  if ((k.ctrlKey || k.metaKey) && k.key.toLowerCase() === 'k') {
-    k.preventDefault();
-    const input = containerAtual?.querySelector<HTMLInputElement>('.pg-busca input');
-    input?.focus();
-    input?.select();
-    return;
-  }
-  if (estaDigitando(k.target) || k.ctrlKey || k.metaKey || k.altKey) return;
-  if (k.key.toLowerCase() === 'n') {
-    k.preventDefault();
-    void criarPostit(posicaoNoCentro());
-  }
+function ligarAtalhosDaTela(): () => void {
+  return ligarAtalhos({
+    'pensamentos.novo': () => void criarPostit(posicaoNoCentro()),
+    'pensamentos.buscar': () => {
+      const input = containerAtual?.querySelector<HTMLInputElement>('.pg-busca input');
+      input?.focus();
+      input?.select();
+    },
+  });
 }
 
 function ligarOuvintesGlobais(): void {
@@ -618,6 +610,7 @@ function ligarOuvintesGlobais(): void {
     { tipo: 'keydown', fn: aoTeclar },
   ];
   ouvintesGlobais.forEach(({ tipo, fn }) => window.addEventListener(tipo, fn));
+  desligarAtalhos = ligarAtalhosDaTela();
 }
 
 function casaComFiltro(pensamento: Pensamento): boolean {
@@ -736,7 +729,7 @@ export function render(container: HTMLElement, state: PensamentosFile): void {
   const ajustar = buildBotao('', { icone: ICON_AJUSTAR, titulo: 'Ajustar à tela' });
   ajustar.addEventListener('click', () => ajustarATela());
 
-  const buscaEl = buildBusca(busca, 'Buscar nos post-its…  Ctrl K', (valor) => {
+  const buscaEl = buildBusca(busca, comAtalho('Buscar nos post-its…', 'pensamentos.buscar'), (valor) => {
     busca = valor;
     aplicarFiltro();
   });
@@ -835,6 +828,8 @@ export function destroy(): void {
   }
   ouvintesGlobais.forEach(({ tipo, fn }) => window.removeEventListener(tipo, fn));
   ouvintesGlobais = [];
+  desligarAtalhos?.();
+  desligarAtalhos = null;
   fecharPaleta();
 
   // Sair do módulo no meio da escrita salva o que foi escrito.

@@ -7,12 +7,12 @@ import {
   type PrioridadeTodo,
   type TodoFile,
 } from '../../../shared/types/todo.types.js';
+import { ligarAtalhos } from '../../core/atalhos.js';
 import { abrirModulo } from '../../core/navegacao.js';
 import { campo, erroInline, grade2, input, interruptor, pilulas, textarea } from '../../ui/campos.js';
 import {
   buildSecaoModal,
   empilharCamada,
-  haModalAberto,
   mensagemDeErro,
   openAvisoModal,
   openConfirmModal,
@@ -23,7 +23,6 @@ import {
   buildBotao,
   buildBusca,
   buildCabecalho,
-  buildIndicadores,
   buildSegmentado,
   buildSelo,
   buildVazio,
@@ -77,6 +76,7 @@ const PESO_PRIORIDADE: Record<PrioridadeTodo, number> = { alta: 0, media: 1, bai
 const CHAVE_FEITOS_ABERTOS = 'iris.todo.feitosAbertos';
 
 let containerAtual: HTMLElement | null = null;
+let desligarAtalhos: (() => void) | null = null;
 let filtro: Filtro = 'abertas';
 let ordenacao: Ordenacao = 'manual';
 let busca = '';
@@ -92,7 +92,7 @@ let fecharMenu: (() => void) | null = null;
 export function montar(viewRoot: HTMLElement): void {
   containerAtual = viewRoot;
   todoState.onStateChange(() => redesenhar());
-  document.addEventListener('keydown', onAtalho);
+  desligarAtalhos = ligarAtalhos({ 'todo.novo': () => containerAtual?.querySelector<HTMLInputElement>('.td-nova input')?.focus() });
   // O quadro do Kanban serve para mostrar onde está o card de quem já foi
   // enviado; se falhar, a tela funciona com o nome da coluna guardado no envio.
   void Promise.all([todoState.load(), kanbanState.loadBoard().catch(() => undefined)])
@@ -101,7 +101,8 @@ export function montar(viewRoot: HTMLElement): void {
 }
 
 export function destroy(): void {
-  document.removeEventListener('keydown', onAtalho);
+  desligarAtalhos?.();
+  desligarAtalhos = null;
   fecharMenu?.();
   destruirSortables();
   todoState.offStateChange();
@@ -166,16 +167,6 @@ function buildAvisoConcluidas(concluidas: Checklist[]): HTMLElement {
   return barra;
 }
 
-function onAtalho(e: KeyboardEvent): void {
-  if (e.key.toLowerCase() !== 'n' || e.ctrlKey || e.metaKey || e.altKey || haModalAberto()) return;
-  const alvo = e.target as HTMLElement | null;
-  if (alvo && (alvo.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(alvo.tagName))) return;
-  const campoNovo = containerAtual?.querySelector<HTMLInputElement>('.td-nova input');
-  if (!campoNovo) return;
-  e.preventDefault();
-  campoNovo.focus();
-}
-
 function lerFeitosAbertos(): Set<string> {
   try {
     const bruto = JSON.parse(localStorage.getItem(CHAVE_FEITOS_ABERTOS) ?? '[]') as unknown;
@@ -219,11 +210,6 @@ function hojeIso(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function diaDoIso(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
 function dataCurta(data: string): string {
   const [ano, mes, dia] = data.split('-');
   return ano === String(new Date().getFullYear()) ? `${dia}/${mes}` : `${dia}/${mes}/${ano}`;
@@ -231,10 +217,6 @@ function dataCurta(data: string): string {
 
 function concluida(l: Checklist): boolean {
   return l.itens.length > 0 && l.itens.every((i) => i.feito);
-}
-
-function atrasada(l: Checklist): boolean {
-  return Boolean(l.prazo && l.prazo < hojeIso() && !concluida(l));
 }
 
 function passaNoFiltro(l: Checklist, f: Filtro): boolean {
@@ -301,7 +283,6 @@ function render(container: HTMLElement, file: TodoFile): void {
     return;
   }
 
-  tela.appendChild(buildResumo(file));
   tela.appendChild(buildBarra(file));
 
   const visiveis = ordenar(file.checklists.filter((l) => passaNoFiltro(l, filtro) && casaComBusca(l)));
@@ -327,23 +308,6 @@ function render(container: HTMLElement, file: TodoFile): void {
   container.replaceChildren(tela);
 
   if (podeArrastar() && visiveis.length > 1) ligarArrasteDasChecklists(grade, file);
-}
-
-function buildResumo(file: TodoFile): HTMLElement {
-  const ativas = file.checklists.filter((l) => !l.arquivada);
-  const abertas = ativas.filter((l) => !concluida(l));
-  const pendentes = ativas.reduce((t, l) => t + l.itens.filter((i) => !i.feito).length, 0);
-  const hoje = hojeIso();
-  const feitosHoje = ativas.reduce((t, l) => t + l.itens.filter((i) => i.feito && i.feitoEm && diaDoIso(i.feitoEm) === hoje).length, 0);
-  const atrasadas = ativas.filter(atrasada).length;
-  const noKanban = ativas.filter((l) => l.envio).length;
-  return buildIndicadores([
-    { rotulo: 'Checklists abertas', valor: String(abertas.length), detalhe: `${ativas.length - abertas.length} concluída${ativas.length - abertas.length === 1 ? '' : 's'}` },
-    { rotulo: 'Itens pendentes', valor: String(pendentes), detalhe: pendentes ? 'por fazer' : 'tudo em dia', tom: pendentes ? 'neutro' : 'ok' },
-    { rotulo: 'Feitos hoje', valor: String(feitosHoje), detalhe: feitosHoje ? 'bom ritmo' : 'nenhum ainda', tom: feitosHoje ? 'ok' : 'neutro' },
-    { rotulo: 'Atrasadas', valor: String(atrasadas), detalhe: atrasadas ? 'prazo vencido' : 'nenhuma', tom: atrasadas ? 'erro' : 'ok' },
-    { rotulo: 'No Kanban', valor: String(noKanban), detalhe: 'enviadas como card' },
-  ]);
 }
 
 function buildBarra(file: TodoFile): HTMLElement {

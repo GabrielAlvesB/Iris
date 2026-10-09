@@ -11,7 +11,6 @@ import {
   buildBotaoAjuda,
   buildBusca,
   buildCabecalho,
-  buildIndicadores,
   buildSegmentado,
   buildSelo,
   buildVazio,
@@ -81,37 +80,6 @@ function buildTopo(state: GithubViewState): HTMLElement {
     extras: [selo],
     acoes: [atualizar, buildBotaoAjuda(() => abrirTutorial('github'))],
   });
-}
-
-function buildResumo(state: GithubViewState): HTMLElement {
-  const repos = state.snapshot.repos;
-  const locais = repos.filter((r) => r.local);
-  const pendentes = locais.filter((r) => (r.local?.git.alteracoes ?? 0) > 0).length;
-  const naoEnviados = locais.reduce((soma, r) => soma + (r.local?.git.ahead ?? 0), 0);
-  const privados = repos.filter((r) => r.remoto?.privado).length;
-
-  return buildIndicadores([
-    { rotulo: 'Repositórios', valor: String(repos.length), detalhe: `${privados} privado${privados === 1 ? '' : 's'}` },
-    { rotulo: 'Neste PC', valor: String(locais.length), detalhe: `em ${state.config.pastas.length} pasta${state.config.pastas.length === 1 ? '' : 's'}` },
-    // Sem projeto local cadastrado não há o que medir: dizer "tudo commitado"
-    // seria afirmar algo que ninguém verificou.
-    locais.length === 0
-      ? { rotulo: 'Com alterações', valor: '—', detalhe: 'adicione uma pasta de projetos' }
-      : {
-          rotulo: 'Com alterações',
-          valor: String(pendentes),
-          detalhe: pendentes > 0 ? 'trabalho não commitado' : 'tudo commitado',
-          tom: pendentes > 0 ? 'atencao' : 'ok',
-        },
-    locais.length === 0
-      ? { rotulo: 'Não enviados', valor: '—', detalhe: 'depende dos projetos locais' }
-      : {
-          rotulo: 'Não enviados',
-          valor: String(naoEnviados),
-          detalhe: naoEnviados > 0 ? 'commits à espera de push' : 'nada pendente',
-          tom: naoEnviados > 0 ? 'atencao' : 'ok',
-        },
-  ]);
 }
 
 function buildPastas(state: GithubViewState): HTMLElement {
@@ -346,8 +314,6 @@ export function render(container: HTMLElement, state: GithubViewState): void {
   }
 
   if (state.snapshot.erro) view.appendChild(buildAviso(state.snapshot.erro, 'erro'));
-
-  view.appendChild(buildResumo(state));
 
   const barra = document.createElement('div');
   barra.className = 'pg-barra';

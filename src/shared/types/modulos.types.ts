@@ -7,6 +7,7 @@
  */
 
 export const CATEGORIAS = [
+  { id: 'relacionamento', rotulo: 'Relacionamento' },
   { id: 'conteudo', rotulo: 'Conteúdo' },
   { id: 'arquivos', rotulo: 'Arquivos' },
   { id: 'sistema', rotulo: 'Sistema' },
@@ -32,6 +33,11 @@ export interface ModuloDescritor {
 export const MODULOS = [
   { id: 'kanban', rotulo: 'Kanban', posicao: 'topo', descricao: 'Cards em colunas, do a fazer ao feito' },
   { id: 'todo', rotulo: 'To-do', posicao: 'topo', descricao: 'Checklists rápidas do dia a dia' },
+  { id: 'contatos', rotulo: 'Contatos', posicao: 'relacionamento', descricao: 'Pessoas, empresas, funil e contratos' },
+  { id: 'leads', rotulo: 'Leads', posicao: 'relacionamento', descricao: 'Formulários do site: caixa de entrada e painel' },
+  { id: 'relatorios-leads', rotulo: 'Relatórios de leads', posicao: 'relacionamento', descricao: 'PDFs de leads por período' },
+  { id: 'api-leads', rotulo: 'API e n8n', posicao: 'relacionamento', descricao: 'Conecte o formulário do site e o n8n' },
+  { id: 'whatsapp', rotulo: 'WhatsApp', posicao: 'relacionamento', descricao: 'Conversas, envio para vários, modelos e conexão' },
   { id: 'postagens', rotulo: 'Postagens', posicao: 'conteudo', descricao: 'Vídeos e imagens, da ideia à publicação' },
   { id: 'ia', rotulo: 'Estúdio IA', posicao: 'conteudo', descricao: 'Imagens e thumbnails com IA' },
   { id: 'relatorios', rotulo: 'Relatórios', posicao: 'conteudo', descricao: 'PDFs de resultado para clientes' },

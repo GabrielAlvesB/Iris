@@ -8,6 +8,11 @@ import * as atualizacaoService from '../modules/atualizacao/atualizacao.service'
 import * as anexosService from '../modules/anexos/anexos.service';
 import * as imagensService from '../modules/imagens/imagens.service';
 import * as videosService from '../modules/videos/videos.service';
+import * as contatosArquivo from '../modules/contatos/contatos.arquivo';
+import * as contatosLeads from '../modules/contatos/contatos.leads';
+import * as contatosServidor from '../modules/contatos/contatos.servidor';
+import * as whatsappFila from '../modules/whatsapp/whatsapp.fila';
+import * as whatsappReceber from '../modules/whatsapp/whatsapp.receber';
 
 /**
  * Raiz de composição das tarefas de fundo — mantém o main.ts sem precisar
@@ -19,6 +24,23 @@ export const TAREFA_N8N = 'n8n:poll';
 export const TAREFA_GITHUB = 'github:poll';
 export const TAREFA_AGENDA_POSTAGENS = 'postagens:agenda';
 export const TAREFA_ATUALIZACAO = 'atualizacao:verificar';
+export const TAREFA_LEADS = 'contatos:leads';
+
+/**
+ * Leads por API: o servidor local liga/desliga e a busca na caixa da nuvem
+ * (a cada minuto) começa/para conforme a aba API. Nunca lança: um contatos.json
+ * ilegível não pode impedir as outras tarefas de subir.
+ */
+function aplicarLeads(atrasoMs: number): void {
+  try {
+    const config = contatosArquivo.loadFile().leadsConfig;
+    void contatosServidor.aplicarServidor(config.servidor);
+    if (config.nuvem.ativo && config.nuvem.url) startTask(TAREFA_LEADS, atrasoMs);
+    else stopTask(TAREFA_LEADS);
+  } catch (erro) {
+    console.error('[leads] não deu para aplicar a configuração', erro);
+  }
+}
 
 export async function startBackgroundServices(): Promise<void> {
   registerTask(TAREFA_HEALTH, 60_000, (signal) => servidoresService.runHealthCycle(signal));
@@ -61,6 +83,17 @@ export async function startBackgroundServices(): Promise<void> {
     })().catch(() => undefined);
   }, 20_000);
 
+  // A caixa na nuvem guarda leads e WhatsApp: a mesma rodada esvazia os dois.
+  registerTask(TAREFA_LEADS, 60_000, async (signal) => {
+    await contatosLeads.buscarNuvem(signal);
+    await whatsappReceber.buscarNuvem(signal);
+  });
+  aplicarLeads(4_000);
+
+  // Envio para vários: só roda com lote enviando (o "enviando" de antes já foi resolvido em main.ts).
+  registerTask(whatsappFila.TAREFA_FILA, 15_000, (signal) => whatsappFila.processarFila(signal));
+  whatsappFila.aplicarFila(6_000);
+
   exploradorService.iniciarWatchers();
 }
 
@@ -89,9 +122,12 @@ export function reaplicarAgendamentos(): void {
   } else {
     stopTask(TAREFA_GITHUB);
   }
+
+  aplicarLeads(1_000);
 }
 
 export function stopBackgroundServices(): void {
   stopAll();
   exploradorService.pararWatchers();
+  contatosServidor.pararServidor();
 }

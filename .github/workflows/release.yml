@@ -42,3 +42,39 @@ jobs:
         run: npm run release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Linux depois do Windows: os dois publicam na mesma release, e criados ao
+  # mesmo tempo disputariam a criação dela.
+  linux:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Montar (AppImage e .deb)
+        run: npm run dist:linux
+
+      # Teste de fumaça antes de publicar: o app empacotado precisa chegar à
+      # primeira tela. IRIS_SAIR_APOS_ABRIR fecha sozinho quando ela aparece; se
+      # travar ou cair, o grep não acha o marco e o job para aqui.
+      # Sem tela no runner: xvfb. --no-sandbox só aqui: no runner o chrome-sandbox
+      # não é SUID (o .deb instalado acerta isso na instalação).
+      - name: Conferir que abre
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb
+          export IRIS_MEDIR_ABERTURA=1 IRIS_SAIR_APOS_ABRIR=1
+          timeout 60 xvfb-run -a release/linux-unpacked/iris --no-sandbox --user-data-dir="$RUNNER_TEMP/iris-teste" 2>&1 | tee abertura.log || true
+          grep -q "primeira tela" abertura.log
+
+      # Empacota de novo com publicação (o dist/ já está pronto).
+      - name: Publicar
+        run: npx electron-builder --linux --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

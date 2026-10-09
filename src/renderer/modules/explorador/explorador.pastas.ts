@@ -4,6 +4,7 @@ import type { ExploradorViewState } from './explorador.state.js';
 import { ICONES_MODAL, openConfirmModal, openFormModal, promptText } from '../../ui/modal.js';
 import { tempoRelativo } from '../../ui/pagina.js';
 import { formatarTamanho } from './explorador.icones.js';
+import { DO_SISTEMA } from '../../ui/plataforma.js';
 
 /**
  * Aba "Pastas" da Biblioteca: o navegador de arquivos das pastas monitoradas,
@@ -266,7 +267,7 @@ async function excluirItem(state: ExploradorViewState, item: ItemDoDiretorio): P
 
   const confirmado = await openConfirmModal({
     title: 'Mover para a lixeira',
-    message: `"${item.nome}" vai para a Lixeira do Windows — dá para restaurar de lá.`,
+    message: `"${item.nome}" vai para a Lixeira ${DO_SISTEMA} — dá para restaurar de lá.`,
     confirmText: 'Mover para a lixeira',
   });
   if (!confirmado) return;

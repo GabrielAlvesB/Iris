@@ -136,11 +136,9 @@
   border-color: var(--accent);
 }
 
-.kanban-shortcut-hint {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 11px;
-  opacity: 0.7;
-  margin-left: 4px;
+/* A tecla do atalho ao lado de "Novo card" (buildTeclas). */
+.kanban-header .btn .pg-teclas {
+  margin-left: 8px;
 }
 
 .kanban-column {
@@ -257,7 +255,7 @@
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-sm);
   padding: 10px 12px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 1px 2px rgb(0 0 0 / calc(0.25 * var(--sombra-k)));
   cursor: pointer;
 }
 
@@ -1251,12 +1249,6 @@
   border-color: var(--accent);
 }
 
-.kanban-shortcut-hint {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 11px;
-  opacity: 0.7;
-  margin-left: 4px;
-}
 
 .kanban-column {
   width: 260px;
@@ -1372,7 +1364,7 @@
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-sm);
   padding: 10px 12px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 1px 2px rgb(0 0 0 / calc(0.25 * var(--sombra-k)));
   cursor: pointer;
 }
 

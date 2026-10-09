@@ -1,7 +1,11 @@
 import { MODULOS, type ModuloId } from '../../shared/types/modulos.types.js';
 import { empilharCamada } from '../ui/modal.js';
 import { ICONE_DO_MODULO } from './sidebar.js';
-import { SECOES_AJUSTES, abrirAjustes, abrirModulo, abrirTutorial, type GuiaId } from './navegacao.js';
+import { SECOES_AJUSTES, abrirAjustes, abrirContato, abrirModulo, abrirTutorial, type GuiaId } from './navegacao.js';
+import { buildTeclas } from '../ui/pagina.js';
+import { comboDe, textoDoCombo } from './atalhos.js';
+import { idIrPara } from './atalhos.catalogo.js';
+import { alternarTema, temaEfetivo } from './tema.js';
 
 /**
  * Busca rápida (Ctrl+P): qualquer módulo, seção de Ajustes ou guia do
@@ -13,13 +17,15 @@ import { SECOES_AJUSTES, abrirAjustes, abrirModulo, abrirTutorial, type GuiaId }
  */
 
 interface Opcao {
-  tipo: 'Módulo' | 'Ajustes' | 'Tutorial';
+  tipo: 'Módulo' | 'Ajustes' | 'Tutorial' | 'Contato' | 'Ação';
   rotulo: string;
   detalhe: string;
   icone: string;
   /** Texto extra só para a busca (sinônimos). */
   termos: string;
   ir: () => void;
+  /** Id da ação no catálogo de atalhos: a tecla de agora aparece à direita. */
+  atalho?: string;
 }
 
 const ICONE_GUIA = ICONE_DO_MODULO.tutorial;
@@ -40,6 +46,7 @@ function opcoesFixas(): Opcao[] {
     icone: ICONE_DO_MODULO[m.id],
     termos: m.id,
     ir: () => abrirModulo(m.id as ModuloId),
+    atalho: idIrPara(m.id as ModuloId),
   }));
   const ajustes: Opcao[] = SECOES_AJUSTES.map((s) => ({
     tipo: 'Ajustes',
@@ -49,7 +56,62 @@ function opcoesFixas(): Opcao[] {
     termos: s.termos,
     ir: () => abrirAjustes(s.id),
   }));
-  return [...modulos, ...ajustes];
+  const acoes: Opcao[] = [
+    {
+      tipo: 'Ação',
+      rotulo: 'Atalhos de teclado',
+      detalhe: 'Ver todas as teclas',
+      icone: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01"/><path d="M10 9h.01"/><path d="M14 9h.01"/><path d="M18 9h.01"/><path d="M8 16h8"/>',
+      termos: 'teclado tecla atalho ajuda',
+      ir: () => void import('./atalhos.ajuda.js').then((m) => m.abrirAjudaAtalhos()),
+      atalho: 'geral.ajuda',
+    },
+    {
+      tipo: 'Ação',
+      rotulo: temaEfetivo() === 'escuro' ? 'Tema claro' : 'Tema escuro',
+      detalhe: 'Trocar a aparência do Iris',
+      icone: '<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/>',
+      termos: 'tema claro escuro aparencia branco dark light cor modo noturno',
+      ir: () => void alternarTema().catch(() => undefined),
+      atalho: 'geral.tema',
+    },
+  ];
+  return [...modulos, ...ajustes, ...acoes];
+}
+
+/**
+ * Pessoas e empresas do CRM, lidas na hora (arquivo local): abrir a ficha de
+ * alguém pelo nome, de qualquer lugar do app. Arquivados ficam de fora.
+ */
+async function opcoesDeContatos(): Promise<Opcao[]> {
+  try {
+    const r = await window.irisAPI.contatos.getFile();
+    if (!r.ok) return [];
+    const empresas = new Map(r.data.empresas.map((e) => [e.id, e.nomeFantasia || e.razaoSocial]));
+    const pessoas: Opcao[] = r.data.pessoas
+      .filter((p) => !p.arquivado)
+      .map((p) => ({
+        tipo: 'Contato',
+        rotulo: p.nome,
+        detalhe: [p.cargo, p.empresaId ? empresas.get(p.empresaId) : ''].filter(Boolean).join(' · ') || 'Pessoa',
+        icone: ICONE_DO_MODULO.contatos,
+        termos: [p.apelido, ...p.emails, ...p.telefones.map((t) => t.numero.replace(/\D/g, ''))].join(' '),
+        ir: () => abrirContato({ tipo: 'pessoa', id: p.id }),
+      }));
+    const empresasOp: Opcao[] = r.data.empresas
+      .filter((e) => !e.arquivado)
+      .map((e) => ({
+        tipo: 'Contato',
+        rotulo: e.nomeFantasia || e.razaoSocial,
+        detalhe: ['Empresa', e.segmento].filter(Boolean).join(' · '),
+        icone: '<path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M10 21v-4h4v4"/>',
+        termos: [e.razaoSocial, e.cnpj.replace(/\D/g, ''), ...e.emails].join(' '),
+        ir: () => abrirContato({ tipo: 'empresa', id: e.id }),
+      }));
+    return [...pessoas, ...empresasOp];
+  } catch {
+    return [];
+  }
 }
 
 /** Os guias vêm do próprio Tutorial, carregado só quando a paleta abre. */
@@ -83,7 +145,8 @@ function filtrar(opcoes: Opcao[], busca: string): Opcao[] {
       else if (nome.includes(q)) pontos = 2;
       else if (resto.includes(q)) pontos = 1;
       // Guia do Tutorial só sobe por cima de um módulo quando casa melhor.
-      return { o, pontos: pontos ? pontos + (o.tipo === 'Módulo' ? 0.5 : o.tipo === 'Ajustes' ? 0.3 : 0) : 0 };
+      const peso = o.tipo === 'Módulo' ? 0.5 : o.tipo === 'Contato' ? 0.4 : o.tipo === 'Ajustes' ? 0.3 : 0;
+      return { o, pontos: pontos ? pontos + peso : 0 };
     })
     .filter((x) => x.pontos > 0)
     .sort((a, b) => b.pontos - a.pontos);
@@ -112,7 +175,7 @@ export function abrirPaleta(): void {
   campo.innerHTML = svg('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>', 17);
   const input = document.createElement('input');
   input.type = 'text';
-  input.placeholder = 'Ir para um módulo, seção de Ajustes ou guia…';
+  input.placeholder = 'Ir para um módulo, contato, seção de Ajustes ou guia…';
   input.setAttribute('aria-label', 'Buscar');
   input.setAttribute('role', 'combobox');
   input.setAttribute('aria-controls', 'paleta-lista');
@@ -131,6 +194,13 @@ export function abrirPaleta(): void {
   const rodape = document.createElement('div');
   rodape.className = 'paleta-rodape';
   rodape.innerHTML = '<span><kbd>↑</kbd><kbd>↓</kbd> navegar</span><span><kbd>Enter</kbd> abrir</span>';
+  const comboAjuda = comboDe('geral.ajuda');
+  if (comboAjuda) {
+    const dica = document.createElement('span');
+    dica.className = 'paleta-rodape-atalhos';
+    dica.textContent = `${textoDoCombo(comboAjuda)} todos os atalhos`;
+    rodape.appendChild(dica);
+  }
 
   caixa.append(campo, lista, rodape);
   overlay.appendChild(caixa);
@@ -186,7 +256,10 @@ export function abrirPaleta(): void {
         Object.assign(document.createElement('span'), { className: 'paleta-item-detalhe', textContent: o.detalhe }),
       );
       const tipo = Object.assign(document.createElement('span'), { className: 'paleta-item-tipo', textContent: o.tipo });
-      item.append(icone, textos, tipo);
+      item.append(icone, textos);
+      const combo = o.atalho ? comboDe(o.atalho) : '';
+      if (combo) item.appendChild(buildTeclas(combo));
+      item.appendChild(tipo);
       item.addEventListener('mousemove', () => {
         if (selecionada === i) return;
         selecionada = i;
@@ -224,6 +297,12 @@ export function abrirPaleta(): void {
   soltar = empilharCamada(overlay, fechar);
   desenhar();
   input.focus();
+
+  void opcoesDeContatos().then((contatos) => {
+    if (!aberta || !contatos.length) return;
+    opcoes = [...opcoes, ...contatos];
+    if (input.value.trim()) desenhar();
+  });
 
   void opcoesDoTutorial().then((guias) => {
     if (!aberta) return;

@@ -39,6 +39,79 @@ export const SHEETS_CHANNELS = {
   deleteTable: 'sheets:deleteTable',
 } as const;
 
+export const CONTATOS_CHANNELS = {
+  getFile: 'contatos:getFile',
+  salvarPessoa: 'contatos:salvarPessoa',
+  salvarEmpresa: 'contatos:salvarEmpresa',
+  excluirContato: 'contatos:excluirContato',
+  arquivarContato: 'contatos:arquivarContato',
+  moverNoFunil: 'contatos:moverNoFunil',
+  salvarEtapas: 'contatos:salvarEtapas',
+  registrarInteracao: 'contatos:registrarInteracao',
+  editarInteracao: 'contatos:editarInteracao',
+  excluirInteracao: 'contatos:excluirInteracao',
+  salvarModelo: 'contatos:salvarModelo',
+  duplicarModelo: 'contatos:duplicarModelo',
+  excluirModelo: 'contatos:excluirModelo',
+  criarContrato: 'contatos:criarContrato',
+  atualizarContrato: 'contatos:atualizarContrato',
+  duplicarContrato: 'contatos:duplicarContrato',
+  excluirContrato: 'contatos:excluirContrato',
+  exportarPdf: 'contatos:exportarPdf',
+  // Leads por API
+  leadsStatus: 'contatos:leadsStatus',
+  salvarLeadsConfig: 'contatos:salvarLeadsConfig',
+  gerarChaveFormulario: 'contatos:gerarChaveFormulario',
+  gerarChaveIris: 'contatos:gerarChaveIris',
+  definirChaveIris: 'contatos:definirChaveIris',
+  copiarChaveIris: 'contatos:copiarChaveIris',
+  testarNuvem: 'contatos:testarNuvem',
+  buscarAgora: 'contatos:buscarAgora',
+  enviarTeste: 'contatos:enviarTeste',
+  marcarVisto: 'contatos:marcarVisto',
+  descartarLead: 'contatos:descartarLead',
+  repontuar: 'contatos:repontuar',
+  contarNaoVistos: 'contatos:contarNaoVistos',
+  salvarRelatorioLeads: 'contatos:salvarRelatorioLeads',
+  excluirRelatorioLeads: 'contatos:excluirRelatorioLeads',
+  criarFluxoN8n: 'contatos:criarFluxoN8n',
+  testarFluxoN8n: 'contatos:testarFluxoN8n',
+} as const;
+
+export const WHATSAPP_CHANNELS = {
+  getFile: 'whatsapp:getFile',
+  status: 'whatsapp:status',
+  salvarConfig: 'whatsapp:salvarConfig',
+  definirSegredo: 'whatsapp:definirSegredo',
+  removerCredenciais: 'whatsapp:removerCredenciais',
+  gerarChaveWebhook: 'whatsapp:gerarChaveWebhook',
+  copiarChaveWebhook: 'whatsapp:copiarChaveWebhook',
+  enderecos: 'whatsapp:enderecos',
+  copiarEndereco: 'whatsapp:copiarEndereco',
+  configurarWebhook: 'whatsapp:configurarWebhook',
+  testar: 'whatsapp:testar',
+  conferirNumero: 'whatsapp:conferirNumero',
+  listarTemplates: 'whatsapp:listarTemplates',
+  enviar: 'whatsapp:enviar',
+  reenviar: 'whatsapp:reenviar',
+  sincronizarConversa: 'whatsapp:sincronizarConversa',
+  marcarLidas: 'whatsapp:marcarLidas',
+  ligarNumero: 'whatsapp:ligarNumero',
+  excluirMensagem: 'whatsapp:excluirMensagem',
+  salvarModelo: 'whatsapp:salvarModelo',
+  excluirModelo: 'whatsapp:excluirModelo',
+  criarLote: 'whatsapp:criarLote',
+  mudarLote: 'whatsapp:mudarLote',
+  previaFluxoN8n: 'whatsapp:previaFluxoN8n',
+  copiarFluxoN8n: 'whatsapp:copiarFluxoN8n',
+  criarFluxoN8n: 'whatsapp:criarFluxoN8n',
+} as const;
+
+/** O que vale para qualquer documento do app (PDF de relatório, ficha, contrato). */
+export const DOCUMENTOS_CHANNELS = {
+  abrirPdf: 'documentos:abrirPdf',
+} as const;
+
 export const EXPORT_CHANNELS = {
   resumo: 'export:resumo',
   exportar: 'export:exportar',
@@ -129,10 +202,18 @@ export const GITHUB_CHANNELS = {
   abrirRepo: 'github:abrirRepo',
 } as const;
 
+/** Do próprio app, fora de qualquer módulo. */
+export const APP_CHANNELS = {
+  primeiraTela: 'app:primeiraTela',
+} as const;
+
 export const AJUSTES_CHANNELS = {
   getAjustes: 'ajustes:getAjustes',
   setModuloInicial: 'ajustes:setModuloInicial',
   setAssinatura: 'ajustes:setAssinatura',
+  setPerfil: 'ajustes:setPerfil',
+  setAtalhos: 'ajustes:setAtalhos',
+  setTema: 'ajustes:setTema',
 } as const;
 
 export const ROTEIROS_CHANNELS = {
@@ -261,7 +342,6 @@ export const RELATORIOS_CHANNELS = {
   excluirRelatorio: 'relatorios:excluirRelatorio',
   salvarCategorias: 'relatorios:salvarCategorias',
   exportarPdf: 'relatorios:exportarPdf',
-  abrirPdf: 'relatorios:abrirPdf',
 } as const;
 
 export const ATUALIZACAO_CHANNELS = {

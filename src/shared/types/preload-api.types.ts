@@ -1,4 +1,20 @@
 import type { IpcResult } from './common.types';
+import type {
+  ConferenciaNumero,
+  CriarLoteInput,
+  EnderecoWa,
+  EnviarWaInput,
+  ProvedorWa,
+  SalvarConfigWaInput,
+  SalvarModeloWaInput,
+  SegredoWa,
+  StatusWhatsapp,
+  TemplateMeta,
+  ViaWebhookWa,
+  WhatsappFile,
+} from './whatsapp.types';
+import type { OrigemEventoWa } from './whatsapp.eventos';
+import type { TipoFluxoWa } from './whatsapp.n8n';
 import type { AnexoPostagem, EscolhaDeAnexos, InfoAnexo } from './postagens.types';
 import type { EstadoAtualizacao, InstaladorLocal, VersaoPublicada } from './atualizacao.types';
 import type {
@@ -58,7 +74,7 @@ import type {
   GithubSnapshot,
   SalvarGithubConfigInput,
 } from './github.types';
-import type { AjustesInfo, AssinaturaRelatorio, ModuloInicial } from './ajustes.types';
+import type { AjustesInfo, AssinaturaRelatorio, ModuloInicial, PerfilUsuario, Tema } from './ajustes.types';
 import type {
   ArquivarImagemInput,
   AtualizarImagemInput,
@@ -104,6 +120,24 @@ import type {
   UpdateRowInput,
   UpdateTableVisibilityInput,
 } from './sheets.types';
+import type {
+  AtualizarContratoInput,
+  ContatosFile,
+  CriarContratoInput,
+  DescartarLeadInput,
+  EditarInteracaoInput,
+  EmpresaCrm,
+  EtapaFunil,
+  ExportarDocumentoInput,
+  MoverNoFunilInput,
+  Pessoa,
+  RefContato,
+  RegistrarInteracaoInput,
+  SalvarLeadsConfigInput,
+  SalvarModeloInput,
+} from './contatos.types';
+import type { EstadoBusca, RelatorioLeads, ResultadoTeste, StatusLeads } from './leads.types';
+import type { CenarioN8n, FluxoN8nCriado } from './leads.n8n';
 import type {
   CopiaDeSeguranca,
   FileOpResult,
@@ -266,6 +300,10 @@ export interface AjustesApi {
   getAjustes(): Promise<IpcResult<AjustesInfo>>;
   setModuloInicial(modulo: ModuloInicial): Promise<IpcResult<AjustesInfo>>;
   setAssinatura(assinatura: AssinaturaRelatorio): Promise<IpcResult<AjustesInfo>>;
+  setPerfil(perfil: PerfilUsuario): Promise<IpcResult<AjustesInfo>>;
+  /** Só as trocas (id → combinação; '' = sem atalho). */
+  setAtalhos(atalhos: Record<string, string>): Promise<IpcResult<AjustesInfo>>;
+  setTema(tema: Tema): Promise<IpcResult<AjustesInfo>>;
 }
 
 export interface AtualizacaoApi {
@@ -312,9 +350,15 @@ export interface SheetsApi {
   deleteTable(input: DeleteTableInput): Promise<IpcResult<SheetsFile>>;
 }
 
+export type Plataforma = 'win32' | 'linux' | 'darwin';
+
 export interface SystemApi {
   copyToClipboard(text: string): void;
   openExternalLink(url: string): void;
+  /** O sistema em que o Iris roda: textos e opções que só existem no Windows somem no Linux. */
+  plataforma: Plataforma;
+  /** Avisa o main que a primeira tela tem conteúdo (medição de abertura). */
+  primeiraTela(msDesdeNavegacao: number): void;
 }
 
 export interface LinksApi {
@@ -323,6 +367,102 @@ export interface LinksApi {
   updateLink(input: UpdateLinkInput): Promise<IpcResult<LinksFile>>;
   deleteLink(linkId: string): Promise<IpcResult<LinksFile>>;
   reorderLinks(orderedLinkIds: string[]): Promise<IpcResult<LinksFile>>;
+}
+
+type ResultadoContatos = Promise<IpcResult<ContatosFile>>;
+
+export interface ContatosApi {
+  getFile(): ResultadoContatos;
+  /** Sem id (ou id desconhecido) cria; com id mescla sobre o salvo. */
+  salvarPessoa(pessoa: Partial<Pessoa>): ResultadoContatos;
+  salvarEmpresa(empresa: Partial<EmpresaCrm>): ResultadoContatos;
+  excluirContato(ref: RefContato): ResultadoContatos;
+  arquivarContato(ref: RefContato, arquivado: boolean): ResultadoContatos;
+  moverNoFunil(input: MoverNoFunilInput): ResultadoContatos;
+  salvarEtapas(etapas: Array<Partial<EtapaFunil>>): ResultadoContatos;
+  registrarInteracao(input: RegistrarInteracaoInput): ResultadoContatos;
+  editarInteracao(input: EditarInteracaoInput): ResultadoContatos;
+  excluirInteracao(id: string): ResultadoContatos;
+  salvarModelo(input: SalvarModeloInput): ResultadoContatos;
+  duplicarModelo(id: string): ResultadoContatos;
+  excluirModelo(id: string): ResultadoContatos;
+  criarContrato(input: CriarContratoInput): ResultadoContatos;
+  atualizarContrato(input: AtualizarContratoInput): ResultadoContatos;
+  duplicarContrato(id: string): ResultadoContatos;
+  excluirContrato(id: string): ResultadoContatos;
+  exportarPdf(input: ExportarDocumentoInput): Promise<IpcResult<FileOpResult>>;
+  // ---------- Leads por API ----------
+  leadsStatus(): Promise<IpcResult<StatusLeads>>;
+  /** Mescla sobre a configuração salva; servidor e busca se reaplicam na hora. */
+  salvarLeadsConfig(input: SalvarLeadsConfigInput): ResultadoContatos;
+  gerarChaveFormulario(): ResultadoContatos;
+  /** Gera e copia para a área de transferência no main: a chave nunca chega à tela. */
+  gerarChaveIris(): Promise<IpcResult<StatusLeads>>;
+  definirChaveIris(valor: string): Promise<IpcResult<StatusLeads>>;
+  copiarChaveIris(): Promise<IpcResult<void>>;
+  testarNuvem(): Promise<IpcResult<ResultadoTeste>>;
+  buscarAgora(): Promise<IpcResult<EstadoBusca>>;
+  enviarTeste(): Promise<IpcResult<ResultadoTeste>>;
+  /** Ids de pessoas, ou 'todos'. */
+  marcarVisto(ids: string[] | 'todos'): ResultadoContatos;
+  descartarLead(input: DescartarLeadInput): ResultadoContatos;
+  repontuar(): ResultadoContatos;
+  contarNaoVistos(): Promise<IpcResult<number>>;
+  /** `exportou` marca a data do último PDF. */
+  salvarRelatorioLeads(relatorio: Partial<RelatorioLeads>, exportou: boolean): ResultadoContatos;
+  excluirRelatorioLeads(id: string): ResultadoContatos;
+  /** Cria o fluxo pronto no n8n configurado no Iris (desligado), com o endereço do cenário. */
+  criarFluxoN8n(cenario: CenarioN8n): Promise<IpcResult<FluxoN8nCriado>>;
+  /** Manda um lead de exemplo ao webhook do fluxo no n8n (o fluxo precisa estar ativo). */
+  testarFluxoN8n(): Promise<IpcResult<ResultadoTeste>>;
+}
+
+type ResultadoWhatsapp = Promise<IpcResult<WhatsappFile>>;
+
+export interface ResultadoEnvioWa {
+  file: WhatsappFile;
+  mensagemId: string;
+  /** false: a mensagem foi gravada como "não saiu", com o motivo em `erro`. */
+  ok: boolean;
+  erro?: string;
+}
+
+export interface WhatsappApi {
+  getFile(): ResultadoWhatsapp;
+  status(): Promise<IpcResult<StatusWhatsapp>>;
+  salvarConfig(input: SalvarConfigWaInput): ResultadoWhatsapp;
+  /** Vazio remove. O valor vai para o cofre; a tela só recebe se existe e os 4 últimos caracteres. */
+  definirSegredo(qual: SegredoWa, valor: string): Promise<IpcResult<StatusWhatsapp>>;
+  removerCredenciais(): Promise<IpcResult<StatusWhatsapp>>;
+  gerarChaveWebhook(): Promise<IpcResult<StatusWhatsapp>>;
+  /** Copia a chave no main (para colar no Worker como CHAVE_WHATSAPP). */
+  copiarChaveWebhook(): Promise<IpcResult<void>>;
+  /** Endereços de recebimento com a chave mascarada. */
+  enderecos(): Promise<IpcResult<EnderecoWa[]>>;
+  copiarEndereco(origem: OrigemEventoWa, via: ViaWebhookWa): Promise<IpcResult<void>>;
+  configurarWebhook(provedor: 'evolution' | 'waha', via: ViaWebhookWa): Promise<IpcResult<ResultadoTeste>>;
+  testar(provedor: ProvedorWa): Promise<IpcResult<ResultadoTeste>>;
+  conferirNumero(provedor: ProvedorWa | undefined, numero: string): Promise<IpcResult<ConferenciaNumero>>;
+  listarTemplates(): Promise<IpcResult<TemplateMeta[]>>;
+  /** Recusa (erro) antes de gravar se algo não confere; depois de gravar, o resultado vem em `ok`. */
+  enviar(input: EnviarWaInput): Promise<IpcResult<ResultadoEnvioWa>>;
+  reenviar(id: string): Promise<IpcResult<ResultadoEnvioWa>>;
+  sincronizarConversa(ref: RefContato): Promise<IpcResult<{ novas: number; erro?: string }>>;
+  marcarLidas(alvo: RefContato | 'todas' | { numero: string }): ResultadoWhatsapp;
+  ligarNumero(numero: string, ref: RefContato): ResultadoWhatsapp;
+  excluirMensagem(id: string): ResultadoWhatsapp;
+  salvarModelo(input: SalvarModeloWaInput): ResultadoWhatsapp;
+  excluirModelo(id: string): ResultadoWhatsapp;
+  criarLote(input: CriarLoteInput): ResultadoWhatsapp;
+  mudarLote(id: string, acao: 'pausar' | 'retomar' | 'cancelar' | 'excluir'): ResultadoWhatsapp;
+  /** O JSON do fluxo com a chave mascarada (para mostrar). */
+  previaFluxoN8n(tipo: TipoFluxoWa, cenario?: CenarioN8n): Promise<IpcResult<string>>;
+  copiarFluxoN8n(tipo: TipoFluxoWa, cenario?: CenarioN8n): Promise<IpcResult<void>>;
+  criarFluxoN8n(tipo: TipoFluxoWa, cenario?: CenarioN8n): Promise<IpcResult<FluxoN8nCriado>>;
+}
+
+export interface DocumentosApi {
+  abrirPdf(filePath: string): Promise<IpcResult<void>>;
 }
 
 export interface ExportApi {
@@ -485,7 +625,6 @@ export interface RelatoriosApi {
   salvarCategorias(input: SalvarCategoriasInput): Promise<IpcResult<RelatoriosFile>>;
   /** Imprime a própria janela (o documento em #impressao) e salva onde o usuário escolher. */
   exportarPdf(input: ExportarPdfInput): Promise<IpcResult<FileOpResult>>;
-  abrirPdf(filePath: string): Promise<IpcResult<void>>;
 }
 
 export interface IrisApi {
@@ -493,6 +632,9 @@ export interface IrisApi {
   quadro: QuadroApi;
   sheets: SheetsApi;
   system: SystemApi;
+  contatos: ContatosApi;
+  whatsapp: WhatsappApi;
+  documentos: DocumentosApi;
   export: ExportApi;
   links: LinksApi;
   copy: CopyApi;

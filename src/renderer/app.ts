@@ -1,5 +1,9 @@
-import { registrarAtendente } from './core/navegacao.js';
+import { registrarAtendente, registrarVisita } from './core/navegacao.js';
+import { instalarAtalhos } from './core/atalhos.js';
+import { ligarAtalhosGlobais } from './core/atalhos.globais.js';
 import { iniciarAtualizacao } from './core/atualizacao.js';
+import { iniciarLeads } from './core/leads.js';
+import { iniciarWhatsapp } from './core/whatsapp.js';
 import { marcarAtivo, montarSidebar } from './core/sidebar.js';
 import { MODULOS, MODULO_PADRAO, isModuloId, type ModuloId } from '../shared/types/modulos.types.js';
 
@@ -42,6 +46,27 @@ const carregadores: Record<ModuleName, () => Promise<AppModule>> = {
   },
   ia: async () => {
     const view = await import('./modules/ia/ia.view.js');
+    return { mount: (viewRoot) => view.montar(viewRoot), destroy: () => view.destroy() };
+  },
+  contatos: async () => {
+    const view = await import('./modules/contatos/contatos.view.js');
+    return { mount: (viewRoot) => view.montar(viewRoot), destroy: () => view.destroy() };
+  },
+  // Leads, relatórios e API leem o mesmo contatos.json (state de Contatos).
+  leads: async () => {
+    const view = await import('./modules/leads/leads.view.js');
+    return { mount: (viewRoot) => view.montar(viewRoot), destroy: () => view.destroy() };
+  },
+  'relatorios-leads': async () => {
+    const view = await import('./modules/relatorios-leads/relatorios-leads.view.js');
+    return { mount: (viewRoot) => view.montar(viewRoot), destroy: () => view.destroy() };
+  },
+  'api-leads': async () => {
+    const view = await import('./modules/api-leads/api-leads.view.js');
+    return { mount: (viewRoot) => view.montar(viewRoot), destroy: () => view.destroy() };
+  },
+  whatsapp: async () => {
+    const view = await import('./modules/whatsapp/whatsapp.view.js');
     return { mount: (viewRoot) => view.montar(viewRoot), destroy: () => view.destroy() };
   },
   todo: async () => {
@@ -234,6 +259,7 @@ async function switchModule(name: ModuleName, viewRoot: HTMLElement): Promise<vo
     if (meu !== pedido) return;
     montado = modulo;
     modulo.mount(viewRoot);
+    avisarPrimeiraTela(viewRoot);
   } catch (erro) {
     if (meu !== pedido) return;
     currentModule = null;
@@ -242,6 +268,25 @@ async function switchModule(name: ModuleName, viewRoot: HTMLElement): Promise<vo
     aviso.textContent = `Não foi possível abrir esta área: ${erro instanceof Error ? erro.message : String(erro)}`;
     viewRoot.replaceChildren(aviso);
   }
+}
+
+let primeiraTelaAvisada = false;
+
+/**
+ * Medição de abertura (main/core/abertura.ts): avisa quando a primeira tela já
+ * tem conteúdo pintado. O mount pode desenhar só depois de ler os dados, então
+ * espera o primeiro quadro com algo dentro (teto de 5 s).
+ */
+function avisarPrimeiraTela(viewRoot: HTMLElement): void {
+  if (primeiraTelaAvisada) return;
+  primeiraTelaAvisada = true;
+  const limite = performance.now() + 5000;
+  const conferir = (): void => {
+    if (viewRoot.childElementCount || performance.now() > limite) {
+      requestAnimationFrame(() => window.irisAPI.system.primeiraTela(performance.now()));
+    } else requestAnimationFrame(conferir);
+  };
+  requestAnimationFrame(conferir);
 }
 
 /** Depois da primeira tela, carrega os outros módulos devagar, um por vez, sem disputar com a interação. */
@@ -269,22 +314,32 @@ function bootstrap(): void {
   if (!viewRoot || !navRoot) return;
 
   const abrir = (nome: ModuleName): void => {
+    registrarVisita(nome);
     marcarAtivo(nome);
     void switchModule(nome, viewRoot);
   };
 
   montarSidebar(navRoot, abrir);
   iniciarAtualizacao();
+  iniciarLeads();
+  iniciarWhatsapp();
 
   // Permite que um módulo peça navegação sem importar este arquivo de volta.
   registrarAtendente((modulo) => {
     if (isModuloId(modulo)) abrir(modulo);
   });
 
+  // Com as teclas padrão desde já; as trocas do usuário chegam com os Ajustes.
+  ligarAtalhosGlobais();
+  instalarAtalhos({});
+
   // Abre no módulo escolhido em Ajustes; se a leitura falhar, cai no padrão.
   void window.irisAPI.ajustes
     .getAjustes()
-    .then((result) => abrir(result.ok && isModuloId(result.data.moduloInicial) ? result.data.moduloInicial : MODULO_PADRAO))
+    .then((result) => {
+      if (result.ok) instalarAtalhos(result.data.atalhos);
+      abrir(result.ok && isModuloId(result.data.moduloInicial) ? result.data.moduloInicial : MODULO_PADRAO);
+    })
     .catch(() => abrir(MODULO_PADRAO))
     .finally(preCarregarRestantes);
 }

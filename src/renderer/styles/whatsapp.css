@@ -1,0 +1,1105 @@
+/* WhatsApp: a conversa (bolhas, caixa de escrever) e o módulo WhatsApp. Prefixo wa-. */
+
+:root {
+  /* A bolha que sai: verde escuro do WhatsApp, legível com o texto claro do app. */
+  --wa-saida: #1f3b33;
+  --wa-saida-borda: #29503f;
+  --wa-entrada: var(--bg-elevated-2);
+  --wa-lida: #53bdeb;
+}
+
+/* ---------- Lista de mensagens ---------- */
+
+.wa-lista {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  padding: 14px 18px 18px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(83, 189, 235, 0.03), transparent 40%),
+    var(--bg);
+}
+
+.wa-dia {
+  align-self: center;
+  margin: 12px 0 6px;
+  padding: 3px 12px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+}
+
+.wa-linha {
+  display: flex;
+}
+
+.wa-linha.is-saida {
+  justify-content: flex-end;
+}
+
+.wa-bolha {
+  position: relative;
+  max-width: min(72%, 560px);
+  padding: 7px 10px 5px;
+  background: var(--wa-entrada);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px 12px 12px 4px;
+}
+
+.wa-bolha.is-saida {
+  background: var(--wa-saida);
+  border-color: var(--wa-saida-borda);
+  border-radius: 12px 12px 4px 12px;
+}
+
+.wa-bolha.is-falhou {
+  border-color: color-mix(in oklab, var(--danger) 55%, var(--wa-saida-borda));
+}
+
+.wa-bolha.is-previa {
+  max-width: 100%;
+}
+
+.wa-bolha-modelo {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.wa-bolha-texto {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+
+.wa-mono {
+  padding: 0 3px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  background: rgb(0 0 0 / calc(0.25 * var(--sombra-k)));
+  border-radius: 4px;
+}
+
+.wa-mono.is-bloco {
+  display: block;
+  margin: 2px 0;
+  padding: 6px 8px;
+  white-space: pre-wrap;
+}
+
+.wa-bolha-rodape {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.wa-status {
+  display: inline-flex;
+  color: var(--text-faint);
+}
+
+.wa-status.is-lida {
+  color: var(--wa-lida);
+}
+
+.wa-status.is-falhou {
+  color: var(--danger);
+}
+
+.wa-status.is-enviando,
+.wa-status.is-na-fila {
+  animation: wa-pulso 1.2s ease-in-out infinite;
+}
+
+@keyframes wa-pulso {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.wa-bolha-nota {
+  margin: 4px 0 0;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.wa-falha {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.wa-falha p {
+  margin: 0 0 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--danger-texto);
+}
+
+.wa-falha-acoes {
+  display: flex;
+  gap: 6px;
+}
+
+.wa-falha-botao {
+  padding: 4px 10px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg-elevated-3);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.wa-falha-botao.is-fantasma {
+  color: var(--text-muted);
+  background: transparent;
+}
+
+.wa-falha-botao:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.wa-bolha-copiar {
+  position: absolute;
+  top: 4px;
+  right: -30px;
+  display: flex;
+  padding: 5px;
+  color: var(--text-faint);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.wa-linha.is-saida .wa-bolha-copiar {
+  right: auto;
+  left: -30px;
+}
+
+.wa-bolha:hover .wa-bolha-copiar,
+.wa-bolha-copiar:focus-visible {
+  opacity: 1;
+}
+
+.wa-bolha-copiar:hover {
+  color: var(--text);
+  background: var(--bg-elevated-2);
+}
+
+.wa-vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: auto;
+  max-width: 360px;
+  padding: 24px;
+  text-align: center;
+  color: var(--success);
+}
+
+.wa-vazio strong {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.wa-vazio p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* ---------- Avisos ---------- */
+
+.wa-aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-muted);
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 9px;
+}
+
+.wa-aviso > svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.wa-aviso > span {
+  flex: 1;
+}
+
+.wa-aviso.is-atencao {
+  color: var(--warning-texto);
+  background: var(--warning-soft);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.wa-aviso .ct-link {
+  flex-shrink: 0;
+}
+
+/* ---------- Caixa de escrever ---------- */
+
+.wa-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px 12px;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border-soft);
+}
+
+.wa-composer-avisos {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wa-composer-avisos:empty,
+.wa-composer-campos:empty,
+.wa-composer-motivo:empty,
+.wa-composer-modelo:empty {
+  display: none;
+}
+
+.wa-composer-previa {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+}
+
+.wa-composer-previa[hidden] {
+  display: none;
+}
+
+.wa-composer-previa .wa-bolha {
+  align-self: flex-end;
+}
+
+.wa-composer-rotulo {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.wa-composer-campos {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wa-campo {
+  display: flex;
+  flex: 1 1 180px;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.wa-composer-caixa.ia-campo {
+  position: relative;
+}
+
+.wa-composer-texto {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  max-height: 240px;
+  padding: 10px 44px 10px 12px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  outline: none;
+  resize: none;
+}
+
+.wa-composer-texto:focus {
+  border-color: var(--accent);
+}
+
+.wa-composer-texto.is-template {
+  color: var(--text-faint);
+  border-style: dashed;
+}
+
+.wa-composer-erro {
+  margin: 0;
+  padding: 7px 10px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--danger-texto);
+  background: var(--danger-soft);
+  border-radius: 8px;
+}
+
+.wa-composer-erro[hidden] {
+  display: none;
+}
+
+.wa-composer-barra {
+  display: flex;
+  align-items: center;
+  gap: 4px 8px;
+  flex-wrap: wrap;
+}
+
+.wa-composer-modelo {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 9px;
+  font-size: 12px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+}
+
+.wa-composer-tirar {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  color: inherit;
+  background: none;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.wa-composer-tirar:hover {
+  background: rgb(var(--realce) / 0.08);
+}
+
+.wa-composer-destino {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.wa-composer-numero {
+  color: var(--text);
+}
+
+.wa-composer-select {
+  padding: 4px 6px;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+
+.wa-composer-contador {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.wa-composer-contador.is-alerta {
+  color: var(--danger);
+}
+
+.wa-composer-motivo {
+  margin-top: -2px;
+  font-size: 12px;
+  text-align: right;
+  color: var(--text-faint);
+}
+
+/* ---------- Módulo WhatsApp ---------- */
+
+.la-conteudo.is-cheia {
+  overflow: hidden;
+  padding-bottom: 0;
+}
+
+.la-secao.is-cheia {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.wa-subtitulo {
+  margin: 10px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.wa-rotulado {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.wa-grade2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.cf-aviso.is-bloco {
+  display: block;
+  margin: 0;
+  padding: 8px 10px;
+  line-height: 1.45;
+  background: var(--warning-soft);
+  border-radius: 8px;
+}
+
+/* Caixa de entrada: lista à esquerda, conversa à direita. */
+.wa-caixa {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+}
+
+.wa-caixa-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding: 12px 0 0;
+  border-right: 1px solid var(--border-soft);
+}
+
+.wa-caixa-lista > .pg-busca {
+  margin: 0 12px;
+}
+
+.wa-filtros {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 0 12px;
+}
+
+.wa-conversas {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 4px 6px 10px;
+  overflow-y: auto;
+}
+
+.wa-conversa {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 8px;
+  font-family: var(--font-sans);
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.wa-conversa:hover {
+  background: var(--bg-elevated-2);
+}
+
+.wa-conversa.is-ativa {
+  background: var(--accent-soft);
+}
+
+.wa-conversa-anonimo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  color: var(--success);
+  background: var(--success-soft);
+  border-radius: 50%;
+}
+
+.wa-conversa-textos {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.wa-conversa-linha {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.wa-conversa-linha strong {
+  flex: 1;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.wa-conversa-quando {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.wa-conversa.is-nova .wa-conversa-quando {
+  color: var(--success);
+}
+
+.wa-conversa-previa {
+  flex: 1;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.wa-conversa-nao-lidas {
+  min-width: 20px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  color: #0c0d12;
+  background: var(--success);
+  border-radius: 999px;
+}
+
+.wa-caixa-painel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.wa-caixa-painel > .pg-vazio {
+  margin: auto;
+}
+
+.wa-painel-cab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+/* Dentro do painel, a conversa não tem moldura própria (o painel já é a moldura). */
+.cf-conversa.is-painel {
+  max-width: none;
+  border: none;
+  border-radius: 0;
+}
+
+/* ---------- Modelos ---------- */
+
+.wa-modelos {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.wa-modelos-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wa-modelos-lista > .pg-botao {
+  align-self: flex-start;
+  margin-bottom: 6px;
+}
+
+.wa-modelo-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px;
+  font-family: var(--font-sans);
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.wa-modelo-item:hover {
+  background: var(--bg-elevated);
+  border-color: var(--border-soft);
+}
+
+.wa-modelo-item.is-ativo {
+  background: var(--accent-soft);
+  border-color: color-mix(in oklch, var(--accent) 30%, transparent);
+}
+
+.wa-selo-meta {
+  flex-shrink: 0;
+  padding: 1px 7px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--wa-lida);
+  background: rgba(83, 189, 235, 0.14);
+  border-radius: 6px;
+}
+
+.wa-modelo-texto {
+  min-height: 140px;
+  font-size: 13.5px;
+}
+
+.wa-modelo-barra,
+.wa-modelo-acoes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wa-previa-cab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wa-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+}
+
+.wa-meta-cab strong {
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.wa-meta-info,
+.wa-meta-corpo {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+}
+
+.wa-meta-info code {
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+
+.wa-meta .pg-botao {
+  align-self: flex-start;
+}
+
+/* ---------- Envio para vários ---------- */
+
+.wa-envio-filtros {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.wa-pilulas {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.wa-envio-lista {
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+}
+
+.wa-envio-lista-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  background: var(--bg-elevated-2);
+}
+
+.wa-envio-linhas {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.wa-envio-linha {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  font-size: 13px;
+  border-top: 1px solid var(--border-soft);
+}
+
+label.wa-envio-linha {
+  cursor: pointer;
+}
+
+.wa-envio-linha.is-impedido {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.wa-envio-linha input {
+  accent-color: var(--accent);
+}
+
+.wa-envio-nome {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.wa-envio-numero {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.wa-envio-situacao {
+  min-width: 140px;
+  font-size: 12px;
+  text-align: right;
+  color: var(--text-muted);
+}
+
+.wa-envio-situacao.is-falhou {
+  color: var(--danger);
+}
+
+.wa-envio-situacao.is-pulado {
+  color: var(--warning);
+}
+
+.wa-envio-previa {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.wa-envio-previa > .wa-composer-rotulo {
+  grid-column: 1 / -1;
+}
+
+.wa-envio-previa-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+}
+
+.wa-envio-previa-item strong {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.wa-envio-rodape {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.wa-progresso {
+  height: 6px;
+  overflow: hidden;
+  background: var(--bg-elevated-3);
+  border-radius: 999px;
+}
+
+.wa-progresso-feito {
+  display: block;
+  height: 100%;
+  background: var(--success);
+  border-radius: 999px;
+}
+
+.wa-lote-detalhes summary {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.wa-lote-detalhes[open] summary {
+  margin-bottom: 4px;
+}
+
+/* ---------- Conexão ---------- */
+
+.wa-caminhos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 8px;
+}
+
+.wa-caminho {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  font-family: var(--font-sans);
+  text-align: left;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.wa-caminho:hover {
+  border-color: var(--border);
+}
+
+.wa-caminho.is-ativo {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+
+.wa-caminho-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.wa-caminho-cab strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.wa-caminho-texto {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.wa-caminho-falta {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.wa-segredo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wa-webhook,
+.wa-fluxos {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.wa-webhook > strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.wa-webhook .cf-dica,
+.wa-webhook .cf-aviso {
+  margin: 0;
+}
+
+.wa-fluxo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.wa-fluxo .ct-mini-textos span {
+  white-space: normal;
+}
+
+.wa-fluxo-botoes {
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+.wa-fluxo-json {
+  max-height: 260px;
+  overflow: auto;
+}
+
+.wa-chave {
+  padding: 5px 10px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+
+.wa-situacao {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wa-situacao-linha {
+  display: grid;
+  grid-template-columns: 130px auto 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.wa-situacao-linha .ct-link {
+  justify-self: start;
+}
+
+.wa-enderecos {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.wa-enderecos-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wa-enderecos-grupo > strong {
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.wa-enderecos-grupo .cf-dica {
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
+
+.wa-endereco {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 30px;
+}
+
+.wa-endereco code {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.wa-endereco.is-indisponivel code {
+  color: var(--text-faint);
+  text-decoration: line-through;
+  text-decoration-color: rgba(148, 152, 163, 0.35);
+}
+
+.wa-endereco-via {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.wa-interruptores {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.wa-esquecer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 980px) {
+  .wa-caixa,
+  .wa-modelos,
+  .wa-grade2,
+  .wa-envio-filtros {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wa-caixa-lista {
+    max-height: 40vh;
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+  }
+
+  .wa-endereco,
+  .wa-situacao-linha {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .wa-endereco-via {
+    grid-column: 1 / -1;
+  }
+}

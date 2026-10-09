@@ -13,11 +13,11 @@ import {
 import { abrirAjustes } from '../../core/navegacao.js';
 import { campo, grade2, input, interruptor, pilulas, textarea } from '../../ui/campos.js';
 import { mensagemDeErro, openAvisoModal, openConfirmModal } from '../../ui/modal.js';
+import { exportarDocumentoPdf } from '../../ui/impressao.js';
 import {
   buildBotao,
   buildBusca,
   buildCabecalho,
-  buildIndicadores,
   buildSegmentado,
   buildSelo,
   buildVazio,
@@ -355,17 +355,6 @@ function renderLista(container: HTMLElement, file: RelatoriosFile): void {
     container.replaceChildren(tela);
     return;
   }
-
-  const todas = file.relatorios.flatMap((r) => todosOsItens(r).flatMap((i) => i.marcacoes as Array<{ status: string }>));
-  const abertas = todas.filter((m) => m.status === 'aberta' || m.status === 'andamento').length;
-  tela.appendChild(
-    buildIndicadores([
-      { rotulo: 'Relatórios', valor: String(file.relatorios.length), detalhe: `${file.relatorios.filter((r) => r.situacao === 'finalizado').length} finalizado(s)` },
-      { rotulo: 'Rascunhos', valor: String(file.relatorios.filter((r) => r.situacao === 'rascunho').length), detalhe: 'em andamento' },
-      { rotulo: 'Marcações', valor: String(todas.length), detalhe: 'em todos os relatórios' },
-      { rotulo: 'Em aberto', valor: String(abertas), detalhe: 'abertas ou em andamento', tom: abertas ? 'atencao' : 'ok' },
-    ]),
-  );
 
   const barra = document.createElement('div');
   barra.className = 'pg-barra';
@@ -1230,28 +1219,11 @@ async function exportarPdf(rel: Relatorio): Promise<void> {
   if (exportando) return;
   exportando = true;
   await descarregar();
-  // O documento vai para #impressao, que o CSS de impressão mostra sozinho.
-  document.getElementById('impressao')?.remove();
-  const alvo = document.createElement('div');
-  alvo.id = 'impressao';
-  alvo.appendChild(buildDocumento(rel, assinatura));
-  document.body.appendChild(alvo);
   try {
-    const resultado = await relatoriosState.exportarPdf({ relatorioId: rel.id, nomeArquivo: rel.titulo });
-    if (!resultado.canceled) {
-      const abrir = await openConfirmModal({
-        title: 'PDF exportado',
-        message: `Salvo em:\n${resultado.filePath}`,
-        danger: false,
-        confirmText: 'Abrir PDF',
-        cancelText: 'Fechar',
-      });
-      if (abrir) await relatoriosState.abrirPdf(resultado.filePath);
-    }
+    await exportarDocumentoPdf(buildDocumento(rel, assinatura), () => relatoriosState.exportarPdf({ relatorioId: rel.id, nomeArquivo: rel.titulo }));
   } catch (erro) {
     falhou(erro);
   } finally {
-    alvo.remove();
     exportando = false;
   }
 }

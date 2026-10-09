@@ -1,7 +1,8 @@
 {
   "name": "iris",
-  "version": "0.1.8",
+  "version": "0.2.0",
   "description": "Iris — assistente pessoal de tarefas e organização de conteúdo (100% local)",
+  "desktopName": "iris.desktop",
   "author": "Gabriel Alves Tech",
   "license": "GPL-3.0-only",
   "homepage": "https://github.com/GabrielAlvesB/Iris#readme",
@@ -22,11 +23,13 @@
     "build": "npm run clean && npm run build:main && npm run build:renderer && npm run copy-static",
     "start": "electron .",
     "dev": "npm run build && npm run start",
-    "dist": "npm run build && npm run clean:release && electron-builder",
+    "dist": "npm run build && npm run clean:release && electron-builder --win",
     "dist:portable": "npm run build && npm run clean:release && electron-builder --win zip",
     "dist:dir": "npm run build && npm run clean:release && electron-builder --dir",
     "release": "npm run build && npm run clean:release && electron-builder --win --publish always",
-    "clean:release": "node scripts/clean-release.mjs"
+    "clean:release": "node scripts/clean-release.mjs",
+    "dist:linux": "npm run build && npm run clean:release && electron-builder --linux",
+    "release:linux": "npm run build && npm run clean:release && electron-builder --linux --publish always"
   },
   "build": {
     "appId": "com.iris.app",
@@ -68,6 +71,47 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Iris",
       "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "src/main/assets/icon.png",
+      "category": "Office",
+      "synopsis": "Assistente pessoal de tarefas e organização de conteúdo (100% local)",
+      "maintainer": "Gabriel Alves Tech <gabrielalveskos@gmail.com>",
+      "executableName": "iris",
+      "syncDesktopName": true
+    },
+    "appImage": {
+      "artifactName": "${productName}-${version}.${ext}"
+    },
+    "deb": {
+      "artifactName": "${name}_${version}_${arch}.${ext}",
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libsecret-1-0",
+        "libasound2t64 | libasound2",
+        "libgbm1"
+      ]
     },
     "publish": [
       {

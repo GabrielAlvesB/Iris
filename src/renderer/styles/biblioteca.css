@@ -39,7 +39,7 @@
   justify-content: center;
   width: 34px;
   height: 34px;
-  color: var(--cor);
+  color: color-mix(in oklch, var(--cor) var(--tinta-texto), var(--tinta-forte));
   background: color-mix(in oklch, var(--cor) 14%, transparent);
   border: 1px solid color-mix(in oklch, var(--cor) 24%, transparent);
   border-radius: 9px;
@@ -281,7 +281,7 @@
   font-size: 11px;
   font-weight: 500;
   padding: 2px 8px;
-  color: color-mix(in oklch, var(--cor) 80%, white);
+  color: color-mix(in oklch, var(--cor) var(--tinta-chip), var(--tinta-forte));
   background: color-mix(in oklch, var(--cor) 15%, transparent);
   border-radius: 5px;
 }

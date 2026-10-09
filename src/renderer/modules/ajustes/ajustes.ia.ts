@@ -13,6 +13,7 @@ import type { GuiaId } from '../../core/navegacao.js';
 import { ICONE_IA, abrirSeletorModelo } from '../../ui/ia.js';
 import { ICONES, buildAviso, buildBotao, buildSelo, svg, type Tom } from '../../ui/pagina.js';
 import * as ajustesState from './ajustes.state.js';
+import { COFRE } from '../../ui/plataforma.js';
 
 /**
  * Ajustes › Inteligência artificial: um cartão por provedor (chave, modelos,
@@ -99,7 +100,7 @@ function campoChave(p: PecasAjustes, cfg: ConfigProvedor, d: DescritorProvedor):
   wrap.append(input, olho);
   const dica = cfg.temChave
     ? `Chave salva, terminada em ${cfg.finalChave ?? '····'}. Por segurança ela não é mostrada inteira; cole outra para trocar.`
-    : 'Fica cifrada no cofre do Windows. O olho mostra o que você digitou.';
+    : `Fica cifrada no ${COFRE}. O olho mostra o que você digitou.`;
   return { el: p.buildCampo('Chave de API', wrap, dica), input };
 }
 

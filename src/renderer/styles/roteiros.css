@@ -1574,7 +1574,7 @@
   font-size: 160px;
   font-weight: 800;
   color: #fff;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgb(0 0 0 / calc(0.55 * var(--sombra-k)));
   pointer-events: none;
 }
 

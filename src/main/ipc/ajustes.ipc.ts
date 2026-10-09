@@ -1,7 +1,8 @@
 import { ipcMain } from 'electron';
+import { aplicarTema } from '../core/tema';
 import { AJUSTES_CHANNELS } from '../../shared/ipcChannels';
 import type { IpcResult } from '../../shared/types/common.types';
-import type { AjustesInfo, AssinaturaRelatorio, ModuloInicial } from '../../shared/types/ajustes.types';
+import type { AjustesInfo, AssinaturaRelatorio, ModuloInicial, PerfilUsuario, Tema } from '../../shared/types/ajustes.types';
 import * as ajustesService from '../modules/ajustes/ajustes.service';
 
 function toResult<T>(promise: Promise<T>): Promise<IpcResult<T>> {
@@ -22,5 +23,20 @@ export function registerAjustesIpc(): void {
 
   ipcMain.handle(AJUSTES_CHANNELS.setAssinatura, (_event, assinatura: AssinaturaRelatorio) =>
     toResult<AjustesInfo>(ajustesService.setAssinatura(assinatura)),
+  );
+
+  ipcMain.handle(AJUSTES_CHANNELS.setPerfil, (_event, perfil: PerfilUsuario) =>
+    toResult<AjustesInfo>(ajustesService.setPerfil(perfil)),
+  );
+
+  ipcMain.handle(AJUSTES_CHANNELS.setAtalhos, (_event, atalhos: unknown) => toResult<AjustesInfo>(ajustesService.setAtalhos(atalhos)));
+
+  ipcMain.handle(AJUSTES_CHANNELS.setTema, (_event, tema: Tema) =>
+    toResult<AjustesInfo>(
+      ajustesService.setTema(tema).then((info) => {
+        aplicarTema(info.tema);
+        return info;
+      }),
+    ),
   );
 }

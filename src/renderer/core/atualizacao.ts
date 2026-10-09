@@ -157,7 +157,9 @@ export function abrirEscolhaDeVersao(): void {
           if (modo !== 'instalado') {
             corpo.appendChild(
               buildAviso(
-                'Esta cópia não foi instalada pelo instalador (portátil ou npm run dev): ela não se troca sozinha. Use a página da release para baixar.',
+                modo === 'linux'
+                  ? 'No Linux o Iris não se troca sozinho: abra a página da versão e baixe o AppImage ou o .deb.'
+                  : 'Esta cópia não foi instalada pelo instalador (portátil ou npm run dev): ela não se troca sozinha. Use a página da release para baixar.',
                 'neutro',
               ),
             );

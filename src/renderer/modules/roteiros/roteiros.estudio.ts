@@ -1,5 +1,6 @@
 import { falaCompleta, formatarTempo, lerDuracaoTexto, lerTempo, markdownDasCenas, ppmDe } from '../../../shared/types/roteiros.conversao.js';
 import { FORMATOS_ROTEIRO, type FormatoRoteiro, type Roteiro, type RoteirosFile } from '../../../shared/types/roteiros.types.js';
+import { ligarAtalhos } from '../../core/atalhos.js';
 import { abrirModulo } from '../../core/navegacao.js';
 import { campo, input, pilulas, textarea } from '../../ui/campos.js';
 import { abrirMenuIa } from '../../ui/ia.js';
@@ -96,6 +97,7 @@ interface Estudio {
 }
 
 let atual: Estudio | null = null;
+let desligarAtalhos: (() => void) | null = null;
 
 export function estudioAberto(): boolean {
   return atual !== null;
@@ -796,13 +798,11 @@ function montar(e: Estudio): void {
   marcar('Salvo', 'is-ok');
 }
 
-function teclas(ev: KeyboardEvent): void {
+/** Ctrl+S salva na hora (registro central de atalhos, core/atalhos.ts). */
+function salvarAgora(): void {
   if (!atual) return;
-  if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 's') {
-    ev.preventDefault();
-    descarregarLivre();
-    void descarregar(true);
-  }
+  descarregarLivre();
+  void descarregar(true);
 }
 
 export function abrirEstudio(container: HTMLElement, roteiroId: string, aoFechar: () => void, opcoes: OpcoesEstudio = {}): void {
@@ -841,7 +841,8 @@ export function abrirEstudio(container: HTMLElement, roteiroId: string, aoFechar
       titulo,
     },
   };
-  document.addEventListener('keydown', teclas);
+  desligarAtalhos?.();
+  desligarAtalhos = ligarAtalhos({ 'roteiros.salvar': salvarAgora });
   montar(atual);
 }
 
@@ -879,7 +880,8 @@ export function fecharEstudio(): void {
   if (!atual) return;
   if (atual.timerLeve) clearTimeout(atual.timerLeve);
   destruirArraste();
-  document.removeEventListener('keydown', teclas);
+  desligarAtalhos?.();
+  desligarAtalhos = null;
   atual = null;
 }
 

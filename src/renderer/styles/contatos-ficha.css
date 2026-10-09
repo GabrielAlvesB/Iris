@@ -1,0 +1,668 @@
+/* Ficha de um contato (Contatos e Leads): topo, abas e o conteúdo de cada aba. Prefixo cf-. */
+
+.cf-ficha {
+  gap: 0;
+}
+
+/* ---------- Topo ---------- */
+
+.cf-barra {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.cf-salvo {
+  min-width: 70px;
+  font-size: 11.5px;
+  text-align: right;
+  color: var(--text-faint);
+}
+
+.cf-salvo[data-tom='erro'] {
+  color: var(--danger);
+}
+
+.cf-identidade {
+  display: flex;
+  align-items: center;
+  gap: 16px 24px;
+  flex-wrap: wrap;
+}
+
+.cf-quem {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 280px;
+}
+
+.cf-quem .ct-avatar.is-g {
+  width: 60px;
+  height: 60px;
+  font-size: 20px;
+}
+
+.cf-nomes {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cf-nomes h1 {
+  margin: 0;
+  overflow: hidden;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.cf-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.cf-sub > * + *::before {
+  content: '·';
+  margin-right: 8px;
+  color: var(--text-faint);
+}
+
+.cf-sub .ct-link {
+  font-size: 13px;
+}
+
+.cf-selos {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.cf-selo-optout {
+  padding: 1px 8px;
+  font-size: 11px;
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-radius: 6px;
+}
+
+.cf-acoes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cf-etapa .ct-etapa {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.cf-resumo {
+  display: flex;
+  align-items: center;
+  gap: 4px 6px;
+  flex-wrap: wrap;
+  margin: 14px 0 0 -8px;
+}
+
+.cf-resumo-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-radius: 7px;
+}
+
+button.cf-resumo-item {
+  cursor: pointer;
+}
+
+button.cf-resumo-item:hover {
+  color: var(--text);
+  background: var(--bg-elevated-2);
+}
+
+.cf-resumo-item.is-atrasado {
+  color: var(--danger);
+}
+
+.cf-resumo-item.is-hoje {
+  color: var(--warning);
+}
+
+.cf-resumo-item.is-apagado {
+  color: var(--text-faint);
+}
+
+/* ---------- Abas ---------- */
+
+.cf-abas {
+  display: flex;
+  gap: 2px;
+  margin-top: 12px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.cf-aba {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: -1px;
+  padding: 10px 14px;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+
+.cf-aba:hover {
+  color: var(--text);
+}
+
+.cf-aba.is-ativa {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.cf-aba:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: 6px 6px 0 0;
+}
+
+.cf-aba-contagem {
+  min-width: 20px;
+  padding: 1px 7px;
+  font-size: 11px;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--bg-elevated-2);
+  border-radius: 999px;
+}
+
+.cf-aba-contagem.is-alerta {
+  font-weight: 600;
+  color: #0c0d12;
+  background: var(--success);
+}
+
+.cf-corpo {
+  flex: 1;
+  min-height: 0;
+  padding: 18px 6px 32px 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+/* A conversa rola por dentro (lista) e mantém a caixa de escrever fixa embaixo. */
+.cf-ficha.is-aba-conversa .cf-corpo {
+  display: flex;
+  padding: 14px 0 0;
+  overflow: hidden;
+}
+
+/* ---------- Visão geral ---------- */
+
+.cf-geral {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(290px, 370px);
+  align-items: start;
+  gap: 16px;
+  max-width: 1280px;
+}
+
+.cf-coluna {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.cf-cartao,
+.cf-coluna > .ct-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+}
+
+.cf-coluna > .ct-card {
+  padding: 14px 16px;
+}
+
+.cf-cartao.is-atrasado {
+  border-color: color-mix(in oklab, var(--danger) 45%, var(--border-soft));
+}
+
+.cf-cartao.is-hoje {
+  border-color: color-mix(in oklab, var(--warning) 45%, var(--border-soft));
+}
+
+.cf-cartao-cab {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 8px 12px 8px 16px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.cf-cartao-cab h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cf-cartao-icone {
+  display: flex;
+  color: var(--accent);
+}
+
+.cf-cartao-contagem {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.cf-cartao-acao {
+  margin-left: auto;
+}
+
+.cf-cartao-corpo {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 16px 12px;
+}
+
+.cf-linha {
+  display: grid;
+  grid-template-columns: 128px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  padding: 3px 0;
+}
+
+.cf-linha + .cf-linha {
+  border-top: 1px solid var(--border-soft);
+}
+
+.cf-linha.is-topo {
+  align-items: start;
+}
+
+.cf-linha.is-topo > .cf-rotulo {
+  padding-top: 10px;
+}
+
+.cf-rotulo {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.cf-valor {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* Parece texto até receber o mouse ou o foco. */
+.cf-entrada {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 9px;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  outline: none;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.cf-valor > .cf-entrada,
+.cf-lista-linha > .cf-entrada:first-child,
+.cf-par > .cf-entrada:first-child {
+  margin-left: -9px;
+}
+
+.cf-entrada:hover:not(:disabled) {
+  background: var(--bg-elevated-2);
+}
+
+.cf-entrada:focus {
+  background: var(--bg);
+  border-color: var(--accent);
+}
+
+.cf-entrada::placeholder {
+  color: var(--text-faint);
+}
+
+.cf-entrada.is-seletor {
+  cursor: pointer;
+}
+
+.cf-entrada.is-seletor option {
+  color: var(--text);
+  background: var(--bg-elevated);
+}
+
+.cf-entrada.is-curto {
+  flex-shrink: 0;
+  width: auto;
+}
+
+/* Caixas que sempre aparecem como campo (texto longo, data). */
+.cf-entrada.is-caixa {
+  margin-left: 0;
+  background: var(--bg);
+  border-color: var(--border);
+}
+
+.cf-entrada.is-caixa:focus {
+  border-color: var(--accent);
+}
+
+textarea.cf-entrada {
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.cf-aviso {
+  font-size: 11.5px;
+  color: var(--warning);
+}
+
+.cf-aviso:empty {
+  display: none;
+}
+
+.cf-dica {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.cf-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 3px 0;
+}
+
+.cf-lista-linha {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cf-tirar {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.cf-lista-linha:hover .cf-tirar,
+.cf-lista-linha:focus-within .cf-tirar {
+  opacity: 1;
+}
+
+.ct-icone-btn.cf-wa {
+  color: var(--success);
+}
+
+.ct-icone-btn.cf-wa[hidden] {
+  display: none;
+}
+
+.cf-adicionar {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  margin-left: -8px;
+  padding: 5px 8px;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  color: var(--text-faint);
+  background: none;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.cf-adicionar:hover,
+.cf-adicionar:focus-visible {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.cf-par {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cf-marcar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.cf-marcar input {
+  accent-color: var(--accent);
+}
+
+.cf-vazio {
+  margin: 6px 0;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+.cf-vazio.is-grande {
+  margin: 24px 4px;
+  font-size: 13px;
+}
+
+.cf-proximo {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 6px 0 10px;
+}
+
+.cf-proximo strong {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cf-proximo span {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.cf-proximo.is-atrasado strong {
+  color: var(--danger);
+}
+
+.cf-proximo.is-hoje strong {
+  color: var(--warning);
+}
+
+.cf-atalhos {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.cf-proximo-campos {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 6px;
+}
+
+.cf-observacoes {
+  min-height: 110px;
+  margin-top: 8px;
+}
+
+/* ---------- Histórico e contratos ---------- */
+
+.cf-historico,
+.cf-contratos {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 860px;
+}
+
+.cf-historico .ct-hist-item.is-whatsapp-iris .ct-hist-icone {
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+.cf-historico .ct-hist-item .ct-link {
+  margin-top: 4px;
+}
+
+.cf-contratos {
+  gap: 8px;
+}
+
+.cf-contratos-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.cf-contratos-cab p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.cf-contrato {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  font-family: var(--font-sans);
+  text-align: left;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.cf-contrato:hover {
+  border-color: var(--border);
+  background: var(--bg-elevated-2);
+}
+
+/* ---------- Conversa (a casca; as bolhas e a caixa ficam em whatsapp.css) ---------- */
+
+.cf-conversa {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1000px;
+  min-height: 0;
+  margin: 0 auto;
+  overflow: hidden;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px 14px 0 0;
+  border-bottom: none;
+}
+
+.cf-conversa-topo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px 8px 16px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.cf-conversa-textos {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cf-conversa-textos h3 {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cf-conversa-textos span {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.cf-conversa-juntar {
+  padding: 10px 16px 0;
+}
+
+.cf-conversa-juntar[hidden] {
+  display: none;
+}
+
+/* ---------- Telas estreitas ---------- */
+
+@media (max-width: 1100px) {
+  .cf-geral {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .cf-linha {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .cf-linha.is-topo > .cf-rotulo {
+    padding-top: 6px;
+  }
+
+  .cf-proximo-campos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

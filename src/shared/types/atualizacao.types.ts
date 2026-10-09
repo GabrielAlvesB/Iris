@@ -14,9 +14,10 @@ export type SituacaoAtualizacao =
 
 /**
  * Só a instalação feita pelo instalador (NSIS) consegue se substituir sozinha.
- * O .zip portátil e o `npm run dev` só avisam e abrem a página da release.
+ * O .zip portátil, o Linux (AppImage/.deb) e o `npm run dev` só avisam e abrem
+ * a página da release.
  */
-export type ModoAtualizacao = 'instalado' | 'portatil' | 'desenvolvimento';
+export type ModoAtualizacao = 'instalado' | 'portatil' | 'linux' | 'desenvolvimento';
 
 export interface NovaVersao {
   versao: string;

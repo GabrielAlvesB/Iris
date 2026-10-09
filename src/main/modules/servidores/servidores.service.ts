@@ -98,7 +98,7 @@ function aplicarPoliticaTls(file: ServidoresFile): void {
     .filter((s): s is ServidorHttp => s.tipo === 'http' && s.permitirTlsInseguro)
     .map((s) => hostDe(s.url))
     .filter((host): host is string => Boolean(host));
-  setHostsInseguros(hosts);
+  setHostsInseguros(hosts, 'servidores');
 }
 
 function registrar(servidor: Servidor, checagem: Checagem): void {

@@ -19,6 +19,8 @@ import * as imagensService from '../imagens/imagens.service';
 import * as relatoriosService from '../relatorios/relatorios.service';
 import * as roteirosService from '../roteiros/roteiros.service';
 import * as trafegoService from '../trafego/trafego.service';
+import * as contatosService from '../contatos/contatos.service';
+import * as whatsappService from '../whatsapp/whatsapp.service';
 import { aguardarEscritas } from '../../storage/jsonStore';
 import { reaplicarAgendamentos } from '../../core/backgroundServices';
 import {
@@ -63,6 +65,8 @@ const LEITORES: Record<ChaveBundle, () => Promise<unknown>> = {
   trafego: () => trafegoService.getFullFile(),
   todo: () => todoService.getFullFile(),
   ia: () => iaService.getFullFile(),
+  contatos: () => contatosService.getFullFile(),
+  whatsapp: () => whatsappService.getFullFile(),
 };
 
 /** Cada `replaceFile` passa pela `migrate` do service: o que vem do arquivo nunca vai cru para o disco. */
@@ -85,6 +89,8 @@ const GRAVADORES: Record<ChaveBundle, (dados: unknown) => Promise<unknown>> = {
   trafego: (d) => trafegoService.replaceFile(d),
   todo: (d) => todoService.replaceFile(d),
   ia: (d) => iaService.replaceFile(d),
+  contatos: (d) => contatosService.replaceFile(d),
+  whatsapp: (d) => whatsappService.replaceFile(d),
 };
 
 const TODOS: ModuloExportavel[] = EXPORTAVEIS.map((e) => e.id);
@@ -132,6 +138,24 @@ function resumir(id: ModuloExportavel, b: ExportBundle): ResumoExportavel {
     return { id, resumo: texto.length ? texto.join(' · ') : 'vazio', vazio: vazio ?? !texto.length };
   };
   switch (id) {
+    case 'contatos': {
+      const pessoas = lista(campo(b.contatos, 'pessoas'));
+      const empresas = lista(campo(b.contatos, 'empresas'));
+      return r([
+        [pessoas.length, 'pessoa', 'pessoas'],
+        [empresas.length, 'empresa', 'empresas'],
+        [lista(campo(b.contatos, 'contratos')).length, 'contrato', 'contratos'],
+      ]);
+    }
+    case 'whatsapp': {
+      const mensagens = lista(campo(b.whatsapp, 'mensagens'));
+      const conversas = new Set(mensagens.map((m) => String(campo(m, 'numero') ?? '')));
+      return r([
+        [mensagens.length, 'mensagem', 'mensagens'],
+        [conversas.size, 'conversa', 'conversas'],
+        [lista(campo(b.whatsapp, 'modelos')).length, 'modelo', 'modelos'],
+      ]);
+    }
     case 'kanban': {
       const boards = lista(campo(b.kanban, 'boards'));
       return r([[boards.reduce<number>((n, q) => n + lista(campo(q, 'cards')).length, 0), 'card', 'cards']]);

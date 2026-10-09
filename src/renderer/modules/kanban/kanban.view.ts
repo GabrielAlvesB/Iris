@@ -2,9 +2,10 @@ import type { KanbanBoard, KanbanCard, KanbanColumn, KanbanSubtask } from '../..
 import { buildBotaoIa, comAssistente, sugerirItensComIa } from '../../ui/ia.js';
 import * as kanbanState from './kanban.state.js';
 import { destroySortables, initSortables } from './kanban.dragdrop.js';
-import { ICONES_MODAL, openFormModal, openConfirmModal, openAvisoModal, buildSecaoModal, haModalAberto } from '../../ui/modal.js';
+import { ICONES_MODAL, openFormModal, openConfirmModal, openAvisoModal, buildSecaoModal } from '../../ui/modal.js';
+import { comboDe, ligarAtalhos } from '../../core/atalhos.js';
 import { abrirPainel, lembrarPosicao, lerPosicaoLembrada, type PainelHandle } from '../../ui/painel.js';
-import { buildBotao } from '../../ui/pagina.js';
+import { buildBotao, buildTeclas } from '../../ui/pagina.js';
 
 type ViewTab = 'quadro' | 'lista' | 'calendario';
 
@@ -15,7 +16,8 @@ let currentBoard: KanbanBoard | null = null;
 let activeTab: ViewTab = 'quadro';
 let filterWeekOnly = false;
 let filterAssignee = 'all';
-let boardShortcutsHandler: ((e: KeyboardEvent) => void) | null = null;
+/** Desliga o Ctrl+K do quadro (registro central de atalhos, core/atalhos.ts). */
+let desligarAtalhos: (() => void) | null = null;
 
 let panelHandle: PainelHandle | null = null;
 let panelCardId: string | null = null;
@@ -1348,7 +1350,9 @@ function buildHeader(board: KanbanBoard, onTabChange: () => void): HTMLElement {
 
   const newCardBtn = document.createElement('button');
   newCardBtn.className = 'btn';
-  newCardBtn.innerHTML = 'Novo card <span class="kanban-shortcut-hint">⌘K</span>';
+  newCardBtn.textContent = 'Novo card';
+  const combo = comboDe('kanban.novo');
+  if (combo) newCardBtn.appendChild(buildTeclas(combo));
   newCardBtn.addEventListener('click', () => {
     const firstColumn = board.columns.slice().sort((a, b) => a.order - b.order)[0];
     if (firstColumn) openCardPanel(null, firstColumn);
@@ -1363,15 +1367,15 @@ function buildHeader(board: KanbanBoard, onTabChange: () => void): HTMLElement {
 // ---------- Global shortcuts ----------
 
 function attachBoardShortcuts(): void {
-  if (boardShortcutsHandler) return;
-  boardShortcutsHandler = (e: KeyboardEvent) => {
-    if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'k') return;
-    e.preventDefault();
-    if (panelHandle || haModalAberto() || !currentBoard) return;
-    const firstColumn = currentBoard.columns.slice().sort((a, b) => a.order - b.order)[0];
-    if (firstColumn) openCardPanel(null, firstColumn);
-  };
-  document.addEventListener('keydown', boardShortcutsHandler);
+  if (desligarAtalhos) return;
+  desligarAtalhos = ligarAtalhos({
+    'kanban.novo': () => {
+      // O painel do card não é modal: com ele aberto, o atalho não abre outro por cima.
+      if (panelHandle || !currentBoard) return;
+      const firstColumn = currentBoard.columns.slice().sort((a, b) => a.order - b.order)[0];
+      if (firstColumn) openCardPanel(null, firstColumn);
+    },
+  });
 }
 
 // ---------- Main render ----------
@@ -1417,8 +1421,6 @@ export function destroy(): void {
   destroySortables();
   closeCardPanel();
   kanbanState.offBoardChange();
-  if (boardShortcutsHandler) {
-    document.removeEventListener('keydown', boardShortcutsHandler);
-    boardShortcutsHandler = null;
-  }
+  desligarAtalhos?.();
+  desligarAtalhos = null;
 }

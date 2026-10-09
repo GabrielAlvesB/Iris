@@ -67,7 +67,8 @@ let dropTargetBlockId: string | null = null;
 let hoveredConnectionId: string | null = null;
 let hoverHideTimer: ReturnType<typeof setTimeout> | null = null;
 let persistViewportTimer: ReturnType<typeof setTimeout> | null = null;
-let globalListenersAttached = false;
+/** Ouvintes na janela enquanto o Quadro está aberto; o destroy tira todos. */
+let globalListeners: Array<[string, (e: Event) => void]> = [];
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -407,11 +408,15 @@ function closeAllBlockMenus(): void {
   canvasEl?.querySelectorAll('.quadro-block-menu.is-open').forEach((menu) => menu.classList.remove('is-open'));
 }
 
-function attachGlobalListeners(): void {
-  if (globalListenersAttached) return;
-  globalListenersAttached = true;
+function onWindow<K extends keyof WindowEventMap>(tipo: K, fn: (e: WindowEventMap[K]) => void): void {
+  window.addEventListener(tipo, fn);
+  globalListeners.push([tipo, fn as (e: Event) => void]);
+}
 
-  window.addEventListener('mousemove', (e) => {
+function attachGlobalListeners(): void {
+  if (globalListeners.length) return;
+
+  onWindow('mousemove', (e) => {
     if (connectDrag) {
       const pt = clientToCanvas(e.clientX, e.clientY);
       connectDrag.pointerX = pt.x;
@@ -446,7 +451,7 @@ function attachGlobalListeners(): void {
     }
   });
 
-  window.addEventListener('mouseup', () => {
+  onWindow('mouseup', () => {
     if (connectDrag) {
       const fromId = connectDrag.fromBlockId;
       const toId = dropTargetBlockId;
@@ -468,7 +473,7 @@ function attachGlobalListeners(): void {
     drag = null;
   });
 
-  window.addEventListener('mousedown', (e) => {
+  onWindow('mousedown', (e) => {
     const target = e.target as HTMLElement;
     if (!target.closest('.quadro-block-menu, .quadro-block-menu-btn')) {
       closeAllBlockMenus();
@@ -478,7 +483,7 @@ function attachGlobalListeners(): void {
     }
   });
 
-  window.addEventListener('keydown', (e) => {
+  onWindow('keydown', (e) => {
     if (e.key === 'Escape') {
       if (connectDrag) endConnectDrag();
       closeAllBlockMenus();
@@ -1268,6 +1273,8 @@ export function render(container: HTMLElement, state: QuadroFile): void {
 }
 
 export function destroy(): void {
+  globalListeners.forEach(([tipo, fn]) => window.removeEventListener(tipo, fn));
+  globalListeners = [];
   if (persistViewportTimer) {
     clearTimeout(persistViewportTimer);
     persistViewportTimer = null;

@@ -121,7 +121,8 @@
 
 /* Dica ao lado: o trilho não tem rótulo, e o title do sistema demora ~1 s. */
 .trilho-item[data-dica]::after {
-  content: attr(data-dica);
+  /* A tecla do atalho vem num atributo à parte: a contagem de leads reescreve a dica. */
+  content: attr(data-dica) attr(data-tecla);
   position: absolute;
   left: calc(100% + 12px);
   top: 50%;
@@ -134,7 +135,7 @@
   background: var(--bg-elevated-3);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 8px 20px -8px rgb(0 0 0 / calc(0.6 * var(--sombra-k)));
   opacity: 0;
   transform: translate(-4px, -50%);
   pointer-events: none;
@@ -152,6 +153,35 @@
 /* Com o painel aberto, a dica da categoria aberta só repetiria o título dele. */
 .trilho-item.is-aberto::after {
   display: none;
+}
+
+/* ---- Contagem (leads não vistos em Contatos) ---- */
+
+.trilho-contagem {
+  position: absolute;
+  top: 2px;
+  right: 1px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 13px;
+  text-align: center;
+  /* Texto escuro sobre o acento: o branco não tem contraste neste tom claro. */
+  color: var(--texto-sobre-acento);
+  background: var(--accent);
+  border: 2px solid var(--bg-elevated);
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.sb-painel-item .trilho-contagem {
+  position: static;
+  margin-left: auto;
+  align-self: center;
+  border: none;
+  line-height: 17px;
 }
 
 /* ---- Aviso de atualização ---- */
@@ -209,7 +239,7 @@
   z-index: 60;
   border: 1px solid var(--border);
   border-radius: 14px;
-  box-shadow: 0 24px 48px -16px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.02);
+  box-shadow: 0 24px 48px -16px rgb(0 0 0 / calc(0.7 * var(--sombra-k))), 0 0 0 1px rgb(var(--realce) / 0.02);
   animation: sb-painel-entrar 0.16s ease-out;
 }
 
@@ -343,7 +373,7 @@
 .sb-painel-item.is-ativo .sb-painel-item-icone {
   color: var(--accent);
   background: var(--bg);
-  border-color: oklch(0.7 0.15 292 / 0.35);
+  border-color: color-mix(in oklch, var(--accent) 35%, transparent);
 }
 
 /* Fixado: lista compacta de todas as categorias. */
@@ -406,7 +436,7 @@
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 16px;
-  box-shadow: 0 32px 64px -20px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 32px 64px -20px rgb(0 0 0 / calc(0.8 * var(--sombra-k)));
   animation: paleta-entrar 0.14s ease-out;
 }
 
@@ -554,4 +584,19 @@
   .sb-painel-grupo.is-destacado {
     animation: none;
   }
+}
+
+/* A tecla de atalho de cada item da busca rápida, antes do tipo. */
+.paleta-item .pg-teclas {
+  margin-left: auto;
+}
+
+.paleta-item .pg-kbd {
+  height: 20px;
+  min-width: 20px;
+  font-size: 10.5px;
+}
+
+.paleta-rodape-atalhos {
+  margin-left: auto;
 }
