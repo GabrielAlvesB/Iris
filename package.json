@@ -23,12 +23,12 @@
     "build": "npm run clean && npm run build:main && npm run build:renderer && npm run copy-static",
     "start": "electron .",
     "dev": "npm run build && npm run start",
-    "dist": "npm run build && npm run clean:release && electron-builder --win",
-    "dist:portable": "npm run build && npm run clean:release && electron-builder --win zip",
-    "dist:dir": "npm run build && npm run clean:release && electron-builder --dir",
+    "dist": "npm run build && npm run clean:release && electron-builder --win --publish never",
+    "dist:portable": "npm run build && npm run clean:release && electron-builder --win zip --publish never",
+    "dist:dir": "npm run build && npm run clean:release && electron-builder --dir --publish never",
     "release": "npm run build && npm run clean:release && electron-builder --win --publish always",
     "clean:release": "node scripts/clean-release.mjs",
-    "dist:linux": "npm run build && npm run clean:release && electron-builder --linux",
+    "dist:linux": "npm run build && npm run clean:release && electron-builder --linux --publish never",
     "release:linux": "npm run build && npm run clean:release && electron-builder --linux --publish always"
   },
   "build": {
