@@ -4,17 +4,24 @@ import {
   ANEXOS_CHANNELS,
   APP_CHANNELS,
   ATUALIZACAO_CHANNELS,
+  BACKUP_CHANNELS,
+  BUSCA_CHANNELS,
   COPY_CHANNELS,
   EXPLORADOR_CHANNELS,
   CONTATOS_CHANNELS,
   DOCUMENTOS_CHANNELS,
   EXPORT_CHANNELS,
   GITHUB_CHANNELS,
+  HOJE_CHANNELS,
+  IDEIAS_CHANNELS,
+  HISTORICO_CHANNELS,
   IMAGENS_CHANNELS,
   KANBAN_CHANNELS,
+  LEMBRETES_CHANNELS,
   LINKS_CHANNELS,
   N8N_CHANNELS,
   PENSAMENTOS_CHANNELS,
+  POMODORO_CHANNELS,
   TODO_CHANNELS,
   IA_CHANNELS,
   PUSH_CHANNEL,
@@ -34,6 +41,13 @@ import type {
   Unsubscribe,
 } from '../shared/types/events.types';
 import type { IrisApi } from '../shared/types/preload-api.types';
+
+/** "--iris-acento=292,0.15" (main.ts). Ausente ou estragado = null: fica a cor do CSS. */
+function lerAcentoInicial(): { h: number; c: number } | null {
+  const arg = process.argv.find((a) => a.startsWith('--iris-acento='));
+  const [h, c] = (arg?.slice('--iris-acento='.length) ?? '').split(',').map(Number);
+  return Number.isFinite(h) && Number.isFinite(c) ? { h: h as number, c: c as number } : null;
+}
 
 function openExternalLink(url: string): void {
   if (/^https?:\/\//i.test(url)) {
@@ -89,6 +103,7 @@ const irisAPI: IrisApi = {
     getState: () => ipcRenderer.invoke(QUADRO_CHANNELS.getState),
     createBlock: (input) => ipcRenderer.invoke(QUADRO_CHANNELS.createBlock, input),
     updateBlock: (input) => ipcRenderer.invoke(QUADRO_CHANNELS.updateBlock, input),
+    marcarRotina: (input) => ipcRenderer.invoke(QUADRO_CHANNELS.marcarRotina, input),
     moveBlock: (input) => ipcRenderer.invoke(QUADRO_CHANNELS.moveBlock, input),
     deleteBlock: (blockId) => ipcRenderer.invoke(QUADRO_CHANNELS.deleteBlock, blockId),
     createConnection: (input) => ipcRenderer.invoke(QUADRO_CHANNELS.createConnection, input),
@@ -117,6 +132,7 @@ const irisAPI: IrisApi = {
     openExternalLink,
     plataforma: process.platform === 'linux' || process.platform === 'darwin' ? process.platform : 'win32',
     primeiraTela: (ms) => ipcRenderer.send(APP_CHANNELS.primeiraTela, ms),
+    acentoInicial: lerAcentoInicial(),
   },
   contatos: {
     getFile: () => ipcRenderer.invoke(CONTATOS_CHANNELS.getFile),
@@ -195,6 +211,52 @@ const irisAPI: IrisApi = {
     ultimaCopia: () => ipcRenderer.invoke(EXPORT_CHANNELS.ultimaCopia),
     desfazerImportacao: () => ipcRenderer.invoke(EXPORT_CHANNELS.desfazerImportacao),
     abrirPastaDeCopias: () => ipcRenderer.invoke(EXPORT_CHANNELS.abrirPastaDeCopias),
+  },
+  backup: {
+    getEstado: () => ipcRenderer.invoke(BACKUP_CHANNELS.getEstado),
+    mudarConfig: (mudanca) => ipcRenderer.invoke(BACKUP_CHANNELS.mudarConfig, mudanca),
+    escolherPasta: () => ipcRenderer.invoke(BACKUP_CHANNELS.escolherPasta),
+    fazerAgora: () => ipcRenderer.invoke(BACKUP_CHANNELS.fazerAgora),
+    listar: () => ipcRenderer.invoke(BACKUP_CHANNELS.listar),
+    prepararRestauracao: (arquivo) => ipcRenderer.invoke(BACKUP_CHANNELS.prepararRestauracao, arquivo),
+    abrirPasta: () => ipcRenderer.invoke(BACKUP_CHANNELS.abrirPasta),
+  },
+  ideias: {
+    getFile: () => ipcRenderer.invoke(IDEIAS_CHANNELS.getFile),
+    criar: (entrada) => ipcRenderer.invoke(IDEIAS_CHANNELS.criar, entrada),
+    atualizar: (input) => ipcRenderer.invoke(IDEIAS_CHANNELS.atualizar, input),
+    excluir: (id) => ipcRenderer.invoke(IDEIAS_CHANNELS.excluir, id),
+    virarPostagem: (id, tipo) => ipcRenderer.invoke(IDEIAS_CHANNELS.virarPostagem, id, tipo),
+  },
+  pomodoro: {
+    getEstado: () => ipcRenderer.invoke(POMODORO_CHANNELS.getEstado),
+    iniciar: (tarefa) => ipcRenderer.invoke(POMODORO_CHANNELS.iniciar, tarefa),
+    pausarOuRetomar: () => ipcRenderer.invoke(POMODORO_CHANNELS.pausarOuRetomar),
+    parar: () => ipcRenderer.invoke(POMODORO_CHANNELS.parar),
+    salvarDuracoes: (d) => ipcRenderer.invoke(POMODORO_CHANNELS.salvarDuracoes, d),
+  },
+  lembretes: {
+    getEstado: () => ipcRenderer.invoke(LEMBRETES_CHANNELS.getEstado),
+    salvarConfig: (config) => ipcRenderer.invoke(LEMBRETES_CHANNELS.salvarConfig, config),
+    testar: () => ipcRenderer.invoke(LEMBRETES_CHANNELS.testar),
+  },
+  hoje: {
+    getDia: () => ipcRenderer.invoke(HOJE_CHANNELS.getDia),
+    concluir: (input) => ipcRenderer.invoke(HOJE_CHANNELS.concluir, input),
+    getSemana: (inicio) => ipcRenderer.invoke(HOJE_CHANNELS.getSemana, inicio),
+    exportarPdf: (nome) => ipcRenderer.invoke(HOJE_CHANNELS.exportarPdf, nome),
+    getPulso: (semente) => ipcRenderer.invoke(HOJE_CHANNELS.getPulso, semente),
+    getSugestao: () => ipcRenderer.invoke(HOJE_CHANNELS.getSugestao),
+    gerarSugestao: () => ipcRenderer.invoke(HOJE_CHANNELS.gerarSugestao),
+  },
+  busca: {
+    indice: () => ipcRenderer.invoke(BUSCA_CHANNELS.indice),
+  },
+  historico: {
+    listar: () => ipcRenderer.invoke(HISTORICO_CHANNELS.listar),
+    desfazer: (id) => ipcRenderer.invoke(HISTORICO_CHANNELS.desfazer, id),
+    desfazerUltima: () => ipcRenderer.invoke(HISTORICO_CHANNELS.desfazerUltima),
+    limpar: () => ipcRenderer.invoke(HISTORICO_CHANNELS.limpar),
   },
   links: {
     getLinks: () => ipcRenderer.invoke(LINKS_CHANNELS.getLinks),
@@ -349,6 +411,9 @@ const irisAPI: IrisApi = {
     setPerfil: (perfil) => ipcRenderer.invoke(AJUSTES_CHANNELS.setPerfil, perfil),
     setAtalhos: (atalhos) => ipcRenderer.invoke(AJUSTES_CHANNELS.setAtalhos, atalhos),
     setTema: (tema) => ipcRenderer.invoke(AJUSTES_CHANNELS.setTema, tema),
+    setDestaque: (destaque) => ipcRenderer.invoke(AJUSTES_CHANNELS.setDestaque, destaque),
+    setBandeja: (ligada) => ipcRenderer.invoke(AJUSTES_CHANNELS.setBandeja, ligada),
+    setApelido: (apelido) => ipcRenderer.invoke(AJUSTES_CHANNELS.setApelido, apelido),
   },
   videos: {
     getFile: () => ipcRenderer.invoke(VIDEOS_CHANNELS.getFile),

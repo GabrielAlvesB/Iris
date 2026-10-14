@@ -396,6 +396,38 @@ export function montarPrompt(tarefa: TarefaTexto, c: ContextoTexto): PromptMonta
           regras(['Nada de itens vagos como "Planejar" ou "Revisar tudo": diga o quê.']) +
           `\nFormato: {"itens":["...","..."]}`,
       };
+    case 'home-sugestao':
+      // Aqui as REGRAS_TEXTO não servem: elas proíbem justamente o tom caloroso que a Home pede.
+      // Ficam as que importam — nada inventado, nada de frase de efeito vazia.
+      return {
+        saida: 'json',
+        sistema:
+          `${BASE_SISTEMA}
+Você é a voz do Iris, o app de trabalho dessa pessoa, na tela inicial: escreve uma mensagem curta e calorosa ` +
+          `para o dia dela, como um amigo próximo que acompanha o trabalho dela de perto — sincero, leve, com energia boa. ${INSTRUCAO_JSON}`,
+        texto:
+          `<tarefa>Escreva a mensagem para o dia. "mensagem": 2 ou 3 frases, no máximo 55 palavras, que desejem um bom dia (ou boa tarde/noite, ` +
+          `conforme o período informado) e motivem a pessoa, chamando-a pelo apelido se houver. Apoie a motivação em UM ou DOIS fatos reais do ` +
+          `material (dias seguidos com algo feito, o quanto do dia já foi fechado, o que vem a seguir, um lead que chegou, a semana de publicações) ` +
+          `— é isso que faz a mensagem ser dela e não de qualquer um. Se o dia estiver pesado (atrasados, muita coisa), acolha e encoraje sem cobrar; ` +
+          `se estiver leve, celebre. "sugestoes": até 2 ações curtas para começar, cada uma com "titulo" (verbo no imperativo, até 7 palavras, ` +
+          `citando o item pelo nome), "porque" (meia frase com o fato que justifica) e "chave" (a chave entre colchetes do item, sem os colchetes; "" se nenhuma).</tarefa>
+` +
+          `${blocoMaterial(c)}
+` +
+          `<regras>
+` +
+          [
+            'Nunca invente fatos, números, nomes ou acontecimentos: só os do material.',
+            'Nada de citações famosas, ditados, frases de caneca ("acredite em você", "o sucesso é a soma…", "cada dia é uma nova chance").',
+            'Português do Brasil natural, como se fala; pode ter uma pitada de humor. No máximo um emoji, e só se couber.',
+            'Não liste a agenda na mensagem — as ações vão em "sugestoes".',
+            'A chave das sugestões precisa ser copiada exatamente como aparece no material.',
+          ]
+            .map((r) => `- ${r}`)
+            .join('\n') +
+          `\n</regras>\nFormato: {"mensagem":"...","sugestoes":[{"titulo":"...","porque":"...","chave":"..."}]}`,
+      };
     case 'kanban-card':
       return {
         saida: 'card',

@@ -34,6 +34,13 @@ import { buildBotaoIa, sugerirItensComIa } from '../../ui/ia.js';
 import { mostrarToast } from '../../ui/toast.js';
 import * as kanbanState from '../kanban/kanban.state.js';
 import * as todoState from './todo.state.js';
+import { consumirItemPendente } from '../../core/navegacao.js';
+import { destacarItem } from '../../ui/destaque.js';
+import { estadoAtual, iniciarFoco, pararFoco } from '../../core/pomodoro.js';
+import { buildMateriais } from '../postagens/postagens.materiais.js';
+import { renderMarkdown } from '../../ui/markdown.js';
+import { carregarResolvedor } from '../../ui/markdown.links.js';
+import { textoDuracao, totalMinutos } from '../../../shared/types/pomodoro.types.js';
 
 /**
  * To-do: checklists independentes em cartões. Tudo se edita no próprio cartão
@@ -68,6 +75,8 @@ const ICONES = {
   vassoura: '<path d="m13 11 9-9"/><path d="M14.6 12.6c.8.8.9 2.1.2 3L10 22l-8-8 6.4-4.8c.9-.7 2.2-.6 3 .2Z"/><path d="m6.8 10.4 6.8 6.8"/>',
   seta: '<path d="m6 9 6 6 6-6"/>',
   enviar: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+  clipe: '<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
+  relogio: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/>',
 } as const;
 
 const TOM_PRIORIDADE: Record<PrioridadeTodo, Tom> = { alta: 'erro', media: 'atencao', baixa: 'neutro' };
@@ -193,6 +202,15 @@ function redesenhar(): void {
   const file = todoState.getCurrentState();
   if (!containerAtual || !file) return;
   fecharMenu?.();
+  // Busca global: vai para a aba onde a checklist está, sem busca que a esconda.
+  const pedido = consumirItemPendente('todo', (p) => file.checklists.some((c) => c.id === p.id));
+  const pedida = pedido && file.checklists.find((c) => c.id === pedido.id);
+  if (pedida) {
+    filtro = pedida.arquivada ? 'arquivadas' : concluida(pedida) ? 'concluidas' : 'abertas';
+    busca = '';
+    const container = containerAtual;
+    destacarItem(() => container.querySelector<HTMLElement>(`.td-cartao[data-id="${CSS.escape(pedida.id)}"]`));
+  }
   const rolagemAntes = containerAtual.querySelector<HTMLElement>('.pg-rolagem')?.scrollTop ?? 0;
   render(containerAtual, file);
   const rolagem = containerAtual.querySelector<HTMLElement>('.pg-rolagem');
@@ -407,7 +425,16 @@ function buildCartao(l: Checklist): HTMLElement {
   const selos = buildSelosCartao(l);
   if (selos.childElementCount) cartao.appendChild(selos);
 
-  if (l.descricao) {
+  if (l.descricao && l.markdown) {
+    // Markdown ligado nesta checklist: a descrição renderizada; [[links]] chegam quando os títulos forem lidos.
+    const desc = document.createElement('div');
+    desc.className = 'td-descricao is-markdown';
+    desc.appendChild(renderMarkdown(l.descricao));
+    void carregarResolvedor().then((resolver) => {
+      if (desc.isConnected) desc.replaceChildren(renderMarkdown(l.descricao, { resolver }));
+    });
+    cartao.appendChild(desc);
+  } else if (l.descricao) {
     cartao.appendChild(Object.assign(document.createElement('p'), { className: 'td-descricao', textContent: l.descricao }));
   }
 
@@ -681,6 +708,25 @@ function buildRodapeCartao(l: Checklist, feitos: number): HTMLElement {
   const rodape = document.createElement('footer');
   rodape.className = 'td-cartao-rodape';
   if (feitos) rodape.appendChild(buildAlternarFeitos(l, feitos));
+  // Arquivos ligados: um atalho para abrir a lista deles.
+  if (l.recursoIds?.length) {
+    const arquivos = document.createElement('button');
+    arquivos.type = 'button';
+    arquivos.className = 'td-arquivos';
+    arquivos.title = 'Arquivos da Biblioteca ligados a esta checklist';
+    arquivos.innerHTML = svg(ICONES.clipe, 12, 2);
+    arquivos.appendChild(document.createTextNode(String(l.recursoIds.length)));
+    arquivos.addEventListener('click', () => abrirArquivos(l));
+    rodape.appendChild(arquivos);
+  }
+  const minutosDeFoco = totalMinutos(l.tempo);
+  if (minutosDeFoco > 0) {
+    const tempo = document.createElement('span');
+    tempo.className = 'td-tempo';
+    tempo.title = 'Tempo de foco registrado nesta checklist (Pomodoro)';
+    tempo.textContent = `⏱ ${textoDuracao(minutosDeFoco)}`;
+    rodape.appendChild(tempo);
+  }
   const acoes = document.createElement('div');
   acoes.className = 'td-rodape-acoes';
   rodape.appendChild(acoes);
@@ -812,6 +858,36 @@ interface AcaoMenu {
   fazer: () => void;
 }
 
+/** Arquivos da Biblioteca da checklist, num modal (o cartão não tem espaço para a lista). */
+function abrirArquivos(l: Checklist): void {
+  const ligados = { titulo: l.titulo, recursoIds: [...(l.recursoIds ?? [])], anexos: [] };
+  void openCustomModal(
+    `Arquivos de “${l.titulo}”`,
+    ({ corpo, rodape, fechar }) => {
+      const desenhar = (): void => {
+        corpo.replaceChildren(
+          buildMateriais(
+            ligados,
+            (mudanca) => {
+              if (!mudanca.recursoIds) return;
+              ligados.recursoIds = mudanca.recursoIds;
+              executar(todoState.atualizarChecklist({ checklistId: l.id, recursoIds: mudanca.recursoIds }));
+              desenhar();
+            },
+            undefined,
+            { soBiblioteca: true, titulo: 'Arquivos', vazio: 'Ligue arquivos das pastas monitoradas da Biblioteca: abrem direto daqui, sem cópia.' },
+          ),
+        );
+      };
+      desenhar();
+      const pronto = buildBotao('Pronto', { variante: 'primario' });
+      pronto.addEventListener('click', fechar);
+      rodape.appendChild(pronto);
+    },
+    { icone: ICONES.clipe, largura: 560 },
+  );
+}
+
 function abrirMenu(ancora: HTMLElement, l: Checklist): void {
   // Segundo clique no mesmo botão fecha em vez de reabrir.
   const eraEste = fecharMenu !== null && ancora.getAttribute('aria-expanded') === 'true';
@@ -820,8 +896,17 @@ function abrirMenu(ancora: HTMLElement, l: Checklist): void {
 
   const pendentes = l.itens.filter((i) => !i.feito).length;
   const feitos = l.itens.length - pendentes;
+  const foco = estadoAtual();
+  const emFocoNesta = !!foco && foco.fase !== 'parado' && foco.tarefa?.tipo === 'checklist' && foco.tarefa.id === l.id;
   const acoes: AcaoMenu[] = [
     { rotulo: 'Editar detalhes', icone: ICONES.editar, fazer: () => abrirDetalhes(l) },
+    ...(l.arquivada
+      ? []
+      : [
+          emFocoNesta
+            ? { rotulo: 'Parar o foco (guarda o tempo)', icone: ICONES.relogio, fazer: () => pararFoco() }
+            : { rotulo: `Começar foco de ${foco?.focoMin ?? 25} min`, icone: ICONES.relogio, fazer: () => iniciarFoco({ tipo: 'checklist', id: l.id, titulo: l.titulo }) },
+        ]),
     ...(l.arquivada ? [] : [{ rotulo: l.envio ? 'Enviar ao Kanban de novo' : 'Enviar ao Kanban', icone: ICONES.enviar, fazer: () => abrirEnvio(l) }]),
     ...(pendentes
       ? [{ rotulo: 'Marcar todos como feitos', icone: ICONES.checkTodos, fazer: () => acompanharConclusao(l.id, todoState.marcarTodos({ checklistId: l.id, feito: true })) }]
@@ -832,6 +917,12 @@ function abrirMenu(ancora: HTMLElement, l: Checklist): void {
           { rotulo: `Limpar concluídos (${feitos})`, icone: ICONES.vassoura, fazer: () => executar(todoState.limparConcluidos(l.id)) },
         ]
       : []),
+    { rotulo: l.recursoIds?.length ? `Arquivos da Biblioteca (${l.recursoIds.length})` : 'Ligar arquivos da Biblioteca', icone: ICONES.clipe, fazer: () => abrirArquivos(l) },
+    {
+      rotulo: l.markdown ? 'Descrição em texto puro' : 'Ler a descrição como Markdown',
+      icone: ICONES.editar,
+      fazer: () => executar(todoState.atualizarChecklist({ checklistId: l.id, markdown: !l.markdown })),
+    },
     { rotulo: 'Duplicar', icone: ICONES.duplicar, fazer: () => executar(todoState.duplicarChecklist(l.id)) },
     l.arquivada
       ? { rotulo: 'Restaurar', icone: ICONES.restaurar, fazer: () => executar(todoState.arquivarChecklist({ checklistId: l.id, arquivada: false })) }

@@ -1,9 +1,10 @@
 import type { IpcResult } from '../../../shared/types/common.types';
-import type { AjustesInfo, AssinaturaRelatorio, ModuloInicial, PerfilUsuario, Tema } from '../../../shared/types/ajustes.types';
+import type { AjustesInfo, AssinaturaRelatorio, Destaque, ModuloInicial, PerfilUsuario, Tema } from '../../../shared/types/ajustes.types';
 import type { N8nConfig, SalvarN8nConfigInput } from '../../../shared/types/n8n.types';
 import type { GithubConfig, SalvarGithubConfigInput } from '../../../shared/types/github.types';
 import type { IaConfig, ProvedorId, SalvarPadroesInput, SalvarProvedorInput } from '../../../shared/types/ia.types';
 import { definirConfigIa } from '../../core/ia.js';
+import { definirDestaque } from '../../core/tema.js';
 
 export interface AjustesViewState {
   ajustes: AjustesInfo;
@@ -92,9 +93,24 @@ export async function setModuloInicial(modulo: ModuloInicial): Promise<void> {
   if (state) applyAndNotify({ ...state, ajustes });
 }
 
+export async function setBandeja(ligada: boolean): Promise<void> {
+  const ajustes = unwrap(await window.irisAPI.ajustes.setBandeja(ligada));
+  if (state) applyAndNotify({ ...state, ajustes });
+}
+
+export async function setApelido(apelido: string): Promise<void> {
+  const ajustes = unwrap(await window.irisAPI.ajustes.setApelido(apelido));
+  if (state) applyAndNotify({ ...state, ajustes });
+}
+
 export async function setTema(tema: Tema): Promise<void> {
   const ajustes = unwrap(await window.irisAPI.ajustes.setTema(tema));
   if (state) applyAndNotify({ ...state, ajustes });
+}
+
+export async function setDestaque(destaque: Destaque): Promise<void> {
+  await definirDestaque(destaque);
+  await recarregarAjustes();
 }
 
 /** O tema mudou fora de Ajustes (botão do trilho, atalho): relê só os ajustes. */

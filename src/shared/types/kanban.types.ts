@@ -1,3 +1,4 @@
+import type { SessaoFoco } from './pomodoro.types';
 import type { BaseEntity } from './common.types';
 
 export type KanbanPriority = 'low' | 'medium' | 'high';
@@ -19,6 +20,16 @@ export interface KanbanCard extends BaseEntity {
   columnId: string;
   order: number;
   seq?: number;
+  /** Sessões de foco do Pomodoro (o total é sempre a soma, nunca gravado). */
+  tempo?: SessaoFoco[];
+  /** Arquivos da Biblioteca ligados ao card (por id, como nas Postagens). */
+  recursoIds?: string[];
+  /** Descrição lida como Markdown (botão no painel; desligado = texto puro, como sempre). */
+  markdown?: boolean;
+  /** ISO de quando entrou na última coluna (a revisão da semana conta por ele). */
+  concluidoEm?: string;
+  /** Empresa do catálogo único de Postagens (tag com `empresa: true`), a mesma de relatórios e postagens. */
+  empresaId?: string;
 }
 
 export interface KanbanColumn extends BaseEntity {
@@ -65,10 +76,15 @@ export interface CreateCardInput {
   dueDate?: string;
   assignee?: string;
   subtasks?: KanbanSubtask[];
+  empresaId?: string;
 }
 
 export interface UpdateCardInput {
   cardId: string;
+  /** '' ou null tira a empresa. */
+  empresaId?: string | null;
+  recursoIds?: string[];
+  markdown?: boolean;
   title?: string;
   description?: string;
   tags?: string[];

@@ -11,9 +11,9 @@ TypeScript puro, **sem framework de UI e sem bundler**. O DOM é construído à 
 `document.createElement`. As únicas dependências de runtime são `sortablejs` (drag-and-drop),
 `ssh2` (comandos remotos) e `xlsx` (import/export de planilhas).
 
-Vinte e três módulos, organizados na sidebar por categoria:
+Vinte e quatro módulos, organizados na sidebar por categoria:
 
-- **soltos no topo**: Kanban, To-do (id `todo`)
+- **soltos no topo**: Home (id `hoje` — o rótulo era "Hoje"; o id ficou para não migrar nada —, o primeiro e o módulo inicial de instalação nova), Kanban, To-do (id `todo`)
 - **Relacionamento**: Contatos (CRM: pessoas, empresas, funil, contratos), Leads (id `leads`: caixa de entrada e painel),
   Relatórios de leads (id `relatorios-leads`), API e n8n (id `api-leads`) — a área da 0.2.0 —, WhatsApp (id `whatsapp`)
 - **Conteúdo**: Postagens (pipeline de conteúdo: vídeos, imagens), Estúdio IA (id `ia`), Relatórios (análises com PDF),
@@ -131,9 +131,17 @@ módulo só (Tráfego) são atalhos diretos no trilho; as outras categorias abre
 clique fora ou escolher fecham; entra na pilha de camadas). **Fixado** (atalho `geral.fixar`, botão do painel ou
 Ajustes › Preferências, localStorage `iris.sidebar.fixado`) o painel lista todas as categorias e empurra
 a tela. Classes do painel têm prefixo `sb-` — `.painel` é do painel de detalhes (ui/painel.ts).
-`MODULOS[].descricao` é a linha que aparece no painel e na busca. **Ctrl+P** (`geral.busca`) abre a busca rápida
-([paleta.ts](src/renderer/core/paleta.ts), importada sob demanda): módulos, contatos do CRM, `SECOES_AJUSTES`
-(navegacao.ts) e guias do Tutorial. Para navegar de um módulo para outro, usar `abrirModulo()` de
+`MODULOS[].descricao` é a linha que aparece no painel e na busca. **Ctrl+K** (`geral.busca`; Ctrl+P = `geral.buscaAlt`) abre a busca rápida
+([paleta.ts](src/renderer/core/paleta.ts), importada sob demanda): módulos, `SECOES_AJUSTES` (navegacao.ts), guias do
+Tutorial e o **conteúdo de tudo** pelo índice do main (`busca:indice`,
+[busca.service.ts](src/main/modules/busca/busca.service.ts): cards, checklists, blocos, post-its, Biblioteca, postagens,
+linhas do Sheets (tabelas visíveis), roteiros, links, Copy, contatos — sem arquivados; montado a cada abertura, nunca
+guardado). Toda palavra precisa casar; resultados por grupo (5, "Ver todos"), trecho do conteúdo e termos em `<mark>`
+montado nó a nó. Resultado leva ao item por `abrirItem({ modulo, id })` (navegacao.ts): a view chama
+`consumirItemPendente(modulo, existe)` depois de ter os dados (com `existe`, o desenho do cache não gasta o pedido) e
+[destacarItem](src/renderer/ui/destaque.ts) rola e pisca (`is-encontrado`; acha o nó de novo se a tela redesenhar —
+procure no documento ou no viewRoot, não num root que o próximo desenho troca). Tipo novo no índice = entrada em
+`ItemBusca`/`AlvoBusca` + o consumo na view. Para navegar de um módulo para outro, usar `abrirModulo()` de
 [navegacao.ts](src/renderer/core/navegacao.ts); `abrirAjustes(secao)` funciona também com Ajustes já
 aberto (`onSecaoAjustesSolicitada`).
 
@@ -151,6 +159,14 @@ aberto (`onSecaoAjustesSolicitada`).
   texto sobre o acento `--texto-sobre-acento`; avisos em texto `--danger-texto`/`--warning-texto`. Literal só no que
   desenha algo fixo: papel dos documentos, logos de rede, post-its, teleprompter, miniaturas de Ajustes › Aparência.
 - Renderer: [core/tema.ts](src/renderer/core/tema.ts) (`temaEfetivo`, `alternarTema`, `onTemaMudou` pela media query).
+- **Cor de destaque** (`ajustes.json` v6 › `destaque`: uma de `CORES_DESTAQUE` ou `{ id: 'livre', hex }`): só **matiz e croma**
+  são do usuário — `--acento-h`/`--acento-c` no `<html>` (`aplicarAcento`); o base.css monta `--accent`, `--accent-hover` e
+  `--accent-soft` com a luminosidade de cada tema (0,70 no escuro, 0,54 no claro, croma ×1,27 com teto). OKLCH é perceptual: a
+  mesma luminosidade dá o mesmo contraste em qualquer matiz, por isso toda cor fica legível. Cor livre passa por `hexParaOklch`
+  ([cor.ts](src/shared/types/cor.ts), puro), croma até `CROMA_MAXIMO`. A cor inicial vai com a janela (`additionalArguments`
+  `--iris-acento=h,c` → `system.acentoInicial`), aplicada no topo do app.ts: sem IPC e sem piscar o violeta. **Nunca escrever
+  o matiz 292 num CSS novo** — use `var(--accent)` ou `var(--acento-h)`. O documento do PDF tem acento próprio (`--rd-acento`)
+  e não muda.
   Trocar: sol/lua no trilho (acima do Tutorial), atalho `geral.tema` (Ctrl+Shift+L), Ctrl+P e Ajustes › Aparência.
 
 ## Persistência
@@ -202,7 +218,9 @@ não seria decifrável em outra máquina.
   empresa + tags comuns). Cadastro único em [postagens.tags.ts](src/renderer/modules/postagens/postagens.tags.ts)
   (`buildCadastroTags`), usado em Ajustes › Empresas e tags e no modal "Empresas, tags e redes".
   O chip de empresa leva o prédio (`ICONE_EMPRESA`); todo seletor usa `ordenarTags` (empresas
-  primeiro). **Instalação nova não traz tag nenhuma** — as antigas de exemplo ("Hora de Codar",
+  primeiro). O **Kanban** usa as mesmas empresas: `KanbanCard.empresaId` (uma por card, validada contra o catálogo no main ao
+  gravar; apagada do catálogo, o card só deixa de mostrá-la), selo no card e na lista, seletor em Detalhes e filtro "Todas as
+  empresas" no topo (card novo com o filtro ativo já nasce daquela empresa). **Instalação nova não traz tag nenhuma** — as antigas de exemplo ("Hora de Codar",
   "Grupo"…) eram do contexto de um usuário. A migração única `migrarEmpresasUmaVez` (chamada
   em main.ts antes da janela, flag `empresasMigradas` em videos.json) tornou empresa a "Hora de
   Codar" e as tags usadas em relatórios; com a flag, não roda de novo.
@@ -515,6 +533,103 @@ não seria decifrável em outra máquina.
 - Teleprompter (`roteiros.teleprompter.ts`, rola pelo ppm) e Versões com diff de linhas lado a lado
   (`roteiros.versoes.ts`; restaurar guarda a atual como "Antes de restaurar").
 
+## Home (id `hoje`)
+
+- **Tela** ([hoje.view.ts](src/renderer/modules/hoje/hoje.view.ts), CSS `hm-`/`rv-` em hoje.css): página centralizada
+  (`.hm-pagina`, 1080px). Topo sem moldura: data · hora em mono, saudação pelo horário (Bom dia 5–12h, Boa tarde 12–18h,
+  Boa noite) com o **apelido**, uma frase só de fatos (`frase`: entregas, período em que caem, atrasados, "já fechou N de M")
+  e o cartão **Próximo** (o pendente com hora ainda por chegar, "em 7h30", botão Abrir). **Dia**: a faixa do dia
+  (`buildFaixa`, 6h–22h, alarga se preciso; marca por horário — cheia = feito, vermelha = alta, âmbar = passou), "Ficou para
+  trás", "Agenda de hoje" (linha do tempo de cartões com "Agora" e o tempo livre até a próxima; sem hora em "Ao longo do dia";
+  "N concluídas hoje" recolhível no fim), "N% do dia fechado" (o anel é o único número da tela de trabalho) e "Próximos dias"
+  ("+N outros" abre o dia ali). Redesenha a cada minuto, exceto com o apelido em edição. Entrada animada só na abertura.
+- **Mensagem do dia (IA)** e os cartões do pulso ([home.service.ts](src/main/modules/hoje/home.service.ts),
+  [hoje.pulso.ts](src/renderer/modules/hoje/hoje.pulso.ts), [home.types.ts](src/shared/types/home.types.ts)). A tarefa de IA
+  `home-sugestao` (saída json) escreve uma **mensagem calorosa e motivadora** para o dia (o usuário pediu esse tom — por isso ela
+  não usa as `REGRAS_TEXTO`, que proíbem justamente isso; continua proibido inventar fatos e usar frase de caneca), pelo apelido e
+  apoiada em um ou dois fatos reais, mais até 2 ações "Comece por". O main monta o retrato do dia (`montarMaterial`: período,
+  apelido, agenda, atrasados, próximos, leads, retornos, WhatsApp, ideias, roteiros, semana) com uma **chave entre colchetes** por
+  item; a IA devolve a chave e o main a troca pelo `AlvoHome` (chave fora do material = ação sem link). Gerada sozinha **uma vez
+  por dia** e guardada em `home.json` v2 (fora do backup; arquivo de outra versão é descartado e gera de novo); erro fica guardado
+  com o dia, para não repetir o pedido (e o custo) — só "Outra mensagem" pede outra. **Sem IA ou com erro o cartão não aparece**
+  (o usuário não quer aviso de falha na Home); teto de 800 tokens (`tetoDe`) — com 4 mil, o OpenRouter recusava com saldo baixo. A mensagem nova entra palavra por palavra.
+  Pulso (`hoje:getPulso`, lido na hora), distribuído nas duas colunas para nenhuma deixar buraco: à esquerda Constância (mapa de
+  16 semanas + sequência) e o par ideia do banco (sorteada pelo dia; `semente` do "Outra") + lembrança (pensamento de 7+ dias, na
+  cor do post-it, tinta por `tintaPara` de cor.ts); à direita caixa de entrada (leads, retornos, WhatsApp) e roteiros em aberto.
+  Testar sem gastar: servidor Node no formato da OpenAI como "Compatível com OpenAI" num `--user-data-dir` de teste.
+- **Semana** ([hoje.semana.ts](src/renderer/modules/hoje/hoje.semana.ts), tela de análise): os cinco números numa faixa só
+  (Publicados em destaque; vazio = "—"), "Ritmo da semana" (`RevisaoSemana.ritmo`: publicadas em cheio, agendadas em
+  tracejado — `FontesRevisao.agendadas` são as postagens com data ainda não publicadas nem arquivadas), "Por canal",
+  "Publicados" por dia com as redes como selos e "Fechamento". A frase do topo é `fraseDaSemana`. O PDF não mudou.
+- **Apelido**: `ajustes.json` v8 › `apelido` (`MAX_APELIDO`, `setApelido`). Edita-se clicando no nome da saudação (o rascunho
+  sobrevive ao redesenho; Enter salva, Esc cancela) ou em Ajustes › Preferências. Vazio = só a saudação e o convite "Como quer
+  ser chamado?".
+
+- **Sem arquivo próprio**: [hoje.service.ts](src/main/modules/hoje/hoje.service.ts) monta o dia a cada `hoje:getDia` lendo
+  Kanban (só o primeiro quadro; `dueDate`), To-do (`prazo`, sem arquivadas), Postagens (`dataAgendada`, ou o dia local de
+  `publicadoEm` para publicada sem data; sem arquivadas) e as rotinas do Quadro (`routineDays` = `getDay()`, 0 = domingo).
+  Datas sempre "AAAA-MM-DD" locais comparadas como texto (`hojeLocal`/`somarDias` montados à mão).
+- "Feito": card na última coluna (por `order`), checklist com todos os itens marcados, postagem `publicado`, rotina com
+  `QuadroBlock.rotinaFeitaEm === dia`. Seções: Atrasados (data antes de hoje, não feito; rotina não atrasa), Para hoje (só o
+  pendente), Feito hoje (recolhido) e os próximos `DIAS_A_FRENTE` dias.
+- Concluir dali (`hoje:concluir`): card vai para a última coluna (desfazer = primeira coluna); rotina por
+  `quadroService.marcarRotina` (data + 🔥 juntos, idempotente no mesmo dia) — o botão 🔥 do Quadro usa a mesma função.
+  Checklist e postagem só abrem no módulo (`abrirAlvo` de navegacao.ts, o mesmo da busca global).
+- A tela recarrega por `historico:mudou` (qualquer gravação feita pela tela), `postagens:mudou`, foco da janela e na virada
+  do dia. Recolhidos em localStorage `iris.hoje.recolhidos`. Tecla G D (H é do GitHub). Módulo novo com data = mais uma fonte
+  em `coletar` (e um `TipoItemDia`).
+
+- **Revisão da semana** (aba Semana): `hoje:getSemana(dia)` lê os módulos e entrega para as contas puras de
+  [revisao.types.ts](src/shared/types/revisao.types.ts) (`calcularRevisao`, semana de segunda a domingo). Concluído = card
+  com `KanbanCard.concluidoEm` na semana (gravado por `moveCard` ao **entrar** na última coluna, apagado ao sair — cards
+  concluídos antes desse campo não contam), checklist com o último `feitoEm` na semana; atrasou = prazo na semana, já passado,
+  sem conclusão até o prazo; publicadas pelo dia das Métricas (`dataAgendada`, senão o dia de `publicadoEm`); rotinas por
+  `QuadroBlock.feitasEm` (até 120 dias, gravado por `marcarRotina`) contra os dias marcados até hoje; foco pelas sessões do
+  Pomodoro com `fim` na semana. Frases só com fatos. PDF pela base comum (`hoje:exportarPdf`, `buildDocumentoSemana`,
+  `.rv-doc` com as `--rd-*`). O lembrete de segunda abre a semana que passou (`abrirHoje('semana')`).
+
+## Lembretes, bandeja e Pomodoro
+
+- **Lembretes** ([lembretes.service.ts](src/main/modules/lembretes/lembretes.service.ts), tarefa `lembretes:verificar`, 60 s):
+  lê o mesmo `hoje.getDia()` da tela — postagem com hora (antecedência configurável, até 5 min depois), rotina com hora (até
+  30 min depois), resumo dos prazos uma vez por dia no horário escolhido e a revisão na segunda. Cada aviso tem chave em
+  `lembretes.json` › `avisados` (7 dias): reabrir o app não repete, e o perdido não chega atrasado. "Não perturbe" pode virar a
+  meia-noite. Clique → push `lembretes:abrir` (`core/lembretes.ts` leva ao item ou à tela). Notificação nova no main =
+  `notificar()` de [core/notificacao.ts](src/main/core/notificacao.ts) (guarda a referência viva). Backup: item próprio
+  `lembretes` em `EXPORTAVEIS` — **não** dentro de Ajustes: backup antigo sem o arquivo deixaria de restaurar os Ajustes.
+- **Bandeja** ([core/bandeja.ts](src/main/core/bandeja.ts), `ajustes.json` v7 › `bandeja`, desligada por padrão): ligada, o
+  `close` da janela vira `hide()` (`prepararJanela`) e só `app.quit()` fecha (`before-quit` → `marcarSaida`); menu montado na
+  hora (`right-click`) com o dia, "Novo card…" (`app:executar` → `executarAcao`) e "Sair". Com ela ligada há **instância
+  única** (`garantirInstanciaUnica`; a segunda mostra a primeira e sai); sem ela o bloqueio é solto — o `npm run dev` ao lado do
+  instalado continua abrindo.
+- **Pomodoro** ([pomodoro.service.ts](src/main/modules/pomodoro/pomodoro.service.ts)): o timer mora no main (sobrevive à troca de
+  módulo e à janela escondida). Fim do foco ou "parar" grava `SessaoFoco` na tarefa (`kanbanService.registrarTempo` /
+  `todoService.registrarTempo`; menos de 1 min não grava; pausas no meio não contam); sair do app no meio grava antes
+  (`before-quit` espera). O total é sempre a soma (`totalMinutos`), nunca gravado. Push `pomodoro:estado`; na tela,
+  [core/pomodoro.ts](src/renderer/core/pomodoro.ts): o contador fixo no canto e `buildBotaoFoco` (painel do card); a tela do
+  Kanban/To-do relê quando um foco termina. Planilha: coluna "Foco (min)".
+
+## Cards e checklists: arquivos e Markdown
+
+- `KanbanCard`/`Checklist` ganharam `tempo`, `recursoIds` e `markdown` (+ `concluidoEm` no card), todos opcionais e lidos com
+  `migrarSessoes`/`migrarIds` ([pomodoro.types.ts](src/shared/types/pomodoro.types.ts)) — a `migrate` do To-do reconstrói
+  campo a campo, então **campo novo na checklist entra lá** ou some.
+- **Arquivos da Biblioteca** por id, sem cópia: o mesmo `buildMateriais` das Postagens com `{ soBiblioteca: true }` (painel do
+  card; modal pelo menu ⋯ da checklist). Relê a Biblioteca ao abrir, para um arquivo movido aparecer "não encontrado".
+- **Markdown** ([ui/markdown.ts](src/renderer/ui/markdown.ts), sem dependência e sem `innerHTML`): `#` títulos, listas, `- [ ]`
+  (só mostra), `>`, código, `**`/`*`, links só http(s)/mailto, e `[[Título]]` resolvido por
+  [markdown.links.ts](src/renderer/ui/markdown.links.ts) (cards e checklists pelo título; inexistente fica tracejado e oferece
+  criar o card). Botão por cartão, desligado por padrão.
+
+## Banco de ideias
+
+- `ideias.json` ([ideias.service.ts](src/main/modules/ideias/ideias.service.ts)), aba **Ideias** de Postagens
+  ([postagens.ideias.ts](src/renderer/modules/postagens/postagens.ideias.ts), CSS `id-` em postagens.css). Criar aceita vários
+  títulos (colar linhas). "Virar vídeo/imagem" usa o `criarVideo`/`criarImagem` da pipeline (primeira etapa, tags e redes do
+  catálogo, notas por `atualizar…`) e marca `virouPostagem` — a ideia sai dos pendentes e guarda o link. Tags/redes validadas
+  contra o catálogo na leitura. Post-it de Pensamentos → "Mandar para o banco de ideias". Abrir de fora:
+  `abrirPostagem({ tipo, ideias: true })`. Backup: item próprio `ideias` (mesmo motivo dos lembretes).
+
 ## To-do
 
 - `todo.json`: várias checklists (título, descrição, cor, prioridade, prazo, itens, `ordem`
@@ -745,8 +860,36 @@ não seria decifrável em outra máquina.
   devolve a prévia com contagens) → `aplicarImportacao(modulos)`, que grava antes uma cópia do estado
   atual em `userData/backups/antes-de-importar-*.json` (10 mais recentes) e substitui. "Desfazer última
   importação" restaura essa cópia (e guarda `antes-de-desfazer-*`). Depois de importar, a janela recarrega.
+- **Backup automático** ([backup.service.ts](src/main/modules/backup/backup.service.ts)): o bundle completo numa pasta
+  escolhida no diálogo do main (guardada com `realpath`), de tempos em tempos (`INTERVALOS_BACKUP`), mantendo as últimas
+  N (`manter`, padrão 7). Config em `backup-auto.json`, **fora** do bundle (a pasta é do computador; restaurar não pode trocar
+  o destino). A tarefa `backup:auto` só confere a cada 30 min se venceu — app fechado por dias faz o backup ao abrir. A poda só
+  apaga nomes `Iris-backup-AAAA-MM-DD_HHMMSS.json` (o resto da pasta nunca é tocado). Restaurar: a tela manda **só o nome**,
+  o main confere e cai em `prepararImportacao` → a mesma prévia, cópia "antes de importar" e Desfazer. Falha (pasta sumiu,
+  sem espaço) vira `ultimoErro` + push `backup:estado`, nunca exceção na tarefa.
 - Planilha (.xlsx, `export.planilhas.ts`, xlsx sob demanda) só para ler fora do Iris: Kanban, To-do,
   Postagens, Roteiros, Tráfego (razões por `calcularMetricas`). Não se importa de volta.
+
+## Histórico e desfazer
+
+- **Genérico, sem tocar nos services**: `registerAllIpcHandlers` roda cada handler dentro de `contextoIpc`
+  ([core/contextoIpc.ts](src/main/core/contextoIpc.ts), `AsyncLocalStorage` com o canal); o `writeStore` lê o contexto **na
+  chamada** e, depois de gravar, avisa o gancho `aoGravar` com o conteúdo de antes. Gravação sem canal (tarefa de fundo,
+  migração na abertura, `readStore` criando o padrão) não entra. Por isso todo `register…Ipc` registra de forma síncrona.
+- [historico.service.ts](src/main/modules/historico/historico.service.ts): só arquivos com `GRAVADOR` no export.service
+  (desfazer = `restaurarChave` → `replaceFile` → `migrate`); fora: `whatsapp.json` e os canais `historico:`/`export:`/
+  `backup:`/`atualizacao:`/`whatsapp:` e os de leitura (`get*`, `listar*`…). Índice em `userData/historico/historico.json` +
+  `<id>.json` com o antes; 50 entradas ou 150 MB. Edições seguidas do mesmo item em 60 s viram uma entrada.
+- Rótulo sem tabela por canal ([historico.rotulos.ts](src/main/modules/historico/historico.rotulos.ts)): o tipo vem da
+  diferença (objeto com `id` sumiu = exclusão, apareceu = criação), o substantivo do nome do canal (`SUBSTANTIVOS`), o nome
+  do item do próprio objeto. Canal novo ganha rótulo sozinho; substantivo novo = uma linha em `SUBSTANTIVOS`.
+- Desfazer uma entrada leva junto as mais novas do mesmo arquivo (a tela avisa) e cria "Desfeito: …" (= refazer). Ação
+  nova num arquivo descarta os "Desfeito" dele. `desfazerUltima` pula os "Desfeito" (Alt+Z repetido anda para trás).
+- Renderer: [core/historico.ts](src/renderer/core/historico.ts) mostra o aviso com "Desfazer" para **toda** exclusão (módulo
+  nenhum precisa fazer o seu) e passa por `comModuloFechado` (navegacao.ts): o módulo aberto é desmontado antes — o que ele
+  ia salvar na pausa vai antes do desfazer, não por cima — e remontado depois, relendo os dados. Tecla `geral.desfazer` =
+  **Alt+Z**: Ctrl+Alt nunca vira atalho (`passoDoEvento` o trata como AltGr do ABNT2) e Ctrl+Z é do texto. Tela em Ajustes ›
+  Histórico (`ajustes.historico.ts`).
 
 ## Tutorial
 
@@ -770,7 +913,15 @@ não seria decifrável em outra máquina.
   **Não criar `keydown` de documento num módulo**: entrada no catálogo + `ligarAtalhos`.
 - Regras do despacho: com modal aberto nada dispara; com foco num campo só Ctrl/Alt e teclas F
   (`passoFuncionaDigitando`); "G K" é sequência (1,2 s para a segunda tecla, aviso "G…" no canto). Ctrl+P sempre
-  tem o `preventDefault` (imprimir do Chromium).
+  tem o `preventDefault` (imprimir do Chromium). Mesma tecla numa ação global e numa do módulo aberto: **vale a do módulo**
+  (`acharAcao`) — a busca é Ctrl+K desde a 0.2.2 e quem tinha dado Ctrl+K a uma ação de módulo não perde a escolha ali.
+- **Toda ação do catálogo é um comando da paleta** ("Kanban: Novo card", com a tecla atual), executada por `executarAcao(id)`
+  (atalhos.ts): abre o módulo do escopo e espera o mount ligar o executor. Ação que só existe para a paleta entra no catálogo
+  com `padrao: ''` (`postagens.novo`, `roteiros.novo`, `contatos.novaPessoa`…) — aparece "sem atalho" em Ajustes e o usuário
+  pode dar uma tecla. Executor que precisa dos dados espera o carregamento (`carregado` em Postagens, `comArquivo` em
+  Contatos): pela paleta ele é chamado logo depois do mount. `FORA_DOS_COMANDOS` (paleta.ts) tira o que depende de contexto
+  (gerar imagem, salvar no estúdio). ">" na paleta = só comandos; busca vazia mostra os "Usados por último" (localStorage
+  `iris.paleta.recentes`).
 - **Módulo novo = uma letra em `IR_PARA`** (`Record<ModuloId, Combo>`, o compilador cobra). Tutorial é F1, Ajustes
   Ctrl+,. Alt+←/→ andam no histórico de módulos (`registrarVisita`/`voltarModulo` em navegacao.ts).
 - Combinação em texto, sempre "Ctrl" (nunca "⌘"): `"Ctrl+Shift+K"`, `"Alt+Left"`, `"G K"` —

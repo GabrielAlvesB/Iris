@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron';
 import { aplicarTema } from '../core/tema';
+import { aplicarBandeja } from '../core/bandeja';
 import { AJUSTES_CHANNELS } from '../../shared/ipcChannels';
 import type { IpcResult } from '../../shared/types/common.types';
 import type { AjustesInfo, AssinaturaRelatorio, ModuloInicial, PerfilUsuario, Tema } from '../../shared/types/ajustes.types';
@@ -30,6 +31,19 @@ export function registerAjustesIpc(): void {
   );
 
   ipcMain.handle(AJUSTES_CHANNELS.setAtalhos, (_event, atalhos: unknown) => toResult<AjustesInfo>(ajustesService.setAtalhos(atalhos)));
+
+  ipcMain.handle(AJUSTES_CHANNELS.setBandeja, (_event, ligada: unknown) =>
+    toResult<AjustesInfo>(
+      ajustesService.setBandeja(ligada).then((info) => {
+        aplicarBandeja(info.bandeja);
+        return info;
+      }),
+    ),
+  );
+
+  ipcMain.handle(AJUSTES_CHANNELS.setApelido, (_event, apelido: unknown) => toResult<AjustesInfo>(ajustesService.setApelido(apelido)));
+
+  ipcMain.handle(AJUSTES_CHANNELS.setDestaque, (_event, destaque: unknown) => toResult<AjustesInfo>(ajustesService.setDestaque(destaque)));
 
   ipcMain.handle(AJUSTES_CHANNELS.setTema, (_event, tema: Tema) =>
     toResult<AjustesInfo>(

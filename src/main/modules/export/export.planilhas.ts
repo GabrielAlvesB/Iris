@@ -1,6 +1,7 @@
 import type * as XlsxTipos from 'xlsx';
 import * as kanbanService from '../kanban/kanban.service';
 import * as todoService from '../todo/todo.service';
+import { totalMinutos } from '../../../shared/types/pomodoro.types';
 import * as videosService from '../videos/videos.service';
 import * as imagensService from '../imagens/imagens.service';
 import * as roteirosService from '../roteiros/roteiros.service';
@@ -59,6 +60,8 @@ async function abasKanban(): Promise<Aba[]> {
           Etiquetas: (card.tags ?? []).join(', '),
           Subtarefas: sub.length ? `${sub.filter((s) => s.done).length}/${sub.length}` : '',
           'Lista de subtarefas': sub.map((s) => `${s.done ? '✓' : '☐'} ${s.title}`).join('\n'),
+          // Soma das sessões do Pomodoro (vazia sem nenhuma).
+          'Foco (min)': totalMinutos(card.tempo) || '',
           Descrição: card.description ?? '',
         };
       });
@@ -73,7 +76,7 @@ async function abasTodo(): Promise<Aba[]> {
     .flatMap((c) => {
       const concluida = c.itens.length > 0 && c.itens.every((i) => i.feito);
       const situacao = c.arquivada ? 'Arquivada' : concluida ? 'Concluída' : 'Aberta';
-      const base = { Checklist: c.titulo, Situação: situacao, Prioridade: PRIORIDADE[c.prioridade ?? ''] ?? '', Prazo: c.prazo ?? '' };
+      const base = { Checklist: c.titulo, Situação: situacao, Prioridade: PRIORIDADE[c.prioridade ?? ''] ?? '', Prazo: c.prazo ?? '', 'Foco (min)': totalMinutos(c.tempo) || '' };
       if (!c.itens.length) return [{ ...base, Item: '', Feito: '', 'Feito em': '' }];
       return c.itens.map((i) => ({ ...base, Item: i.texto, Feito: SIM_NAO(i.feito), 'Feito em': i.feitoEm?.slice(0, 10) ?? '' }));
     });

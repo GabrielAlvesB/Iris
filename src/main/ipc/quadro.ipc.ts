@@ -4,6 +4,7 @@ import type { IpcResult } from '../../shared/types/common.types';
 import type {
   CreateBlockInput,
   CreateConnectionInput,
+  MarcarRotinaInput,
   MoveBlockInput,
   QuadroFile,
   QuadroViewport,
@@ -29,6 +30,10 @@ export function registerQuadroIpc(): void {
 
   ipcMain.handle(QUADRO_CHANNELS.updateBlock, (_event, input: UpdateBlockInput) =>
     toResult<QuadroFile>(quadroService.updateBlock(input)),
+  );
+
+  ipcMain.handle(QUADRO_CHANNELS.marcarRotina, (_event, input: MarcarRotinaInput) =>
+    toResult<QuadroFile>(quadroService.marcarRotina(input)),
   );
 
   ipcMain.handle(QUADRO_CHANNELS.moveBlock, (_event, input: MoveBlockInput) =>

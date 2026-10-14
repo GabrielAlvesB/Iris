@@ -21,6 +21,8 @@ import {
   type TodoFile,
 } from '../../../shared/types/todo.types';
 
+import { MAX_SESSOES, migrarIds, migrarSessoes, type SessaoFoco } from '../../../shared/types/pomodoro.types';
+
 const FILE_NAME = 'todo.json';
 const SCHEMA_VERSION = 1;
 
@@ -96,6 +98,9 @@ function migrateChecklist(raw: unknown, indice: number): Checklist | null {
     ordem: typeof c.ordem === 'number' && Number.isFinite(c.ordem) ? c.ordem : indice,
     arquivada: Boolean(c.arquivada),
     envio: migrateEnvio(c.envio),
+    tempo: migrarSessoes(c.tempo),
+    recursoIds: migrarIds(c.recursoIds),
+    markdown: c.markdown === true ? true : undefined,
     createdAt: timestamp,
     updatedAt: typeof c.updatedAt === 'string' ? c.updatedAt : timestamp,
   };
@@ -216,7 +221,18 @@ export async function atualizarChecklist(input: AtualizarChecklistInput): Promis
     }
     if (input.prioridade !== undefined) l.prioridade = isPrioridadeTodo(input.prioridade) ? input.prioridade : undefined;
     if (input.prazo !== undefined) l.prazo = dataValida(input.prazo);
+    if (input.recursoIds !== undefined) l.recursoIds = migrarIds(input.recursoIds);
+    if (input.markdown !== undefined) l.markdown = input.markdown ? true : undefined;
   });
+}
+
+/** Uma sessão de foco terminada (Pomodoro). Checklist apagada no meio: a sessão se perde. */
+export async function registrarTempo(checklistId: string, sessao: SessaoFoco): Promise<void> {
+  const file = loadFile();
+  const l = file.checklists.find((c) => c.id === checklistId);
+  if (!l) return;
+  l.tempo = [...(l.tempo ?? []), sessao].slice(-MAX_SESSOES);
+  await saveFile(file);
 }
 
 export async function excluirChecklist(checklistId: string): Promise<TodoFile> {

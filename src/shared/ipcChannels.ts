@@ -10,10 +10,47 @@ export const KANBAN_CHANNELS = {
   moveCard: 'kanban:moveCard',
 } as const;
 
+/** Tela Hoje: só lê os outros módulos ("getDia" é leitura para o histórico). */
+export const HOJE_CHANNELS = {
+  getDia: 'hoje:getDia',
+  concluir: 'hoje:concluir',
+  getSemana: 'hoje:getSemana',
+  exportarPdf: 'hoje:exportarPdf',
+  getPulso: 'hoje:getPulso',
+  getSugestao: 'hoje:getSugestao',
+  gerarSugestao: 'hoje:gerarSugestao',
+} as const;
+
+/** Notificações nativas (config; quem avisa é a tarefa lembretes:verificar). */
+export const LEMBRETES_CHANNELS = {
+  getEstado: 'lembretes:getEstado',
+  salvarConfig: 'lembretes:salvarConfig',
+  testar: 'lembretes:testar',
+} as const;
+
+/** Pomodoro (o timer mora no main; "parar" grava a sessão na tarefa). */
+export const POMODORO_CHANNELS = {
+  getEstado: 'pomodoro:getEstado',
+  iniciar: 'pomodoro:iniciar',
+  pausarOuRetomar: 'pomodoro:pausarOuRetomar',
+  parar: 'pomodoro:parar',
+  salvarDuracoes: 'pomodoro:salvarDuracoes',
+} as const;
+
+/** Banco de ideias (aba Ideias de Postagens). */
+export const IDEIAS_CHANNELS = {
+  getFile: 'ideias:getFile',
+  criar: 'ideias:criar',
+  atualizar: 'ideias:atualizar',
+  excluir: 'ideias:excluir',
+  virarPostagem: 'ideias:virarPostagem',
+} as const;
+
 export const QUADRO_CHANNELS = {
   getState: 'quadro:getState',
   createBlock: 'quadro:createBlock',
   updateBlock: 'quadro:updateBlock',
+  marcarRotina: 'quadro:marcarRotina',
   moveBlock: 'quadro:moveBlock',
   deleteBlock: 'quadro:deleteBlock',
   createConnection: 'quadro:createConnection',
@@ -123,6 +160,30 @@ export const EXPORT_CHANNELS = {
   abrirPastaDeCopias: 'export:abrirPastaDeCopias',
 } as const;
 
+/** Backup automático numa pasta escolhida (o manual é EXPORT_CHANNELS). */
+export const BACKUP_CHANNELS = {
+  getEstado: 'backup:getEstado',
+  mudarConfig: 'backup:mudarConfig',
+  escolherPasta: 'backup:escolherPasta',
+  fazerAgora: 'backup:fazerAgora',
+  listar: 'backup:listar',
+  prepararRestauracao: 'backup:prepararRestauracao',
+  abrirPasta: 'backup:abrirPasta',
+} as const;
+
+/** Histórico de alterações (desfazer). Os canais começam com "historico:" e por isso não entram nele. */
+export const HISTORICO_CHANNELS = {
+  listar: 'historico:listar',
+  desfazer: 'historico:desfazer',
+  desfazerUltima: 'historico:desfazerUltima',
+  limpar: 'historico:limpar',
+} as const;
+
+/** Busca global da paleta. "indice" começa com leitura: não entra no histórico. */
+export const BUSCA_CHANNELS = {
+  indice: 'busca:indice',
+} as const;
+
 export const LINKS_CHANNELS = {
   getLinks: 'links:getLinks',
   createLink: 'links:createLink',
@@ -214,6 +275,9 @@ export const AJUSTES_CHANNELS = {
   setPerfil: 'ajustes:setPerfil',
   setAtalhos: 'ajustes:setAtalhos',
   setTema: 'ajustes:setTema',
+  setDestaque: 'ajustes:setDestaque',
+  setBandeja: 'ajustes:setBandeja',
+  setApelido: 'ajustes:setApelido',
 } as const;
 
 export const ROTEIROS_CHANNELS = {

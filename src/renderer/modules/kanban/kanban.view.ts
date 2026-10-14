@@ -6,6 +6,15 @@ import { ICONES_MODAL, openFormModal, openConfirmModal, openAvisoModal, buildSec
 import { comboDe, ligarAtalhos } from '../../core/atalhos.js';
 import { abrirPainel, lembrarPosicao, lerPosicaoLembrada, type PainelHandle } from '../../ui/painel.js';
 import { buildBotao, buildTeclas } from '../../ui/pagina.js';
+import { abrirAjustes, consumirItemPendente } from '../../core/navegacao.js';
+import * as videosState from '../postagens/videos/videos.state.js';
+import { ICONE_EMPRESA, buildTagChip, ordenarTags } from '../postagens/postagens.ui.js';
+import type { TagPostagem } from '../../../shared/types/postagens.types';
+import { buildBotaoFoco } from '../../core/pomodoro.js';
+import { buildMateriais } from '../postagens/postagens.materiais.js';
+import { renderMarkdown } from '../../ui/markdown.js';
+import { carregarResolvedor } from '../../ui/markdown.links.js';
+import { textoDuracao, totalMinutos } from '../../../shared/types/pomodoro.types.js';
 
 type ViewTab = 'quadro' | 'lista' | 'calendario';
 
@@ -16,7 +25,9 @@ let currentBoard: KanbanBoard | null = null;
 let activeTab: ViewTab = 'quadro';
 let filterWeekOnly = false;
 let filterAssignee = 'all';
-/** Desliga o Ctrl+K do quadro (registro central de atalhos, core/atalhos.ts). */
+/** 'all', 'sem' (cards sem empresa) ou o id de uma empresa do catálogo. */
+let filterEmpresa = 'all';
+/** Desliga o "Novo card" do quadro (registro central de atalhos, core/atalhos.ts). */
 let desligarAtalhos: (() => void) | null = null;
 
 let panelHandle: PainelHandle | null = null;
@@ -31,8 +42,24 @@ let panelDraft: {
   priority: '' | 'low' | 'medium' | 'high';
   dueDate: string;
   tags: string[];
+  /** '' = sem empresa. */
+  empresaId: string;
   subtasks: KanbanSubtask[];
 } | null = null;
+
+/**
+ * As empresas são as do catálogo único de Postagens (Ajustes › Empresas e tags),
+ * as mesmas dos relatórios: o Kanban não tem cadastro próprio. O catálogo mora
+ * em videos.json, lido pelo state de vídeos (carregado no render se faltar).
+ */
+function empresas(): TagPostagem[] {
+  return ordenarTags(videosState.getCurrentState()?.tags ?? []).filter((t) => t.empresa);
+}
+
+/** A empresa do card, se ainda existe no catálogo (apagada, o card só deixa de mostrá-la). */
+function empresaDe(card: Pick<KanbanCard, 'empresaId'>): TagPostagem | undefined {
+  return card.empresaId ? empresas().find((t) => t.id === card.empresaId) : undefined;
+}
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -119,6 +146,8 @@ function filteredCards(board: KanbanBoard): KanbanCard[] {
   return board.cards.filter((card) => {
     if (filterWeekOnly && !isThisWeek(card.dueDate)) return false;
     if (filterAssignee !== 'all' && (card.assignee ?? '') !== filterAssignee) return false;
+    if (filterEmpresa === 'sem' && empresaDe(card)) return false;
+    if (filterEmpresa !== 'all' && filterEmpresa !== 'sem' && card.empresaId !== filterEmpresa) return false;
     return true;
   });
 }
@@ -149,6 +178,10 @@ function buildCardElement(card: KanbanCard): HTMLElement {
 
   const topRow = document.createElement('div');
   topRow.className = 'kanban-card-top';
+
+  // A empresa vem primeiro: é o "de quem é" do card, como nas Postagens.
+  const empresa = empresaDe(card);
+  if (empresa) topRow.appendChild(buildTagChip(empresa, { compacto: true }));
 
   if (card.priority) {
     const priorityEl = document.createElement('span');
@@ -185,6 +218,15 @@ function buildCardElement(card: KanbanCard): HTMLElement {
   dueEl.className = 'card-due-date';
   dueEl.textContent = card.dueDate ? formatDueDate(card.dueDate) : 'sem data';
   metaEl.appendChild(dueEl);
+
+  const minutosDeFoco = totalMinutos(card.tempo);
+  if (minutosDeFoco > 0) {
+    const tempoEl = document.createElement('span');
+    tempoEl.className = 'card-tempo';
+    tempoEl.title = 'Tempo de foco registrado neste card (Pomodoro)';
+    tempoEl.textContent = `⏱ ${textoDuracao(minutosDeFoco)}`;
+    metaEl.appendChild(tempoEl);
+  }
 
   const { done, total } = subtaskProgress(card);
   if (total > 0) {
@@ -390,6 +432,7 @@ async function commitSave(): Promise<void> {
     priority: draft.priority || undefined,
     dueDate: draft.dueDate || undefined,
     tags: draft.tags,
+    empresaId: draft.empresaId || null,
     subtasks: draft.subtasks,
   });
 
@@ -451,6 +494,38 @@ function segmentedPriorityButtons(container: HTMLElement, aoMudar: () => void): 
     });
     container.appendChild(btn);
   });
+}
+
+/** Seletor de empresa do painel; sem empresa cadastrada, leva ao cadastro em Ajustes. */
+function buildSeletorEmpresa(aoMudar: () => void): HTMLElement {
+  const lista = empresas();
+  if (!lista.length) {
+    const link = document.createElement('button');
+    link.type = 'button';
+    link.className = 'kanban-cp-link';
+    link.textContent = 'Cadastrar empresas';
+    link.title = 'As empresas são as mesmas de Postagens e Relatórios (Ajustes › Empresas e tags)';
+    link.addEventListener('click', () => abrirAjustes('empresas'));
+    return link;
+  }
+  const select = document.createElement('select');
+  select.className = 'kanban-cp-select';
+  const nenhuma = document.createElement('option');
+  nenhuma.value = '';
+  nenhuma.textContent = 'Nenhuma';
+  select.appendChild(nenhuma);
+  lista.forEach((t) => {
+    const opt = document.createElement('option');
+    opt.value = t.id;
+    opt.textContent = t.nome;
+    select.appendChild(opt);
+  });
+  select.value = panelDraft?.empresaId ?? '';
+  select.addEventListener('change', () => {
+    if (panelDraft) panelDraft.empresaId = select.value;
+    aoMudar();
+  });
+  return select;
 }
 
 function renderTagChips(container: HTMLElement, aoMudar: () => void, focar = false): void {
@@ -607,6 +682,8 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
     priority: card?.priority ?? '',
     dueDate: card?.dueDate ?? '',
     tags: [...(card?.tags ?? [])],
+    // Card novo com o quadro filtrado por uma empresa já nasce dela.
+    empresaId: card ? (empresaDe(card)?.id ?? '') : filterEmpresa !== 'all' && filterEmpresa !== 'sem' ? filterEmpresa : '',
     subtasks: (card?.subtasks ?? []).map((s) => ({ ...s })),
   };
 
@@ -764,10 +841,18 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
   dueWrap.appendChild(atalhosWrap);
   props.appendChild(linhaPropriedade(ICONES_PAINEL.calendario, 'Prazo', dueWrap));
 
+  props.appendChild(linhaPropriedade(ICONE_EMPRESA, 'Empresa', buildSeletorEmpresa(salvarSeExistir)));
+
   const tagsWrap = document.createElement('div');
   tagsWrap.className = 'kanban-cp-tags';
   renderTagChips(tagsWrap, salvarSeExistir);
   props.appendChild(linhaPropriedade(ICONES_PAINEL.tag, 'Tags', tagsWrap));
+
+  // Pomodoro: só num card que já existe (a sessão é gravada nele).
+  if (card) {
+    const foco = buildBotaoFoco({ tipo: 'card', id: card.id, titulo: card.title }, card.tempo);
+    props.appendChild(linhaPropriedade('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/>', 'Foco', foco));
+  }
 
   // Propriedades num cartão próprio, na coluna lateral: à direita no centro, logo abaixo do título nas laterais.
   const detalhes = buildSecaoModal('Detalhes');
@@ -824,16 +909,95 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
     salvarSeExistir();
   });
   requestAnimationFrame(ajustarDescricao);
-  descricao.conteudo.appendChild(
-    comAssistente(descTextarea, {
-      area: 'Kanban',
-      campo: 'Descrição do card',
-      orientacao: 'Contexto do trabalho em 1 a 3 linhas e o critério de pronto (como saber que terminou), específicos para o título do card.',
-      contexto: () => ({ titulo: panelDraft?.title, itens: panelDraft?.subtasks.map((s) => s.title) }),
-    }),
-  );
+  const editorDescricao = comAssistente(descTextarea, {
+    area: 'Kanban',
+    campo: 'Descrição do card',
+    orientacao: 'Contexto do trabalho em 1 a 3 linhas e o critério de pronto (como saber que terminou), específicos para o título do card.',
+    contexto: () => ({ titulo: panelDraft?.title, itens: panelDraft?.subtasks.map((s) => s.title) }),
+  });
+  descricao.conteudo.appendChild(editorDescricao);
+
+  // Markdown: um botão por card, desligado por padrão (o texto antigo aparece igual).
+  if (card) {
+    let markdown = card.markdown === true;
+    let editando = !panelDraft.description.trim();
+    const previa = document.createElement('div');
+    previa.className = 'kanban-cp-previa';
+    const acoes = document.createElement('div');
+    acoes.className = 'kanban-cp-md-acoes';
+    const botaoMd = buildBotao('Markdown', { variante: 'fantasma', titulo: 'Ler a descrição como Markdown: títulos, listas, [ ] caixas, **negrito**, links e [[Título]] de outro card' });
+    botaoMd.classList.add('is-mini', 'kanban-cp-md');
+    const botaoModo = buildBotao('', { variante: 'fantasma' });
+    botaoModo.classList.add('is-mini');
+    acoes.append(botaoModo, botaoMd);
+    descricao.secao.querySelector('.md-secao-cabeca')?.appendChild(acoes);
+
+    const criarCardDoLink = (titulo: string): void => {
+      void openConfirmModal({ title: 'Criar card', message: `Ainda não há card nem checklist chamado “${titulo}”. Criar um card com esse título na primeira coluna?`, confirmText: 'Criar card', danger: false }).then((ok) => {
+        const primeira = currentBoard?.columns.slice().sort((a, b) => a.order - b.order)[0];
+        if (ok && primeira) void kanbanState.createCard({ columnId: primeira.id, title: titulo });
+      });
+    };
+    const desenharPrevia = (): void => {
+      previa.replaceChildren(renderMarkdown(descTextarea.value, { aoCriar: criarCardDoLink }));
+      // Os [[links]] se resolvem depois de ler os títulos; a prévia redesenha com eles.
+      void carregarResolvedor().then((resolver) => {
+        if (!previa.isConnected) return;
+        previa.replaceChildren(renderMarkdown(descTextarea.value, { resolver, aoCriar: criarCardDoLink }));
+      });
+      if (!descTextarea.value.trim()) previa.replaceChildren(Object.assign(document.createElement('p'), { className: 'kanban-cp-previa-vazia', textContent: 'Sem descrição. Clique em Editar para escrever.' }));
+    };
+    const aplicar = (): void => {
+      botaoMd.classList.toggle('is-ligado', markdown);
+      botaoMd.setAttribute('aria-pressed', String(markdown));
+      botaoModo.hidden = !markdown;
+      botaoModo.replaceChildren(document.createTextNode(editando ? 'Ver' : 'Editar'));
+      const mostrarPrevia = markdown && !editando;
+      editorDescricao.hidden = mostrarPrevia;
+      previa.hidden = !mostrarPrevia;
+      if (mostrarPrevia) desenharPrevia();
+      else requestAnimationFrame(ajustarDescricao);
+    };
+    botaoMd.addEventListener('click', () => {
+      markdown = !markdown;
+      editando = !markdown || !descTextarea.value.trim();
+      void kanbanState.updateCard({ cardId: card.id, markdown });
+      aplicar();
+    });
+    botaoModo.addEventListener('click', () => {
+      editando = !editando;
+      aplicar();
+      if (editando) descTextarea.focus();
+    });
+    descricao.conteudo.appendChild(previa);
+    aplicar();
+  }
   // Descrição primeiro: é o contexto para ler as subtarefas.
   handle.grade.append(descricao.secao, subtarefas.secao);
+
+  // ---- Arquivos da Biblioteca (por id, sem cópia; só num card que já existe) ----
+  if (card) {
+    const ligados = { titulo: card.title, recursoIds: [...(card.recursoIds ?? [])], anexos: [] };
+    const arquivos = document.createElement('div');
+    arquivos.className = 'kanban-cp-secao kanban-cp-arquivos';
+    const desenharArquivos = (): void => {
+      arquivos.replaceChildren(
+        buildMateriais(
+          ligados,
+          (mudanca) => {
+            if (!mudanca.recursoIds) return;
+            ligados.recursoIds = mudanca.recursoIds;
+            void kanbanState.updateCard({ cardId: card.id, recursoIds: mudanca.recursoIds });
+            desenharArquivos();
+          },
+          undefined,
+          { soBiblioteca: true, titulo: 'Arquivos', vazio: 'Ligue arquivos das pastas monitoradas da Biblioteca: abrem direto daqui, sem cópia.' },
+        ),
+      );
+    };
+    desenharArquivos();
+    handle.grade.appendChild(arquivos);
+  }
 
   // ---- Rodapé ----
   const espaco = document.createElement('span');
@@ -892,6 +1056,7 @@ function openCardPanel(card: KanbanCard | null, column: KanbanColumn): void {
         priority: draft.priority || undefined,
         dueDate: draft.dueDate || undefined,
         tags: draft.tags.length ? draft.tags : undefined,
+        empresaId: draft.empresaId || undefined,
         subtasks: draft.subtasks.filter((s) => s.title.trim()),
       });
       closeCardPanel();
@@ -1025,6 +1190,12 @@ function buildListView(board: KanbanBoard): HTMLElement {
       titleText.className = 'kanban-list-title-text';
       titleText.textContent = card.title;
       titleCell.appendChild(titleText);
+      const empresaLista = empresaDe(card);
+      if (empresaLista) {
+        const chipEmpresa = buildTagChip(empresaLista, { compacto: true });
+        chipEmpresa.classList.add('kanban-list-empresa');
+        titleCell.appendChild(chipEmpresa);
+      }
       if (card.tags?.length) {
         const tagsWrap = document.createElement('div');
         tagsWrap.className = 'kanban-list-tags';
@@ -1309,6 +1480,28 @@ function buildHeader(board: KanbanBoard, onTabChange: () => void): HTMLElement {
   });
   filtersRow.appendChild(assigneeSelect);
 
+  // Por empresa: só aparece com empresa cadastrada (o catálogo é o de Postagens).
+  const listaEmpresas = empresas();
+  if (filterEmpresa !== 'all' && filterEmpresa !== 'sem' && !listaEmpresas.some((t) => t.id === filterEmpresa)) filterEmpresa = 'all';
+  if (listaEmpresas.length) {
+    const empresaSelect = document.createElement('select');
+    empresaSelect.className = 'kanban-filter-select';
+    empresaSelect.classList.toggle('active', filterEmpresa !== 'all');
+    empresaSelect.title = 'Mostrar só os cards de uma empresa';
+    [['all', 'Todas as empresas'], ...listaEmpresas.map((t) => [t.id, t.nome] as const), ['sem', 'Sem empresa']].forEach(([valor, rotulo]) => {
+      const opt = document.createElement('option');
+      opt.value = valor;
+      opt.textContent = rotulo;
+      empresaSelect.appendChild(opt);
+    });
+    empresaSelect.value = filterEmpresa;
+    empresaSelect.addEventListener('change', () => {
+      filterEmpresa = empresaSelect.value;
+      onTabChange();
+    });
+    filtersRow.appendChild(empresaSelect);
+  }
+
   titleRow.appendChild(filtersRow);
   headerEl.appendChild(titleRow);
 
@@ -1382,6 +1575,12 @@ function attachBoardShortcuts(): void {
 
 export function render(container: HTMLElement, board: KanbanBoard): void {
   currentBoard = board;
+  // As empresas vêm do catálogo de Postagens: sem ele carregado, desenha já e redesenha quando chegar.
+  if (!videosState.getCurrentState()) {
+    void videosState.load().then(() => {
+      if (currentBoard === board && container.isConnected) render(container, board);
+    }).catch(() => undefined);
+  }
   attachBoardShortcuts();
   container.innerHTML = '';
 
@@ -1414,6 +1613,14 @@ export function render(container: HTMLElement, board: KanbanBoard): void {
   } else {
     destroySortables();
     container.appendChild(activeTab === 'lista' ? buildListView(board) : buildCalendarView(board));
+  }
+
+  // Busca global: abre o painel do card pedido.
+  const pedido = consumirItemPendente('kanban', (p) => board.cards.some((c) => c.id === p.id));
+  if (pedido) {
+    const card = board.cards.find((c) => c.id === pedido.id);
+    const coluna = card && board.columns.find((c) => c.id === card.columnId);
+    if (card && coluna) openCardPanel(card, coluna);
   }
 }
 

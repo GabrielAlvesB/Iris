@@ -167,7 +167,7 @@ function abrirPainel(alvo: HTMLElement, i: ItemConversa): void {
   textos.appendChild(el('h3', undefined, i.nome));
   textos.appendChild(el('span', undefined, i.ref ? formatarNumeroWa(i.numero) : 'Este número ainda não está no cadastro'));
   cab.appendChild(textos);
-  const falhou = (e: unknown): void => mostrarToast(e instanceof Error ? e.message : String(e), [], 5000);
+  const falhou = (e: unknown): void => void mostrarToast(e instanceof Error ? e.message : String(e), [], 5000);
 
   if (i.ref && i.contato) {
     const ficha = buildBotao('Abrir a ficha', { variante: 'secundario', icone: ICONES_CONTATO.pessoa });

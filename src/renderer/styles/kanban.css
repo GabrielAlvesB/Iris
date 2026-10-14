@@ -1595,3 +1595,62 @@
   min-width: 0;
   width: 100%;
 }
+
+/* Arquivos da Biblioteca no painel do card (a secao vem de postagens.materiais.ts). */
+.kanban-cp-arquivos .vd-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Markdown na descrição do card (ui/markdown.ts). */
+.kanban-cp-md-acoes {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.kanban-cp-md.is-ligado {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.kanban-cp-previa {
+  min-height: 96px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+}
+
+.kanban-cp-previa-vazia {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+/* ---- Empresa do card (catálogo único de Postagens) ---- */
+
+.kanban-cp-link {
+  padding: 0 8px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.kanban-cp-link:hover {
+  text-decoration: underline;
+}
+
+.kanban-filter-select.active {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.kanban-list-empresa {
+  margin-top: 4px;
+  align-self: flex-start;
+}

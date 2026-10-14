@@ -7,9 +7,14 @@ import { registerAllIpcHandlers } from './ipc';
 import { startBackgroundServices, stopBackgroundServices } from './core/backgroundServices';
 import { iconeDoApp } from './core/icone';
 import { aplicarTema, corDeFundo } from './core/tema';
-import { getTema } from './modules/ajustes/ajustes.service';
+import { getBandeja, getDestaque, getTema } from './modules/ajustes/ajustes.service';
+import { aplicarBandeja, bandejaAtiva, garantirInstanciaUnica, marcarSaida, prepararJanela } from './core/bandeja';
+import { acentoDoDestaque } from '../shared/types/cor';
 import { migrarEmpresas } from './modules/relatorios/relatorios.service';
 import { recuperarInterrompidas } from './modules/whatsapp/whatsapp.service';
+import { iniciarHistorico } from './modules/historico/historico.service';
+import * as pomodoroService from './modules/pomodoro/pomodoro.service';
+import { aguardarEscritas } from './storage/jsonStore';
 
 // Renderer TS compiles to ES modules; ES module scripts require a CORS-capable
 // origin and are blocked when loaded from plain file:// URLs. Serving the
@@ -66,6 +71,15 @@ function registerAppProtocol(): void {
   });
 }
 
+function argumentoDoAcento(): string {
+  try {
+    const { h, c } = acentoDoDestaque(getDestaque());
+    return `--iris-acento=${h},${c}`;
+  } catch {
+    return '--iris-acento=';
+  }
+}
+
 function createMainWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -76,12 +90,21 @@ function createMainWindow(): void {
     icon: iconeDoApp(),
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
+      // A cor de destaque chega junto com a janela: o app.ts a aplica antes de
+      // desenhar qualquer coisa, sem esperar um IPC (e sem piscar o violeta).
+      additionalArguments: [argumentoDoAcento()],
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
       backgroundThrottling: false,
     },
   });
+
+  // Sem a barra "File Edit View…": o Iris tem a própria navegação. O menu padrão
+  // continua existindo, só escondido — é ele que dá zoom, recarregar e devtools
+  // (as TECLAS_RESERVADAS). Nada de autoHideMenuBar: o Alt a faria reaparecer, e
+  // o Alt é dos atalhos do app (Alt+Z, Alt+←).
+  mainWindow.setMenuBarVisibility(false);
 
   marcar('janela criada');
   mainWindow.loadURL(`${APP_SCHEME}://app/index.html`);
@@ -97,13 +120,28 @@ function createMainWindow(): void {
   mainWindow.webContents.once('did-finish-load', () => setTimeout(iniciar, 800));
   setTimeout(iniciar, 5000);
 
+  prepararJanela(mainWindow);
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 }
 
+/** Bandeja ligada e outra instância já aberta: ela aparece (second-instance) e esta sai. */
+function instanciaUnica(): boolean {
+  let ligada = false;
+  try {
+    ligada = getBandeja();
+  } catch {
+    return true;
+  }
+  if (!ligada || garantirInstanciaUnica()) return true;
+  app.quit();
+  return false;
+}
+
 app.whenReady().then(() => {
   marcar('ready');
+  if (!instanciaUnica()) return;
   ouvirPrimeiraTela();
   if (process.platform === 'win32') {
     app.setAppUserModelId('com.iris.app');
@@ -117,10 +155,17 @@ app.whenReady().then(() => {
     migrarEmpresas().catch((erro: unknown) => console.error('[iris] migração de empresas falhou', erro)),
     recuperarInterrompidas().catch((erro: unknown) => console.error('[whatsapp] recuperar envios', erro)),
   ]);
+  // Antes do IPC: a primeira ação do usuário já precisa entrar no histórico.
+  iniciarHistorico();
   registerAllIpcHandlers(dadosProntos);
   aplicarTema(getTema());
   marcar('IPC registrado');
   createMainWindow();
+  try {
+    aplicarBandeja(getBandeja());
+  } catch (erro) {
+    console.error('[bandeja] não deu para ligar', erro);
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -131,12 +176,26 @@ app.whenReady().then(() => {
 
 // Aborta fetches em voo e fecha os watchers antes do processo morrer, para
 // nenhum callback disparar em um app já se desmontando.
-app.on('before-quit', () => {
+let pomodoroGravado = false;
+
+app.on('before-quit', (e) => {
+  marcarSaida();
+  // Saindo no meio de um foco: grava o que já foi feito na tarefa e só então sai.
+  if (pomodoroService.emFoco() && !pomodoroGravado) {
+    e.preventDefault();
+    pomodoroGravado = true;
+    void pomodoroService
+      .encerrar()
+      .then(() => aguardarEscritas())
+      .finally(() => app.quit());
+    return;
+  }
   stopBackgroundServices();
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  // Com a bandeja a janela só se esconde; se mesmo assim todas fecharem, o ícone segue.
+  if (process.platform !== 'darwin' && !bandejaAtiva()) {
     app.quit();
   }
 });

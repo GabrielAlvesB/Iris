@@ -13,6 +13,8 @@ import { campo, erroInline, input, select } from '../../ui/campos.js';
 import { buildBotao } from '../../ui/pagina.js';
 import * as videosState from '../postagens/videos/videos.state.js';
 import { enviarParaVideos } from './sheets.videos.js';
+import { consumirItemPendente } from '../../core/navegacao.js';
+import { destacarItem } from '../../ui/destaque.js';
 
 const ICONS = {
   upload:
@@ -635,6 +637,7 @@ function buildTableGrid(table: SheetTable): HTMLElement {
     table.rows.forEach((row) => {
       const rowEl = document.createElement('div');
       rowEl.className = 'sheets-row';
+      rowEl.dataset.rowId = row.id;
       rowEl.classList.toggle('sheets-row--selected', selectedRowIds.has(row.id));
       rowEl.style.gridTemplateColumns = template;
 
@@ -816,6 +819,14 @@ function buildHomeScreen(container: HTMLElement, state: SheetsFile): void {
   if (visibleTables.length === 0) {
     root.appendChild(buildEmptyState(state));
     return;
+  }
+
+  // Busca global: abre a aba da tabela e leva até a linha.
+  const pedido = consumirItemPendente('sheets', (p) => visibleTables.some((t) => t.id === p.dentro && t.rows.some((r) => r.id === p.id)));
+  if (pedido) {
+    activeTableId = pedido.dentro ?? activeTableId;
+    // No documento, não no root: o próximo redesenho troca o root e o nó antigo sairia da página.
+    destacarItem(() => document.querySelector<HTMLElement>(`.sheets-row[data-row-id="${CSS.escape(pedido.id)}"]`));
   }
 
   if (!activeTableId || !visibleTables.some((t) => t.id === activeTableId)) {

@@ -21,6 +21,8 @@ import * as roteirosService from '../roteiros/roteiros.service';
 import * as trafegoService from '../trafego/trafego.service';
 import * as contatosService from '../contatos/contatos.service';
 import * as whatsappService from '../whatsapp/whatsapp.service';
+import * as lembretesService from '../lembretes/lembretes.service';
+import * as ideiasService from '../ideias/ideias.service';
 import { aguardarEscritas } from '../../storage/jsonStore';
 import { reaplicarAgendamentos } from '../../core/backgroundServices';
 import {
@@ -67,6 +69,8 @@ const LEITORES: Record<ChaveBundle, () => Promise<unknown>> = {
   ia: () => iaService.getFullFile(),
   contatos: () => contatosService.getFullFile(),
   whatsapp: () => whatsappService.getFullFile(),
+  lembretes: () => lembretesService.getFullFile(),
+  ideias: () => ideiasService.getFullFile(),
 };
 
 /** Cada `replaceFile` passa pela `migrate` do service: o que vem do arquivo nunca vai cru para o disco. */
@@ -91,6 +95,8 @@ const GRAVADORES: Record<ChaveBundle, (dados: unknown) => Promise<unknown>> = {
   ia: (d) => iaService.replaceFile(d),
   contatos: (d) => contatosService.replaceFile(d),
   whatsapp: (d) => whatsappService.replaceFile(d),
+  lembretes: (d) => lembretesService.replaceFile(d),
+  ideias: (d) => ideiasService.replaceFile(d),
 };
 
 const TODOS: ModuloExportavel[] = EXPORTAVEIS.map((e) => e.id);
@@ -172,6 +178,13 @@ function resumir(id: ModuloExportavel, b: ExportBundle): ResumoExportavel {
         [tags.filter((t) => campo(t, 'empresa') === true).length, 'empresa', 'empresas'],
       ]);
     }
+    case 'ideias': {
+      const ideias = lista(campo(b.ideias, 'ideias'));
+      return r([
+        [ideias.filter((i) => !campo(i, 'virouPostagem') && !campo(i, 'arquivada')).length, 'ideia pendente', 'ideias pendentes'],
+        [ideias.filter((i) => campo(i, 'virouPostagem')).length, 'que virou postagem', 'que viraram postagem'],
+      ]);
+    }
     case 'relatorios':
       return r([[lista(campo(b.relatorios, 'relatorios')).length, 'relatório', 'relatórios']]);
     case 'roteiros':
@@ -202,6 +215,10 @@ function resumir(id: ModuloExportavel, b: ExportBundle): ResumoExportavel {
       const p = campo(b.ia, 'provedores');
       const n = p && typeof p === 'object' ? Object.values(p).filter((x) => campo(x, 'modeloTexto') || campo(x, 'modeloImagem') || campo(x, 'ativo')).length : 0;
       return { id, resumo: n ? plural(n, 'provedor ajustado', 'provedores ajustados') : 'sem ajustes', vazio: !n };
+    }
+    case 'lembretes': {
+      const ativo = campo(campo(b.lembretes, 'config'), 'ativo');
+      return { id, resumo: ativo === false ? 'desligadas' : 'o que avisar e quando', vazio: false };
     }
     case 'ajustes':
       return { id, resumo: 'preferências e assinatura', vazio: false };
@@ -275,7 +292,9 @@ function podar(prefixo: string): void {
 async function gravarCopia(prefixo: string, modulos: ModuloExportavel[]): Promise<string> {
   const bundle = await buildExportBundle(modulos);
   const arquivo = path.join(pastaDeCopias(), `${prefixo}${carimbo()}.json`);
-  fs.writeFileSync(arquivo, JSON.stringify(bundle, null, 2), 'utf-8');
+  // .tmp + renomear: é a rede de segurança da importação, não pode ficar truncada se o app cair.
+  fs.writeFileSync(`${arquivo}.tmp`, JSON.stringify(bundle, null, 2), 'utf-8');
+  fs.renameSync(`${arquivo}.tmp`, arquivo);
   podar(prefixo);
   return arquivo;
 }
@@ -341,6 +360,30 @@ export async function desfazerUltimaImportacao(): Promise<ModuloExportavel[]> {
   fs.renameSync(arquivo, path.join(path.dirname(arquivo), copia.arquivo.replace(PREFIXO_COPIA, 'desfeita-')));
   podar('desfeita-');
   return copia.modulos;
+}
+
+// ---------- Usado pelo histórico (desfazer) ----------
+
+/** Todo arquivo de dados se chama `<chave>.json`; os de fora do bundle (cofre, galeria…) dão null. */
+export function chaveDoArquivo(arquivo: string): ChaveBundle | null {
+  const chave = arquivo.replace(/\.json$/, '');
+  return Object.prototype.hasOwnProperty.call(GRAVADORES, chave) ? (chave as ChaveBundle) : null;
+}
+
+/** O rótulo que o usuário reconhece ("Postagens" para imagens.json, que mora junto dos vídeos). */
+export function rotuloDaChave(chave: ChaveBundle): string {
+  return EXPORTAVEIS.find((e) => e.chaves.includes(chave))?.rotulo ?? chave;
+}
+
+/** Volta um arquivo a um conteúdo anterior pela mesma `replaceFile` (logo, pela `migrate`) da importação. */
+export async function restaurarChave(chave: ChaveBundle, dados: unknown): Promise<void> {
+  await GRAVADORES[chave](dados);
+  await aguardarEscritas();
+  if (chave === 'explorador') {
+    exploradorService.pararWatchers();
+    exploradorService.iniciarWatchers();
+  }
+  reaplicarAgendamentos();
 }
 
 export function abrirPastaDeCopias(): string {

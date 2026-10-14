@@ -8,9 +8,14 @@
   --text: #f2f3f5;
   --text-muted: #9498a3;
   --text-faint: #5b5f6b;
-  --accent: oklch(0.7 0.15 292);
-  --accent-hover: oklch(0.62 0.16 292);
-  --accent-soft: oklch(0.7 0.15 292 / 0.16);
+  /* Cor de destaque (Ajustes › Aparência): só matiz e croma mudam; a luminosidade é a de
+     cada tema, e é ela que garante o contraste — por isso toda cor escolhida fica legível.
+     O app.ts põe as duas no <html> (core/tema.ts › aplicarAcento); estas são o violeta. */
+  --acento-h: 292;
+  --acento-c: 0.15;
+  --accent: oklch(0.7 var(--acento-c) var(--acento-h));
+  --accent-hover: oklch(0.62 calc(var(--acento-c) + 0.01) var(--acento-h));
+  --accent-soft: oklch(0.7 var(--acento-c) var(--acento-h) / 0.16);
   --accent-text: #fff;
   --font-sans: 'Space Grotesk', -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
@@ -64,9 +69,10 @@
     --text: #16181d;
     --text-muted: #565b67;
     --text-faint: #8a8f9b;
-    --accent: oklch(0.54 0.19 292);
-    --accent-hover: oklch(0.47 0.2 292);
-    --accent-soft: oklch(0.54 0.19 292 / 0.11);
+    /* Mais escuro e mais saturado (0,15 → 0,19 no violeta), com teto para não sair do sRGB. */
+    --accent: oklch(0.54 min(calc(var(--acento-c) * 1.27), 0.2) var(--acento-h));
+    --accent-hover: oklch(0.47 min(calc(var(--acento-c) * 1.33), 0.21) var(--acento-h));
+    --accent-soft: oklch(0.54 min(calc(var(--acento-c) * 1.27), 0.2) var(--acento-h) / 0.11);
     --danger: #dc2626;
     --danger-soft: rgba(220, 38, 38, 0.1);
     /* Mais escuros que no escuro: aqui eles também são cor de texto sobre branco. */
@@ -1152,3 +1158,143 @@ select.md-input {
 }
 
 
+
+/* Item levado pela busca global (ui/destaque.ts): pisca o contorno duas vezes. */
+.is-encontrado {
+  animation: destaque-pulso 1.2s ease-out 2;
+}
+
+@keyframes destaque-pulso {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--accent) 70%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-encontrado {
+    animation: none;
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+/* ---------- Markdown dos cartões (ui/markdown.ts) ---------- */
+
+.mdk {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.mdk > :first-child {
+  margin-top: 0;
+}
+
+.mdk > :last-child {
+  margin-bottom: 0;
+}
+
+.mdk p,
+.mdk ul,
+.mdk ol,
+.mdk blockquote,
+.mdk pre {
+  margin: 0 0 8px;
+}
+
+.mdk ul,
+.mdk ol {
+  padding-left: 20px;
+}
+
+.mdk-titulo {
+  margin: 12px 0 6px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+h3.mdk-titulo {
+  font-size: 15px;
+}
+
+h4.mdk-titulo {
+  font-size: 14px;
+}
+
+h5.mdk-titulo {
+  font-size: 13px;
+}
+
+.mdk-tarefas {
+  padding-left: 2px !important;
+  list-style: none;
+}
+
+.mdk-tarefas li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.mdk-tarefas input {
+  margin-top: 4px;
+  accent-color: var(--accent);
+}
+
+.mdk-tarefas li.is-feita span {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.mdk-code,
+.mdk-pre {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--codigo-texto);
+  background: var(--bg-elevated-2);
+  border-radius: 5px;
+}
+
+.mdk-code {
+  padding: 1px 5px;
+}
+
+.mdk-pre {
+  padding: 8px 10px;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.mdk-citacao {
+  padding-left: 10px;
+  color: var(--text-muted);
+  border-left: 3px solid var(--border);
+}
+
+.mdk-link {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* [[Título]]: sólido quando liga a algo, tracejado quando ainda não existe. */
+.mdk-wiki {
+  padding: 0 2px;
+  font: inherit;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.mdk-wiki.is-sem-alvo {
+  color: var(--text-muted);
+  background: transparent;
+  border-bottom: 1px dashed var(--text-faint);
+  border-radius: 0;
+}

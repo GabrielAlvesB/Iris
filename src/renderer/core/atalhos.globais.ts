@@ -4,6 +4,7 @@ import { ligarAtalhos } from './atalhos.js';
 import { abrirModulo, avancarModulo, voltarModulo } from './navegacao.js';
 import { abrirBuscaRapida, definirFixado, estaFixado } from './sidebar.js';
 import { alternarTema } from './tema.js';
+import { desfazerUltima } from './historico.js';
 
 /**
  * Quem executa os atalhos que valem no app inteiro: busca, ajuda, painel,
@@ -15,10 +16,12 @@ export function ligarAtalhosGlobais(): void {
   ligarAtalhos({
     ...irPara,
     'geral.busca': () => void abrirBuscaRapida(),
+    'geral.buscaAlt': () => void abrirBuscaRapida(),
     // A ajuda é carregada no primeiro uso, como a busca.
     'geral.ajuda': () => void import('./atalhos.ajuda.js').then((m) => m.abrirAjudaAtalhos()),
     'geral.fixar': () => definirFixado(!estaFixado()),
     'geral.tema': () => void alternarTema().catch(() => undefined),
+    'geral.desfazer': () => void desfazerUltima(),
     'geral.voltar': () => voltarModulo(),
     'geral.avancar': () => avancarModulo(),
   });

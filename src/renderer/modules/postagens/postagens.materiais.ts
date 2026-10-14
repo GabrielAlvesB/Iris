@@ -89,7 +89,7 @@ function buildLinha(recurso: RecursoDetalhado, remover: () => void, aviso: (e: u
       ),
     );
   }
-  linha.appendChild(botao('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>', 'Desanexar desta postagem', remover));
+  linha.appendChild(botao('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>', 'Desanexar (o arquivo continua na pasta)', remover));
   return linha;
 }
 
@@ -271,7 +271,17 @@ function abrirSeletor(video: ComMateriais, salvar: SalvarRecursos): void {
 }
 
 /** Usada pelos painéis de todos os tipos de postagem. */
-export function buildMateriais(video: ComMateriais, salvar: SalvarRecursos, extra?: HTMLElement): HTMLElement {
+/**
+ * `soBiblioteca`: cards e checklists ligam só arquivos das pastas monitoradas
+ * (por id, sem cópia) — "Anexar" abre direto o seletor da Biblioteca.
+ */
+export interface OpcoesMateriais {
+  soBiblioteca?: boolean;
+  titulo?: string;
+  vazio?: string;
+}
+
+export function buildMateriais(video: ComMateriais, salvar: SalvarRecursos, extra?: HTMLElement, opcoes: OpcoesMateriais = {}): HTMLElement {
   const campo = document.createElement('div');
   campo.className = 'vd-campo';
 
@@ -282,15 +292,17 @@ export function buildMateriais(video: ComMateriais, salvar: SalvarRecursos, extr
   marca.className = 'vd-p-secao-icone';
   marca.innerHTML = svg(ICONES_VIDEO.clipe, 13, 2);
   const rotulo = document.createElement('h3');
-  rotulo.textContent = 'Materiais';
+  rotulo.textContent = opcoes.titulo ?? 'Materiais';
   cabeca.appendChild(marca);
   // Um botão só com as duas origens num menu: dois botões lado a lado não
   // cabiam no painel lateral junto do "Thumbnail com IA".
-  const anexar = buildBotao('Anexar', { icone: ICONE_MAIS, variante: 'fantasma', titulo: 'Anexar do computador ou da Biblioteca' });
+  const anexar = buildBotao('Anexar', { icone: ICONE_MAIS, variante: 'fantasma', titulo: opcoes.soBiblioteca ? 'Ligar arquivos da Biblioteca' : 'Anexar do computador ou da Biblioteca' });
   anexar.classList.add('is-mini', 'vd-materiais-anexar');
   anexar.setAttribute('aria-haspopup', 'menu');
   anexar.addEventListener('click', () =>
-    abrirMenuIa(anexar, [
+    opcoes.soBiblioteca
+      ? abrirSeletor(video, salvar)
+      : abrirMenuIa(anexar, [
       {
         rotulo: 'Do computador',
         dica: 'Qualquer pasta. O Iris guarda uma cópia: apagar o original não afeta a postagem.',
@@ -328,7 +340,7 @@ export function buildMateriais(video: ComMateriais, salvar: SalvarRecursos, extr
     if (recursos.length === 0 && video.anexos.length === 0) {
       const vazio = document.createElement('span');
       vazio.className = 'vd-vazio-inline';
-      vazio.textContent = 'Banner, thumbnail, roteiro, arquivos de edição… anexe do computador ou da Biblioteca.';
+      vazio.textContent = opcoes.vazio ?? 'Banner, thumbnail, roteiro, arquivos de edição… anexe do computador ou da Biblioteca.';
       lista.appendChild(vazio);
       return;
     }
@@ -345,7 +357,8 @@ export function buildMateriais(video: ComMateriais, salvar: SalvarRecursos, extr
   // Desenha com o cache na hora; se ainda não há cache ou falta algum id, lê de novo.
   desenhar();
   const faltando = video.recursoIds.some((id) => !cache?.recursos.some((r) => r.id === id));
-  if (!cache || faltando) {
+  // Cards e checklists abrem pouco a seção: relê sempre, para um arquivo movido aparecer como "não encontrado".
+  if (!cache || faltando || (opcoes.soBiblioteca && video.recursoIds.length)) {
     void carregar(true).then((bib) => {
       bibAtual = bib;
       desenhar();

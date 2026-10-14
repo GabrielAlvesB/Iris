@@ -31,6 +31,8 @@ export interface AtalhoFixo {
  * Tutorial e Ajustes ficam nas teclas que todo programa usa (F1 e Ctrl+,).
  */
 const IR_PARA: Record<ModuloId, Combo> = {
+  // D de "dia": H já é do GitHub.
+  hoje: 'G D',
   kanban: 'G K',
   todo: 'G T',
   contatos: 'G C',
@@ -68,19 +70,31 @@ export function idIrPara(modulo: ModuloId): string {
 }
 
 export const CATALOGO_ATALHOS: readonly DefinicaoAtalho[] = [
-  { id: 'geral.busca', rotulo: 'Busca rápida', grupo: GRUPO_GERAL, padrao: 'Ctrl+P' },
+  { id: 'geral.busca', rotulo: 'Buscar e executar comandos', grupo: GRUPO_GERAL, padrao: 'Ctrl+K' },
+  // A tecla de antes continua: quem se acostumou com o Ctrl+P não perde nada.
+  { id: 'geral.buscaAlt', rotulo: 'Buscar (tecla alternativa)', grupo: GRUPO_GERAL, padrao: 'Ctrl+P' },
   { id: 'geral.ajuda', rotulo: 'Ver todos os atalhos', grupo: GRUPO_GERAL, padrao: 'Shift+?' },
   { id: 'geral.fixar', rotulo: 'Fixar ou soltar o painel da barra lateral', grupo: GRUPO_GERAL, padrao: 'Ctrl+B' },
   { id: 'geral.tema', rotulo: 'Trocar entre tema claro e escuro', grupo: GRUPO_GERAL, padrao: 'Ctrl+Shift+L' },
+  { id: 'geral.desfazer', rotulo: 'Desfazer a última alteração (exclusão, edição…)', grupo: GRUPO_GERAL, padrao: 'Alt+Z' },
+  { id: 'pomodoro.pausar', rotulo: 'Foco (Pomodoro): pausar ou continuar', grupo: GRUPO_GERAL, padrao: '' },
+  { id: 'pomodoro.parar', rotulo: 'Foco (Pomodoro): parar e guardar o tempo', grupo: GRUPO_GERAL, padrao: '' },
   { id: 'geral.voltar', rotulo: 'Voltar ao módulo anterior', grupo: GRUPO_GERAL, padrao: 'Alt+Left' },
   { id: 'geral.avancar', rotulo: 'Avançar (depois de voltar)', grupo: GRUPO_GERAL, padrao: 'Alt+Right' },
   ...MODULOS.map((m) => ({ id: idIrPara(m.id), rotulo: m.rotulo, grupo: GRUPO_NAVEGACAO, padrao: IR_PARA[m.id] })),
-  { id: 'kanban.novo', rotulo: 'Novo card', grupo: rotuloDoModulo('kanban'), padrao: 'Ctrl+K', escopo: 'kanban' },
+  // Ctrl+K era o "Novo card" até a busca global ganhar a tecla; Ctrl+N é o "novo" de todo programa.
+  { id: 'kanban.novo', rotulo: 'Novo card', grupo: rotuloDoModulo('kanban'), padrao: 'Ctrl+N', escopo: 'kanban' },
   { id: 'todo.novo', rotulo: 'Nova checklist (foca o campo)', grupo: rotuloDoModulo('todo'), padrao: 'N', escopo: 'todo' },
   { id: 'pensamentos.novo', rotulo: 'Novo post-it', grupo: rotuloDoModulo('pensamentos'), padrao: 'N', escopo: 'pensamentos' },
-  { id: 'pensamentos.buscar', rotulo: 'Buscar', grupo: rotuloDoModulo('pensamentos'), padrao: 'Ctrl+K', escopo: 'pensamentos' },
+  { id: 'pensamentos.buscar', rotulo: 'Buscar nos post-its', grupo: rotuloDoModulo('pensamentos'), padrao: 'Ctrl+F', escopo: 'pensamentos' },
   { id: 'ia.gerar', rotulo: 'Gerar a imagem', grupo: rotuloDoModulo('ia'), padrao: 'Ctrl+Enter', escopo: 'ia' },
-  { id: 'links.buscar', rotulo: 'Buscar', grupo: rotuloDoModulo('links'), padrao: 'Ctrl+K', escopo: 'links' },
+  { id: 'links.buscar', rotulo: 'Buscar nos links', grupo: rotuloDoModulo('links'), padrao: 'Ctrl+F', escopo: 'links' },
+  // Sem tecla padrão: existem para a paleta (Ctrl+K › "nova pessoa"); quem quiser dá uma tecla em Ajustes.
+  { id: 'postagens.novo', rotulo: 'Nova postagem (do tipo aberto)', grupo: rotuloDoModulo('postagens'), padrao: '', escopo: 'postagens' },
+  { id: 'postagens.novaIdeia', rotulo: 'Nova ideia (banco de ideias)', grupo: rotuloDoModulo('postagens'), padrao: '', escopo: 'postagens' },
+  { id: 'roteiros.novo', rotulo: 'Novo roteiro', grupo: rotuloDoModulo('roteiros'), padrao: '', escopo: 'roteiros' },
+  { id: 'contatos.novaPessoa', rotulo: 'Nova pessoa', grupo: rotuloDoModulo('contatos'), padrao: '', escopo: 'contatos' },
+  { id: 'contatos.novaEmpresa', rotulo: 'Nova empresa', grupo: rotuloDoModulo('contatos'), padrao: '', escopo: 'contatos' },
   { id: 'roteiros.salvar', rotulo: 'Salvar agora (no estúdio)', grupo: rotuloDoModulo('roteiros'), padrao: 'Ctrl+S', escopo: 'roteiros' },
 ];
 

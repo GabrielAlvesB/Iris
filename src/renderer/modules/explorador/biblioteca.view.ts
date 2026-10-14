@@ -238,9 +238,16 @@ function buildColecoes(state: ExploradorViewState, redesenhar: () => void): HTML
   return lateral;
 }
 
+/** Busca global: mostra tudo (sem coleção nem filtro) para o recurso pedido aparecer. */
+export function mostrarTudoNaBiblioteca(): void {
+  filtroColecao = 'tudo';
+  buscaLocal = '';
+}
+
 function buildCartao(recurso: RecursoDetalhado, colecoes: Colecao[]): HTMLElement {
   const cartao = document.createElement('article');
   cartao.className = 'bb-cartao';
+  cartao.dataset.id = recurso.id;
   cartao.classList.toggle('is-indisponivel', recurso.situacao !== 'ok');
   cartao.tabIndex = 0;
 

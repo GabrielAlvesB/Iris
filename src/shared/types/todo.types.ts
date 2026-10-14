@@ -1,3 +1,4 @@
+import type { SessaoFoco } from './pomodoro.types';
 import type { BaseEntity } from './common.types';
 
 /**
@@ -50,6 +51,12 @@ export interface Checklist extends BaseEntity {
   ordem: number;
   arquivada: boolean;
   envio?: EnvioKanban;
+  /** Sessões de foco do Pomodoro (o total é sempre a soma). */
+  tempo?: SessaoFoco[];
+  /** Arquivos da Biblioteca ligados à checklist (por id). */
+  recursoIds?: string[];
+  /** Descrição lida como Markdown (desligado = texto puro). */
+  markdown?: boolean;
 }
 
 export interface TodoFile {
@@ -71,6 +78,8 @@ export interface CriarChecklistInput {
 /** String vazia em prioridade/prazo limpa o valor (undefined não sobrevive bem ao IPC). */
 export interface AtualizarChecklistInput {
   checklistId: string;
+  recursoIds?: string[];
+  markdown?: boolean;
   titulo?: string;
   descricao?: string;
   cor?: string;

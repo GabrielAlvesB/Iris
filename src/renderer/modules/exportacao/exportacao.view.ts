@@ -12,11 +12,13 @@ import type {} from '../../../shared/types/preload-api.types';
 import { openConfirmModal, openCustomModal } from '../../ui/modal.js';
 import { ICONES, buildBotao, svg } from '../../ui/pagina.js';
 import { ICONE_DO_MODULO } from '../../core/sidebar.js';
+import { buildBackupAutomatico, destroyBackupAutomatico } from './exportacao.automatico.js';
 
 /**
- * Ajustes › Backup. Três partes: o backup completo, cada módulo separado
- * (JSON para restaurar, planilha para ler fora do Iris) e a importação — que
- * sempre mostra o que o arquivo traz e guarda uma cópia antes de substituir.
+ * Ajustes › Backup. Quatro partes: o backup completo, o automático numa pasta
+ * escolhida, cada módulo separado (JSON para restaurar, planilha para ler fora
+ * do Iris) e a importação — que sempre mostra o que o arquivo traz e guarda uma
+ * cópia antes de substituir. Restaurar um backup automático usa a mesma prévia.
  */
 
 const ICONE_PLANILHA = '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/>';
@@ -282,12 +284,16 @@ function buildSeguranca(copia: CopiaDeSeguranca | null): HTMLElement {
   return secao;
 }
 
+/** A seção automática se redesenha sozinha (push): sobrevive ao redesenho do resto. */
+let automatico: HTMLElement | null = null;
+
 function desenhar(resumos: ResumoExportavel[] | null, copia: CopiaDeSeguranca | null): void {
   if (!raiz) return;
+  automatico ??= buildBackupAutomatico(abrirPrevia);
   statusEl = el('p', 'bk-status');
   statusEl.setAttribute('role', 'status');
   statusEl.hidden = true;
-  raiz.replaceChildren(buildCompleto(), statusEl, buildModulos(resumos), buildSeguranca(copia));
+  raiz.replaceChildren(buildCompleto(), statusEl, automatico, buildModulos(resumos), buildSeguranca(copia));
 }
 
 export function render(container: HTMLElement): void {
@@ -305,6 +311,8 @@ export function render(container: HTMLElement): void {
  * escreveria num nó já removido depois que o usuário troca de seção.
  */
 export function destroy(): void {
+  destroyBackupAutomatico();
+  automatico = null;
   raiz = null;
   statusEl = null;
 }

@@ -28,7 +28,8 @@ function pilha(): HTMLElement {
   return el;
 }
 
-export function mostrarToast(texto: string, acoes: AcaoToast[] = [], duracaoMs = 7000): void {
+/** Devolve como fechar antes da hora (ex.: o "Desfazer" ficou sem efeito). */
+export function mostrarToast(texto: string, acoes: AcaoToast[] = [], duracaoMs = 7000): () => void {
   const toast = document.createElement('div');
   toast.className = 'toast';
   const icone = document.createElement('span');
@@ -71,4 +72,5 @@ export function mostrarToast(texto: string, acoes: AcaoToast[] = [], duracaoMs =
   toast.addEventListener('mouseleave', agendar);
   agendar();
   pilha().appendChild(toast);
+  return fechar;
 }

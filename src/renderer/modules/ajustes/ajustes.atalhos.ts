@@ -254,7 +254,7 @@ export function buildSecaoAtalhos(painel: HTMLElement): HTMLElement {
   const nota = document.createElement('p');
   nota.className = 'aj-at-nota';
   nota.textContent =
-    'Com o foco num campo de texto, só valem os atalhos com Ctrl ou Alt (e as teclas F). Atalhos de um módulo só valem com ele aberto — por isso o Ctrl+K pode ser uma coisa no Kanban e outra nos Links.';
+    'Com o foco num campo de texto, só valem os atalhos com Ctrl ou Alt (e as teclas F). Atalhos de um módulo só valem com ele aberto — por isso a mesma tecla pode ser uma coisa no Kanban e outra nos Links. E se você der a uma ação de módulo a tecla de uma ação geral, dentro do módulo vale a dele.';
 
   corpo.append(nota, barra, lista);
   desenhar();

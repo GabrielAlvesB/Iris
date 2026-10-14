@@ -7,6 +7,9 @@ import type {
 } from '../../../shared/types/quadro.types';
 import * as quadroState from './quadro.state.js';
 import * as kanbanState from '../kanban/kanban.state.js';
+import { consumirItemPendente } from '../../core/navegacao.js';
+import { destacarItem } from '../../ui/destaque.js';
+import { hojeLocal } from '../../../shared/types/brasil.js';
 import { ICONES_MODAL, openFormModal, promptText, openConfirmModal } from '../../ui/modal.js';
 
 interface Rect {
@@ -192,6 +195,19 @@ function fitToView(): void {
   };
   applyCanvasTransform();
   schedulePersistViewport();
+}
+
+/** Busca global: põe o bloco no centro da tela (zoom de no mínimo 100%) e o seleciona. */
+function focarBloco(blockId: string): void {
+  const r = blockRects.get(blockId);
+  if (!viewportEl || !r) return;
+  const tela = viewportEl.getBoundingClientRect();
+  const zoom = clamp(Math.max(currentViewport.zoom, 1), MIN_ZOOM, MAX_ZOOM);
+  currentViewport = { zoom, x: tela.width / 2 - (r.x + r.width / 2) * zoom, y: tela.height / 2 - (r.y + r.height / 2) * zoom };
+  applyCanvasTransform();
+  schedulePersistViewport();
+  selectBlock(blockId);
+  destacarItem(() => canvasEl?.querySelector<HTMLElement>(`[data-block-id="${CSS.escape(blockId)}"]`) ?? null);
 }
 
 function schedulePersistViewport(): void {
@@ -979,15 +995,19 @@ function buildBlockElement(block: QuadroBlock): HTMLElement {
     footer.className = 'quadro-block-footer quadro-routine-footer';
 
     const streak = block.streakCount ?? 0;
+    // Mesma regra da tela Hoje: marca o dia de hoje (uma vez só) e mexe no 🔥 junto.
+    const hoje = hojeLocal();
+    const feitaHoje = block.rotinaFeitaEm === hoje;
     const streakBtn = document.createElement('button');
     streakBtn.type = 'button';
-    streakBtn.className = 'quadro-routine-streak';
-    streakBtn.textContent = `🔥 ${streak} dia${streak === 1 ? '' : 's'}`;
-    streakBtn.title = 'Marcar mais um dia seguido (+1)';
+    streakBtn.className = `quadro-routine-streak${feitaHoje ? ' is-feita' : ''}`;
+    streakBtn.textContent = `${feitaHoje ? '✓ feita hoje · ' : ''}🔥 ${streak} dia${streak === 1 ? '' : 's'}`;
+    streakBtn.title = feitaHoje ? 'Desmarcar a de hoje (−1)' : 'Marcar como feita hoje (+1)';
+    streakBtn.setAttribute('aria-pressed', String(feitaHoje));
     streakBtn.addEventListener('mousedown', (e) => e.stopPropagation());
     streakBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      void quadroState.updateBlock({ blockId: block.id, streakCount: streak + 1 });
+      void quadroState.marcarRotina({ blockId: block.id, data: hoje, feita: !feitaHoje });
     });
     footer.appendChild(streakBtn);
 
@@ -1270,6 +1290,10 @@ export function render(container: HTMLElement, state: QuadroFile): void {
     },
     { passive: false },
   );
+
+  const pedido = consumirItemPendente('quadro', (p) => state.blocks.some((b) => b.id === p.id));
+  // Depois do layout: o centro depende do tamanho da tela já montada.
+  if (pedido) requestAnimationFrame(() => focarBloco(pedido.id));
 }
 
 export function destroy(): void {

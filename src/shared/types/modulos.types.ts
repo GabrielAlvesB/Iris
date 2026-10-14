@@ -18,7 +18,7 @@ export type CategoriaId = (typeof CATEGORIAS)[number]['id'];
 
 /**
  * `topo` e `rodape` ficam fora das categorias: são áreas independentes do resto
- * (Kanban e To-do são o trabalho diário; Tutorial e Ajustes são do app em si).
+ * (Hoje, Kanban e To-do são o trabalho diário; Tutorial e Ajustes são do app em si).
  */
 export type PosicaoModulo = 'topo' | CategoriaId | 'rodape';
 
@@ -31,6 +31,7 @@ export interface ModuloDescritor {
 }
 
 export const MODULOS = [
+  { id: 'hoje', rotulo: 'Home', posicao: 'topo', descricao: 'Seu dia: prazos, postagens e rotinas de todos os módulos' },
   { id: 'kanban', rotulo: 'Kanban', posicao: 'topo', descricao: 'Cards em colunas, do a fazer ao feito' },
   { id: 'todo', rotulo: 'To-do', posicao: 'topo', descricao: 'Checklists rápidas do dia a dia' },
   { id: 'contatos', rotulo: 'Contatos', posicao: 'relacionamento', descricao: 'Pessoas, empresas, funil e contratos' },
@@ -58,7 +59,8 @@ export const MODULOS = [
 
 export type ModuloId = (typeof MODULOS)[number]['id'];
 
-export const MODULO_PADRAO: ModuloId = 'kanban';
+/** Instalação nova abre no Hoje; quem já escolheu um módulo inicial (gravado em ajustes.json) continua nele. */
+export const MODULO_PADRAO: ModuloId = 'hoje';
 
 export function isModuloId(valor: unknown): valor is ModuloId {
   return typeof valor === 'string' && MODULOS.some((m) => m.id === valor);

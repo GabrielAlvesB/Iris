@@ -1,7 +1,9 @@
 import * as exploradorState from './explorador.state.js';
 import type { ExploradorViewState } from './explorador.state.js';
 import { buildAviso, buildBotao, buildCabecalho, buildSegmentado, focarBusca } from '../../ui/pagina.js';
-import { ICONES_BIBLIOTECA, buildAbaBiblioteca, buildAbaBusca, buildAbaRecentes, limparBiblioteca } from './biblioteca.view.js';
+import { ICONES_BIBLIOTECA, buildAbaBiblioteca, buildAbaBusca, buildAbaRecentes, limparBiblioteca, mostrarTudoNaBiblioteca } from './biblioteca.view.js';
+import { consumirItemPendente } from '../../core/navegacao.js';
+import { destacarItem } from '../../ui/destaque.js';
 import { buildPastas, limparPastas } from './explorador.pastas.js';
 
 /**
@@ -27,6 +29,13 @@ function trocarAba(nova: Aba): void {
 
 export function render(container: HTMLElement, state: ExploradorViewState): void {
   containerAtual = container;
+  // Busca global: aba Biblioteca, sem filtro, e leva até o cartão do arquivo.
+  const pedido = consumirItemPendente('explorador', (p) => !!state.biblioteca?.recursos.some((r) => r.id === p.id));
+  if (pedido) {
+    aba = 'biblioteca';
+    mostrarTudoNaBiblioteca();
+    destacarItem(() => container.querySelector<HTMLElement>(`.bb-cartao[data-id="${CSS.escape(pedido.id)}"]`));
+  }
   // A tela é redesenhada inteira; se a digitação estava numa busca, o foco volta para ela.
   const ativo = document.activeElement instanceof HTMLInputElement && container.contains(document.activeElement) ? document.activeElement : null;
   const seletorComFoco = ativo?.closest('.pg-busca') ? '.pg-busca input' : ativo?.classList.contains('explorador-filtro') ? '.explorador-filtro' : null;

@@ -12,6 +12,13 @@ export interface QuadroBlock extends BaseEntity {
   routineDays?: number[];
   routineTime?: string;
   streakCount?: number;
+  /**
+   * Rotina: o último dia (AAAA-MM-DD local) em que foi feita. É o que a tela
+   * Hoje lê para tirar a rotina da lista do dia; o 🔥 continua sendo o contador.
+   */
+  rotinaFeitaEm?: string;
+  /** Rotina: os dias (AAAA-MM-DD) em que foi feita, os últimos 120 — a revisão da semana conta por eles. */
+  feitasEm?: string[];
   x: number;
   y: number;
   width: number;
@@ -52,6 +59,13 @@ export interface CreateBlockInput {
   width?: number;
   height?: number;
   color?: string;
+}
+
+export interface MarcarRotinaInput {
+  blockId: string;
+  /** AAAA-MM-DD local do dia marcado. */
+  data: string;
+  feita: boolean;
 }
 
 export interface UpdateBlockInput {

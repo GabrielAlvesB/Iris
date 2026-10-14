@@ -3,6 +3,8 @@ import { normalizar } from '../../../shared/types/videos.conversao.js';
 import { escalaDaPostagem } from '../../../shared/types/score.types.js';
 import { consumirPedidoPostagem, onPostagemSolicitada, type PedidoPostagem } from '../../core/navegacao.js';
 import { createPushBinding } from '../../core/pushBinding.js';
+import { ligarAtalhos } from '../../core/atalhos.js';
+import { buildIdeias, esquecerIdeias, focarNovaIdeia } from './postagens.ideias.js';
 import { openAvisoModal, mensagemDeErro } from '../../ui/modal.js';
 import {
   buildBotao,
@@ -46,7 +48,7 @@ import {
  * vídeo ou imagem.
  */
 
-type Modo = 'pipeline' | 'calendario' | 'agenda' | 'metricas';
+type Modo = 'pipeline' | 'calendario' | 'agenda' | 'metricas' | 'ideias';
 /** '' = qualquer; 'com' = qualquer prioridade marcada. */
 type FiltroPrioridade = '' | 'com' | Prioridade;
 
@@ -81,6 +83,7 @@ const ultimoAberto = new Map<TipoPostagem, string>();
 /** Onde o card em foco estava no último desenho — para segui-lo se ele mudar de etapa. */
 let posicaoFoco: { tipo: TipoPostagem; id: string; status: string; indice: number } | null = null;
 let pararDePedir: (() => void) | null = null;
+let desligarAtalhos: (() => void) | null = null;
 /** Fases da pipeline recolhidas a uma faixa estreita; vale para todos os tipos. */
 let fasesRecolhidas = lerRecolhidas();
 
@@ -205,6 +208,12 @@ function trocarTipo(novo: TipoPostagem): void {
 
 function atenderPedido(pedido: PedidoPostagem): void {
   trocarTipo(pedido.tipo);
+  if (pedido.ideias) {
+    modo = 'ideias';
+    esquecerIdeias();
+    redesenhar();
+    return;
+  }
   if (pedido.arquivados) mostrarArquivados = true;
   if (pedido.id) {
     modo = 'pipeline';
@@ -218,6 +227,8 @@ function atenderPedido(pedido: PedidoPostagem): void {
 
 export function montar(viewRoot: HTMLElement): void {
   containerAtual = viewRoot;
+  // As ideias podem ter mudado fora daqui (post-it mandado de Pensamentos).
+  esquecerIdeias();
   const aoMudar = (): void => {
     redesenhar();
     TIPOS_POSTAGEM.forEach((t) => TIPOS[t.id].sincronizarPainel());
@@ -226,14 +237,23 @@ export function montar(viewRoot: HTMLElement): void {
   pararDePedir = onPostagemSolicitada(atenderPedido);
   push.attach();
   // O catálogo (tags, redes, exibição) está no arquivo de vídeos: carrega antes dos outros tipos.
-  void TIPOS.video
+  const carregado = TIPOS.video
     .carregar()
     .then(() => Promise.all(TIPOS_POSTAGEM.filter((t) => t.id !== 'video').map((t) => TIPOS[t.id].carregar())))
     .then(() => {
       const pedido = consumirPedidoPostagem();
       if (pedido) atenderPedido(pedido);
-    })
-    .catch(falhou);
+    });
+  carregado.catch(falhou);
+  // Da paleta ("Novo vídeo") pode chegar antes dos dados: espera, já no tipo pedido.
+  desligarAtalhos = ligarAtalhos({
+    'postagens.novo': () => void carregado.then(() => TIPOS[tipo].fonte()?.abrirNovo({})).catch(() => undefined),
+    'postagens.novaIdeia': () => {
+      modo = 'ideias';
+      focarNovaIdeia();
+      redesenhar();
+    },
+  });
 }
 
 export function destroy(): void {
@@ -244,6 +264,8 @@ export function destroy(): void {
   });
   pararDePedir?.();
   pararDePedir = null;
+  desligarAtalhos?.();
+  desligarAtalhos = null;
   push.detach();
   containerAtual = null;
 }
@@ -295,25 +317,29 @@ function buildSelect(
   return select;
 }
 
+/** As visões da tela. "Ideias" é o banco de ideias, comum a todos os tipos. */
+function buildSeletorModo(): HTMLElement {
+  return buildSegmentado<Modo>(
+    [
+      { value: 'pipeline', label: 'Pipeline' },
+      { value: 'calendario', label: 'Calendário' },
+      { value: 'agenda', label: 'Agenda' },
+      { value: 'metricas', label: 'Métricas' },
+      { value: 'ideias', label: 'Ideias' },
+    ],
+    modo,
+    (v) => {
+      modo = v;
+      redesenhar();
+    },
+  );
+}
+
 function buildBarra(fonte: Fonte): HTMLElement {
   const barra = document.createElement('div');
   barra.className = 'pg-barra vd-barra';
 
-  barra.appendChild(
-    buildSegmentado<Modo>(
-      [
-        { value: 'pipeline', label: 'Pipeline' },
-        { value: 'calendario', label: 'Calendário' },
-        { value: 'agenda', label: 'Agenda' },
-        { value: 'metricas', label: 'Métricas' },
-      ],
-      modo,
-      (v) => {
-        modo = v;
-        redesenhar();
-      },
-    ),
-  );
+  barra.appendChild(buildSeletorModo());
 
   barra.appendChild(
     buildBusca(filtros.busca, 'Buscar título, #hashtag, #12…', (v) => {
@@ -1104,7 +1130,18 @@ export function render(container: HTMLElement): void {
   );
   tela.appendChild(buildSeletorTipo());
 
-  if (fonte.itens.length === 0) {
+  if (modo === 'ideias') {
+    // O banco de ideias não tem filtros de pipeline: só o seletor de visões.
+    const barra = document.createElement('div');
+    barra.className = 'pg-barra vd-barra';
+    barra.appendChild(buildSeletorModo());
+    tela.append(barra, buildIdeias(redesenhar));
+  } else if (fonte.itens.length === 0) {
+    // Pipeline vazia: o seletor fica, senão a aba Ideias seria inalcançável.
+    const barra = document.createElement('div');
+    barra.className = 'pg-barra vd-barra';
+    barra.appendChild(buildSeletorModo());
+    tela.appendChild(barra);
     const comecar = buildBotao(`${fonte.novoRotulo}`, { icone: ICONES_POSTAGEM.mais, variante: 'primario' });
     comecar.addEventListener('click', () => novo.click());
     tela.appendChild(buildVazio(fonte.icone, `Nenhuma postagem em ${fonte.rotulo} ainda`, fonte.dicaVazio, comecar));

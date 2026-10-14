@@ -1,4 +1,5 @@
-import type { Tema } from '../../shared/types/ajustes.types.js';
+import type { Destaque, Tema } from '../../shared/types/ajustes.types.js';
+import { acentoDoDestaque, type Acento } from '../../shared/types/cor.js';
 
 /**
  * Tema claro/escuro. Quem pinta é o CSS (`@media (prefers-color-scheme: light)`
@@ -30,4 +31,25 @@ export function onTemaMudou(cb: (tema: 'claro' | 'escuro') => void): () => void 
   const ouvir = (): void => cb(temaEfetivo());
   consulta.addEventListener('change', ouvir);
   return () => consulta.removeEventListener('change', ouvir);
+}
+
+// ---------- Cor de destaque ----------
+
+/**
+ * Põe matiz e croma no <html>: o base.css monta --accent e companhia a partir
+ * deles, com a luminosidade de cada tema. Estilo inline no :root ganha da folha.
+ */
+export function aplicarAcento({ h, c }: Acento): void {
+  const raiz = document.documentElement.style;
+  raiz.setProperty('--acento-h', String(h));
+  raiz.setProperty('--acento-c', String(c));
+}
+
+/** Grava e já pinta: a troca vale na hora, em todas as telas. */
+export async function definirDestaque(destaque: Destaque): Promise<Destaque> {
+  aplicarAcento(acentoDoDestaque(destaque));
+  const r = await window.irisAPI.ajustes.setDestaque(destaque);
+  if (!r.ok) throw new Error(r.error);
+  aplicarAcento(acentoDoDestaque(r.data.destaque));
+  return r.data.destaque;
 }

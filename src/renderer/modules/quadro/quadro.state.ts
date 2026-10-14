@@ -1,6 +1,7 @@
 import type {
   CreateBlockInput,
   CreateConnectionInput,
+  MarcarRotinaInput,
   MoveBlockInput,
   QuadroFile,
   QuadroViewport,
@@ -45,6 +46,11 @@ export async function createBlock(input: CreateBlockInput): Promise<void> {
 
 export async function updateBlock(input: UpdateBlockInput): Promise<void> {
   const result = await window.irisAPI.quadro.updateBlock(input);
+  applyAndNotify(unwrap(result));
+}
+
+export async function marcarRotina(input: MarcarRotinaInput): Promise<void> {
+  const result = await window.irisAPI.quadro.marcarRotina(input);
   applyAndNotify(unwrap(result));
 }
 

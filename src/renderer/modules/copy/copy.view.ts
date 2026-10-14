@@ -3,6 +3,8 @@ import * as copyState from './copy.state.js';
 import { promptText, openConfirmModal, openCustomModal, buildSecaoModal, haModalAberto } from '../../ui/modal.js';
 import { campo, erroInline, input, textarea } from '../../ui/campos.js';
 import { buildBotao } from '../../ui/pagina.js';
+import { consumirItemPendente } from '../../core/navegacao.js';
+import { destacarItem } from '../../ui/destaque.js';
 
 const DEFAULT_GROUP = 'Sem grupo';
 const VARIABLES = ['nome', 'data', 'empresa'];
@@ -278,6 +280,12 @@ function attachShortcuts(): void {
 export function render(container: HTMLElement, state: CopyFile): void {
   container.innerHTML = '';
   attachShortcuts();
+  // Busca global: limpa o filtro e leva até o texto pedido.
+  const pedido = consumirItemPendente('copy', (p) => state.snippets.some((s) => s.id === p.id));
+  if (pedido) {
+    searchQuery = '';
+    destacarItem(() => container.querySelector<HTMLElement>(`.copy-card[data-snippet-id="${CSS.escape(pedido.id)}"]`));
+  }
 
   const root = document.createElement('div');
   root.className = 'copy-view';

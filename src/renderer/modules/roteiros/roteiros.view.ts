@@ -9,6 +9,8 @@ import { abrirEstudio, descarregarEstudio, estudioAberto, fecharEstudio, sincron
 import { buildLinhaTempo } from './roteiros.linhaTempo.js';
 import { tituloDoTexto } from './roteiros.markdown.js';
 import * as roteirosState from './roteiros.state.js';
+import { consumirItemPendente } from '../../core/navegacao.js';
+import { ligarAtalhos } from '../../core/atalhos.js';
 
 /**
  * Módulo Roteiros: a lista (quadro por situação ou tabela) e a entrada para o
@@ -25,8 +27,11 @@ let filtroTag: string | null = null;
 
 // ---------- Ciclo de vida ----------
 
+let desligarAtalhos: (() => void) | null = null;
+
 export function montar(viewRoot: HTMLElement): void {
   containerAtual = viewRoot;
+  desligarAtalhos = ligarAtalhos({ 'roteiros.novo': () => abrirNovoRoteiro() });
   roteirosState.onStateChange((file) => {
     if (estudioAberto()) sincronizarEstudio(file);
     else redesenhar();
@@ -41,6 +46,8 @@ export function destroy(): void {
     void descarregarEstudio().finally(fecharEstudio);
   }
   roteirosState.offStateChange();
+  desligarAtalhos?.();
+  desligarAtalhos = null;
   containerAtual = null;
 }
 
@@ -52,6 +59,9 @@ function redesenhar(): void {
   const file = roteirosState.getCurrentState();
   if (!containerAtual || !file || estudioAberto()) return;
   renderLista(containerAtual, file);
+  // Busca global: abre o roteiro pedido direto no estúdio.
+  const pedido = consumirItemPendente('roteiros', (p) => file.roteiros.some((r) => r.id === p.id));
+  if (pedido) abrirNoEstudio(pedido.id);
 }
 
 function abrirNoEstudio(id: string, opcoes: { aba?: 'ia' } = {}): void {

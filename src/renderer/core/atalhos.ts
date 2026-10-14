@@ -1,7 +1,7 @@
 import { normalizarCombo, passoFuncionaDigitando, type Combo } from '../../shared/types/atalhos.types.js';
 import { haModalAberto } from '../ui/modal.js';
 import { CATALOGO_ATALHOS, definicaoDe, type DefinicaoAtalho } from './atalhos.catalogo.js';
-import { moduloAtual } from './navegacao.js';
+import { abrirModulo, moduloAtual } from './navegacao.js';
 
 /**
  * Atalhos de teclado: um ouvinte só, na janela, para o app inteiro. As
@@ -166,6 +166,30 @@ export function ligarAtalhos(mapa: Record<string, Executor>): () => void {
   };
 }
 
+/** O executor da ação já está ligado e vale onde o usuário está agora. */
+export function acaoDisponivel(id: string): boolean {
+  const d = definicaoDe(id);
+  return !!d && ativa(d);
+}
+
+/**
+ * Roda uma ação do catálogo como se a tecla tivesse sido apertada — é assim que
+ * a paleta executa comandos. Ação de módulo abre o módulo antes e espera o
+ * mount ligar o executor (até 4 s; o módulo pode estar sendo carregado).
+ */
+export async function executarAcao(id: string): Promise<boolean> {
+  const d = definicaoDe(id);
+  if (!d) return false;
+  if (d.escopo && moduloAtual() !== d.escopo) abrirModulo(d.escopo);
+  const limite = performance.now() + 4000;
+  while (!ativa(d)) {
+    if (performance.now() > limite) return false;
+    await new Promise((r) => setTimeout(r, 40));
+  }
+  executores.get(id)?.(new KeyboardEvent('keydown'));
+  return true;
+}
+
 export function pausarAtalhos(sim: boolean): void {
   pausado = sim;
   limparPendente();
@@ -175,8 +199,13 @@ function ativa(d: DefinicaoAtalho): boolean {
   return executores.has(d.id) && (!d.escopo || d.escopo === moduloAtual());
 }
 
+/**
+ * A ação do módulo aberto ganha da global com a mesma tecla: quem deu Ctrl+K a
+ * uma ação de um módulo continua com ela ali, e o Ctrl+K da busca vale no resto.
+ */
 function acharAcao(combo: Combo): DefinicaoAtalho | undefined {
-  return CATALOGO_ATALHOS.find((d) => ativa(d) && comboDe(d.id) === combo);
+  const casam = CATALOGO_ATALHOS.filter((d) => ativa(d) && comboDe(d.id) === combo);
+  return casam.find((d) => d.escopo) ?? casam[0];
 }
 
 function comecaSequencia(passo: string): boolean {

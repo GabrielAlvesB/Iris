@@ -1,3 +1,4 @@
+import type { PulsoHome, SugestaoHome } from './home.types';
 import type { IpcResult } from './common.types';
 import type {
   ConferenciaNumero,
@@ -17,6 +18,15 @@ import type { OrigemEventoWa } from './whatsapp.eventos';
 import type { TipoFluxoWa } from './whatsapp.n8n';
 import type { AnexoPostagem, EscolhaDeAnexos, InfoAnexo } from './postagens.types';
 import type { EstadoAtualizacao, InstaladorLocal, VersaoPublicada } from './atualizacao.types';
+import type { BackupNaPasta, EstadoBackupAuto, MudancaBackupAuto } from './backup.types';
+import type { EntradaHistorico } from './historico.types';
+import type { ItemBusca } from './busca.types';
+import type { ConcluirItemDiaInput, DiaHoje } from './hoje.types';
+import type { RevisaoSemana } from './revisao.types';
+import type { ConfigLembretes, EstadoLembretes } from './lembretes.types';
+import type { DuracoesPomodoro, EstadoPomodoro, TarefaFoco } from './pomodoro.types';
+import type { AtualizarIdeiaInput, IdeiasFile, ResultadoVirarPostagem } from './ideias.types';
+import type { TipoPostagem } from './postagens.types';
 import type {
   CreateCardInput,
   CreateColumnInput,
@@ -29,6 +39,7 @@ import type {
 import type {
   CreateBlockInput,
   CreateConnectionInput,
+  MarcarRotinaInput,
   MoveBlockInput,
   QuadroFile,
   QuadroViewport,
@@ -74,7 +85,7 @@ import type {
   GithubSnapshot,
   SalvarGithubConfigInput,
 } from './github.types';
-import type { AjustesInfo, AssinaturaRelatorio, ModuloInicial, PerfilUsuario, Tema } from './ajustes.types';
+import type { AjustesInfo, AssinaturaRelatorio, Destaque, ModuloInicial, PerfilUsuario, Tema } from './ajustes.types';
 import type {
   ArquivarImagemInput,
   AtualizarImagemInput,
@@ -224,6 +235,8 @@ export interface QuadroApi {
   getState(): Promise<IpcResult<QuadroFile>>;
   createBlock(input: CreateBlockInput): Promise<IpcResult<QuadroFile>>;
   updateBlock(input: UpdateBlockInput): Promise<IpcResult<QuadroFile>>;
+  /** Rotina feita ou desfeita num dia (guarda a data e mexe no 🔥 junto). */
+  marcarRotina(input: MarcarRotinaInput): Promise<IpcResult<QuadroFile>>;
   moveBlock(input: MoveBlockInput): Promise<IpcResult<QuadroFile>>;
   deleteBlock(blockId: string): Promise<IpcResult<QuadroFile>>;
   createConnection(input: CreateConnectionInput): Promise<IpcResult<QuadroFile>>;
@@ -304,6 +317,11 @@ export interface AjustesApi {
   /** Só as trocas (id → combinação; '' = sem atalho). */
   setAtalhos(atalhos: Record<string, string>): Promise<IpcResult<AjustesInfo>>;
   setTema(tema: Tema): Promise<IpcResult<AjustesInfo>>;
+  setDestaque(destaque: Destaque): Promise<IpcResult<AjustesInfo>>;
+  /** Liga/desliga o ícone na bandeja (fechar a janela deixa o Iris rodando). */
+  setBandeja(ligada: boolean): Promise<IpcResult<AjustesInfo>>;
+  /** Como a Home chama o usuário ('' = sem apelido). */
+  setApelido(apelido: string): Promise<IpcResult<AjustesInfo>>;
 }
 
 export interface AtualizacaoApi {
@@ -359,6 +377,8 @@ export interface SystemApi {
   plataforma: Plataforma;
   /** Avisa o main que a primeira tela tem conteúdo (medição de abertura). */
   primeiraTela(msDesdeNavegacao: number): void;
+  /** A cor de destaque na abertura (matiz e croma do OKLCH), vinda do main com a janela. */
+  acentoInicial: { h: number; c: number } | null;
 }
 
 export interface LinksApi {
@@ -476,6 +496,77 @@ export interface ExportApi {
   ultimaCopia(): Promise<IpcResult<CopiaDeSeguranca | null>>;
   desfazerImportacao(): Promise<IpcResult<ModuloExportavel[]>>;
   abrirPastaDeCopias(): Promise<IpcResult<void>>;
+}
+
+export interface BackupApi {
+  getEstado(): Promise<IpcResult<EstadoBackupAuto>>;
+  mudarConfig(mudanca: MudancaBackupAuto): Promise<IpcResult<EstadoBackupAuto>>;
+  /** Abre o diálogo de pasta no main. null = cancelado. */
+  escolherPasta(): Promise<IpcResult<EstadoBackupAuto | null>>;
+  fazerAgora(): Promise<IpcResult<EstadoBackupAuto>>;
+  /** Os backups da pasta configurada, do mais recente ao mais antigo. */
+  listar(): Promise<IpcResult<BackupNaPasta[]>>;
+  /** Lê o backup pelo nome e devolve a prévia; daí segue por `export.aplicarImportacao`. */
+  prepararRestauracao(arquivo: string): Promise<IpcResult<PreviaImportacao>>;
+  abrirPasta(): Promise<IpcResult<void>>;
+}
+
+export interface IdeiasApi {
+  getFile(): Promise<IpcResult<IdeiasFile>>;
+  /** Uma ideia por título (colar várias linhas cria várias). */
+  criar(entrada: { titulos: string[]; notas?: string }): Promise<IpcResult<IdeiasFile>>;
+  atualizar(input: AtualizarIdeiaInput): Promise<IpcResult<IdeiasFile>>;
+  excluir(id: string): Promise<IpcResult<IdeiasFile>>;
+  /** Cria o vídeo ou a imagem na primeira etapa e marca a ideia. */
+  virarPostagem(id: string, tipo: TipoPostagem): Promise<IpcResult<ResultadoVirarPostagem>>;
+}
+
+export interface PomodoroApi {
+  getEstado(): Promise<IpcResult<EstadoPomodoro>>;
+  /** Começa um foco nesta tarefa (se havia outro, o que foi feito fica gravado nele). */
+  iniciar(tarefa: TarefaFoco): Promise<IpcResult<EstadoPomodoro>>;
+  pausarOuRetomar(): Promise<IpcResult<EstadoPomodoro>>;
+  /** Para e grava o foco feito até aqui (a partir de 1 minuto). */
+  parar(): Promise<IpcResult<EstadoPomodoro>>;
+  salvarDuracoes(d: DuracoesPomodoro): Promise<IpcResult<EstadoPomodoro>>;
+}
+
+export interface LembretesApi {
+  getEstado(): Promise<IpcResult<EstadoLembretes>>;
+  salvarConfig(config: ConfigLembretes): Promise<IpcResult<EstadoLembretes>>;
+  /** Mostra uma notificação de exemplo agora. */
+  testar(): Promise<IpcResult<void>>;
+}
+
+export interface HojeApi {
+  /** O dia montado na hora a partir do Kanban, To-do, Postagens e Quadro. */
+  getDia(): Promise<IpcResult<DiaHoje>>;
+  /** Card para a última coluna (ou de volta), rotina marcada no dia; devolve o dia de novo. */
+  concluir(input: ConcluirItemDiaInput): Promise<IpcResult<DiaHoje>>;
+  /** A revisão da semana que contém `inicio` (AAAA-MM-DD; vazio = esta semana). */
+  getSemana(inicio?: string): Promise<IpcResult<RevisaoSemana>>;
+  /** Imprime a própria janela (o documento em #impressao) e salva onde o usuário escolher. */
+  exportarPdf(nomeArquivo: string): Promise<IpcResult<FileOpResult>>;
+  /** Constância, caixa de entrada, ideia, lembrança e roteiros; `semente` troca o sorteio ("Outra"). */
+  getPulso(semente?: number): Promise<IpcResult<PulsoHome>>;
+  /** A sugestão do dia guardada (ou o estado: sem IA, ainda não gerada, erro). */
+  getSugestao(): Promise<IpcResult<SugestaoHome>>;
+  /** Pede à IA a sugestão de hoje e guarda. */
+  gerarSugestao(): Promise<IpcResult<SugestaoHome>>;
+}
+
+export interface BuscaApi {
+  /** Tudo o que a busca global encontra, lido na hora dos arquivos. */
+  indice(): Promise<IpcResult<ItemBusca[]>>;
+}
+
+export interface HistoricoApi {
+  /** Mais recente primeiro. */
+  listar(): Promise<IpcResult<EntradaHistorico[]>>;
+  /** Volta o arquivo ao que era antes da entrada; devolve a entrada desfeita. */
+  desfazer(id: string): Promise<IpcResult<EntradaHistorico>>;
+  desfazerUltima(): Promise<IpcResult<EntradaHistorico>>;
+  limpar(): Promise<IpcResult<void>>;
 }
 
 export interface CopyApi {
@@ -636,6 +727,13 @@ export interface IrisApi {
   whatsapp: WhatsappApi;
   documentos: DocumentosApi;
   export: ExportApi;
+  backup: BackupApi;
+  historico: HistoricoApi;
+  busca: BuscaApi;
+  hoje: HojeApi;
+  lembretes: LembretesApi;
+  pomodoro: PomodoroApi;
+  ideias: IdeiasApi;
   links: LinksApi;
   copy: CopyApi;
   pensamentos: PensamentosApi;

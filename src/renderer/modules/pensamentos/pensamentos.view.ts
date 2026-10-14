@@ -8,9 +8,12 @@ import {
   type PensamentosViewport,
 } from '../../../shared/types/pensamentos.types.js';
 import * as pensamentosState from './pensamentos.state.js';
+import { tintaPara } from '../../../shared/types/cor.js';
 import { ICONE_IA, abrirMenuIa, acoesDeTexto, sugerirItensComIa } from '../../ui/ia.js';
 import { comAtalho, ligarAtalhos } from '../../core/atalhos.js';
-import { abrirModulo } from '../../core/navegacao.js';
+import { abrirModulo, abrirPostagem, consumirItemPendente } from '../../core/navegacao.js';
+import { mostrarToast } from '../../ui/toast.js';
+import { destacarItem } from '../../ui/destaque.js';
 import { mensagemDeErro, openAvisoModal, openConfirmModal } from '../../ui/modal.js';
 import { buildBotao, buildBusca, buildCabecalho, svg, tempoRelativo } from '../../ui/pagina.js';
 
@@ -74,19 +77,6 @@ function limitar(valor: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, valor));
 }
 
-/**
- * Tinta legível sobre o papel: a cor é do usuário, então o contraste é
- * decidido pela luminância em vez de assumir papel claro.
- */
-function tintaPara(cor: string): string {
-  const canal = (i: number): number => {
-    const v = parseInt(cor.slice(i, i + 2), 16) / 255;
-    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-  };
-  const luminancia = 0.2126 * canal(1) + 0.7152 * canal(3) + 0.0722 * canal(5);
-  return luminancia > 0.36 ? '#1f1d1a' : '#f7f7f8';
-}
-
 function aplicarTransformacao(): void {
   if (!canvasEl) return;
   canvasEl.style.transform = `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`;
@@ -114,6 +104,18 @@ function telaParaQuadro(clientX: number, clientY: number): { x: number; y: numbe
     x: (clientX - rect.left - viewport.x) / viewport.zoom,
     y: (clientY - rect.top - viewport.y) / viewport.zoom,
   };
+}
+
+/** Busca global: põe o post-it no centro da tela (zoom de no mínimo 100%). */
+function focarPostit(id: string): void {
+  const p = estadoAtual?.pensamentos.find((x) => x.id === id);
+  if (!viewportEl || !p) return;
+  const rect = viewportEl.getBoundingClientRect();
+  const zoom = limitar(Math.max(viewport.zoom, 1), MIN_ZOOM, MAX_ZOOM);
+  viewport = { zoom, x: rect.width / 2 - (p.x + p.largura / 2) * zoom, y: rect.height / 2 - (p.y + p.altura / 2) * zoom };
+  aplicarTransformacao();
+  agendarPersistirViewport();
+  destacarItem(() => elementoDo(id));
 }
 
 function ajustarATela(): void {
@@ -409,6 +411,24 @@ function abrirIaDoPostit(btn: HTMLButtonElement, pensamento: Pensamento): void {
   ], { escolherIa: true });
 }
 
+const ICON_IDEIA = '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2Z"/>';
+
+/** Post-it vira ideia de conteúdo: a primeira linha é o título, o resto vai nas notas. O post-it fica. */
+async function mandarParaIdeias(pensamento: Pensamento): Promise<void> {
+  const linhas = pensamento.texto.trim().split('\n');
+  const titulo = (linhas.shift() ?? '').replace(/^#+\s*/, '').trim();
+  if (!titulo) {
+    await openAvisoModal('Post-it vazio', 'Escreva a ideia no post-it antes de mandá-la para o banco de ideias.');
+    return;
+  }
+  const r = await window.irisAPI.ideias.criar({ titulos: [titulo], notas: linhas.join('\n').trim() });
+  if (!r.ok) {
+    await openAvisoModal('Não deu certo', r.error, { erro: true });
+    return;
+  }
+  mostrarToast(`“${titulo}” foi para o banco de ideias`, [{ rotulo: 'Ver', fazer: () => abrirPostagem({ tipo: 'video', ideias: true }) }]);
+}
+
 function buildPostit(pensamento: Pensamento): HTMLElement {
   const el = document.createElement('article');
   el.className = 'postit';
@@ -457,6 +477,7 @@ function buildPostit(pensamento: Pensamento): HTMLElement {
     ),
   );
   acoes.appendChild(buildAcao('IA: desenvolver, melhorar, virar checklist', ICONE_IA, (btn) => abrirIaDoPostit(btn, pensamento)));
+  acoes.appendChild(buildAcao('Mandar para o banco de ideias (Postagens)', ICON_IDEIA, () => void mandarParaIdeias(pensamento)));
   acoes.appendChild(buildAcao('Excluir', ICON_TRASH, () => void excluir(pensamento), 'is-perigo'));
   barra.appendChild(acoes);
   el.appendChild(barra);
@@ -585,7 +606,7 @@ function aoPressionarGlobal(e: Event): void {
   if (paletaAberta && !paletaAberta.contains(e.target as Node)) fecharPaleta();
 }
 
-/** Esc fecha a paleta de cores; N e Ctrl+K vão pelo registro central (core/atalhos.ts). */
+/** Esc fecha a paleta de cores; Novo e Buscar vão pelo registro central (core/atalhos.ts). */
 function aoTeclar(e: Event): void {
   if ((e as KeyboardEvent).key === 'Escape' && paletaAberta) fecharPaleta();
 }
@@ -714,6 +735,12 @@ export function render(container: HTMLElement, state: PensamentosFile): void {
   containerAtual = container;
   estadoAtual = state;
   fecharPaleta();
+  // Busca global: tira os filtros que poderiam esconder o post-it pedido.
+  const pedido = consumirItemPendente('pensamentos', (p) => state.pensamentos.some((x) => x.id === p.id));
+  if (pedido) {
+    busca = '';
+    tagAtiva = null;
+  }
 
   redesenhando = true;
   container.innerHTML = '';
@@ -807,6 +834,7 @@ export function render(container: HTMLElement, state: PensamentosFile): void {
 
   aplicarTransformacao();
   aplicarFiltro();
+  if (pedido) requestAnimationFrame(() => focarPostit(pedido.id));
 
   if (editandoId) {
     const textarea = elementoDo(editandoId)?.querySelector<HTMLTextAreaElement>('.postit-editor');

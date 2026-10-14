@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { readStore, writeStore } from '../../storage/jsonStore';
+import * as videosService from '../videos/videos.service';
 import type {
   CreateCardInput,
   CreateColumnInput,
@@ -10,6 +11,8 @@ import type {
   ReorderColumnsInput,
   UpdateCardInput,
 } from '../../../shared/types/kanban.types';
+
+import { MAX_SESSOES, migrarIds, migrarSessoes, type SessaoFoco } from '../../../shared/types/pomodoro.types';
 
 const FILE_NAME = 'kanban.json';
 const SCHEMA_VERSION = 1;
@@ -54,7 +57,22 @@ function migrateKanbanFile(raw: unknown): KanbanFile {
     schemaVersion: SCHEMA_VERSION,
     updatedAt: candidate.updatedAt ?? nowIso(),
     boards: boards.map((board) => {
-      const cards = Array.isArray(board.cards) ? board.cards : [];
+      // Os campos novos (tempo, arquivos, markdown, conclusão) entram só se válidos.
+      const cards = (Array.isArray(board.cards) ? board.cards : []).map((c) => {
+        const card = { ...c };
+        const tempo = migrarSessoes(c.tempo);
+        const recursoIds = migrarIds(c.recursoIds);
+        if (tempo) card.tempo = tempo;
+        else delete card.tempo;
+        if (recursoIds) card.recursoIds = recursoIds;
+        else delete card.recursoIds;
+        if (c.markdown === true) card.markdown = true;
+        else delete card.markdown;
+        if (typeof c.concluidoEm !== 'string' || Number.isNaN(Date.parse(c.concluidoEm))) delete card.concluidoEm;
+        // A empresa apagada do catálogo continua aqui como id: a tela só mostra o que ainda existe.
+        if (typeof c.empresaId !== 'string' || !c.empresaId) delete card.empresaId;
+        return card;
+      });
       return {
         ...board,
         columns: Array.isArray(board.columns) ? board.columns : [],
@@ -184,6 +202,14 @@ export async function deleteColumn(columnId: string): Promise<KanbanBoard> {
   return board;
 }
 
+/** Só uma empresa do catálogo único (tag com `empresa: true`) entra num card. */
+function empresaValida(id: unknown): string | undefined {
+  if (typeof id !== 'string' || !id) return undefined;
+  const tag = videosService.getCatalogo().tags.find((t) => t.id === id);
+  if (!tag?.empresa) throw new Error('Essa empresa não existe mais no cadastro. Escolha outra em Detalhes.');
+  return tag.id;
+}
+
 export async function createCard(input: CreateCardInput): Promise<KanbanBoard> {
   const file = loadFile();
   const board = getPrimaryBoard(file);
@@ -197,6 +223,7 @@ export async function createCard(input: CreateCardInput): Promise<KanbanBoard> {
     title: input.title,
     description: input.description,
     tags: input.tags,
+    ...(empresaValida(input.empresaId) ? { empresaId: input.empresaId } : {}),
     priority: input.priority,
     dueDate: input.dueDate,
     assignee: input.assignee,
@@ -226,15 +253,39 @@ export async function updateCard(input: UpdateCardInput): Promise<KanbanBoard> {
   if (input.title !== undefined) card.title = input.title;
   if (input.description !== undefined) card.description = input.description;
   if (input.tags !== undefined) card.tags = input.tags;
+  if (input.empresaId !== undefined) {
+    const empresa = empresaValida(input.empresaId);
+    if (empresa) card.empresaId = empresa;
+    else delete card.empresaId;
+  }
   if (input.priority !== undefined) card.priority = input.priority;
   if (input.dueDate !== undefined) card.dueDate = input.dueDate;
   if (input.assignee !== undefined) card.assignee = input.assignee;
   if (input.subtasks !== undefined) card.subtasks = input.subtasks;
+  if (input.recursoIds !== undefined) {
+    const ids = migrarIds(input.recursoIds);
+    if (ids) card.recursoIds = ids;
+    else delete card.recursoIds;
+  }
+  if (input.markdown !== undefined) {
+    if (input.markdown) card.markdown = true;
+    else delete card.markdown;
+  }
   card.updatedAt = nowIso();
   board.updatedAt = card.updatedAt;
 
   await saveFile(file);
   return board;
+}
+
+/** Uma sessão de foco terminada (Pomodoro). */
+export async function registrarTempo(cardId: string, sessao: SessaoFoco): Promise<void> {
+  const file = loadFile();
+  const card = getPrimaryBoard(file).cards.find((c) => c.id === cardId);
+  // O card pode ter sido apagado durante o foco: a sessão só se perde.
+  if (!card) return;
+  card.tempo = [...(card.tempo ?? []), sessao].slice(-MAX_SESSOES);
+  await saveFile(file);
 }
 
 export async function deleteCard(cardId: string): Promise<KanbanBoard> {
@@ -264,6 +315,10 @@ export async function moveCard(input: MoveCardInput): Promise<KanbanBoard> {
   const fromColumnId = card.columnId;
   card.columnId = input.toColumnId;
   card.updatedAt = nowIso();
+  // Entrar na última coluna é "concluir" (a revisão da semana conta por aqui); sair desfaz.
+  const ultima = [...board.columns].sort((a, b) => a.order - b.order).pop()?.id;
+  if (input.toColumnId === ultima && fromColumnId !== ultima) card.concluidoEm = card.updatedAt;
+  else if (input.toColumnId !== ultima) delete card.concluidoEm;
 
   const targetCards = board.cards
     .filter((c) => c.columnId === input.toColumnId && c.id !== card.id)

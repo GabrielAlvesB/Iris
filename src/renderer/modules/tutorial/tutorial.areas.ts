@@ -47,10 +47,11 @@ export const GUIA_COMECAR: Guia = {
         {
           tipo: 'atalhos',
           itens: [
-            { acao: 'geral.busca', texto: 'Busca rápida: digite o nome de uma área, de uma seção de Ajustes ou de um guia' },
+            { acao: 'geral.busca', texto: 'Busca em tudo: cards, checklists, agenda, arquivos, contatos, áreas e guias — Enter leva direto ao item' },
             { acao: 'ir.postagens', texto: 'G e depois uma letra abre um módulo (aqui, Postagens)' },
             { acao: 'geral.fixar', texto: 'Fixa (ou solta) o painel com todas as áreas ao lado dos ícones' },
             { acao: 'geral.tema', texto: 'Troca entre o tema claro e o escuro' },
+            { acao: 'geral.desfazer', texto: 'Desfaz a última alteração (um card excluído, uma edição…), em qualquer módulo' },
             { acao: 'geral.ajuda', texto: 'Mostra todos os atalhos' },
           ],
         },
@@ -81,11 +82,24 @@ export const GUIA_COMECAR: Guia = {
         },
         {
           tipo: 'aviso',
+          nivel: 'dica',
+          texto:
+            'Para não depender de lembrar: em Backup automático, escolha uma pasta (um HD externo ou uma pasta do Google Drive/OneDrive) e ligue. O Iris faz um backup completo no intervalo escolhido e guarda só as últimas versões — 7, se você não mudar. Cada uma tem "Restaurar…", que mostra o que o arquivo traz antes de trocar qualquer coisa.',
+        },
+        {
+          tipo: 'aviso',
           nivel: 'atencao',
           texto:
             'Senhas, tokens e chaves de IA não vão no backup, de propósito: elas são cifradas com uma chave deste computador e não abririam em outro. Depois de restaurar, cole-as de novo em Ajustes.',
         },
         { tipo: 'abrir', rotulo: 'Abrir Ajustes › Backup', ajustes: 'backup' },
+        {
+          tipo: 'aviso',
+          nivel: 'info',
+          texto:
+            'Apagou algo sem querer? Não precisa do backup: toda exclusão mostra um aviso com "Desfazer", e Ajustes › Histórico guarda as últimas 50 alterações, cada uma com o próprio botão.',
+        },
+        { tipo: 'abrir', rotulo: 'Abrir Ajustes › Histórico', ajustes: 'historico' },
       ],
     },
     {
@@ -144,6 +158,74 @@ export const GUIA_COMECAR: Guia = {
   ],
 };
 
+const GUIA_HOJE: Guia = {
+  id: 'hoje',
+  titulo: 'Home',
+  chamada: 'O seu dia, de todos os módulos, numa tela só.',
+  grupo: 'dia',
+  modulo: 'hoje',
+  resumo:
+    'A primeira tela do Iris. Ela não guarda nada próprio: junta, na hora, o que tem data hoje nos outros módulos — e muda sozinha quando você mexe neles. Clique no seu nome na saudação para escolher como o Iris te chama.',
+  passos: [
+    {
+      id: 'hoje.oque',
+      titulo: 'O que aparece aqui',
+      blocos: [
+        {
+          tipo: 'lista',
+          itens: [
+            'Cards do Kanban com prazo (fora da última coluna)',
+            'Checklists do To-do com prazo, ainda com itens por fazer',
+            'Postagens com data marcada, na ordem do horário',
+            'Rotinas do Quadro marcadas para o dia da semana de hoje',
+          ],
+        },
+        { tipo: 'aviso', nivel: 'dica', texto: 'Para algo entrar na Home, basta dar um prazo ou uma data a ele no próprio módulo.' },
+      ],
+    },
+    {
+      id: 'hoje.concluir',
+      titulo: 'Conclua sem sair daqui',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            'O círculo à esquerda conclui: o card vai para a última coluna do Kanban e a rotina conta mais um dia no 🔥 do Quadro. Checklists e postagens abrem no módulo delas com um clique. O que foi feito sai da agenda e conta no anel de "Progresso do dia".',
+        },
+        {
+          tipo: 'texto',
+          texto: 'A agenda é uma linha do tempo: o que tem horário em ordem, com o "agora" marcado entre o que passou e o que vem; prazos sem horário ficam em "Ao longo do dia". Em cima, o que ficou para trás; ao lado, os próximos três dias.',
+        },
+        { tipo: 'abrir', rotulo: 'Abrir a Home', modulo: 'hoje' },
+      ],
+    },
+    {
+      id: 'hoje.semana',
+      titulo: 'A revisão da semana',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            'A aba Semana junta, de segunda a domingo, o que foi concluído (cards que chegaram à última coluna e checklists terminadas), os prazos que passaram, o que foi publicado, as rotinas feitas nos dias marcados e o tempo de foco do Pomodoro. Use ‹ › para ver outras semanas e "Salvar PDF" para guardar ou mandar.',
+        },
+        { tipo: 'aviso', nivel: 'info', texto: 'Na segunda de manhã, um lembrete avisa que a revisão da semana que passou está pronta (dá para desligar em Ajustes › Notificações).' },
+      ],
+    },
+    {
+      id: 'hoje.lembretes',
+      titulo: 'Lembretes e bandeja',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            'O Iris avisa antes do horário de uma postagem, no horário de cada rotina e uma vez por dia com os prazos de hoje. Os avisos só saem com o Iris aberto: ligue "Ao fechar, continuar na bandeja" em Ajustes › Preferências e ele segue rodando ao lado do relógio, com as tarefas de hoje no menu do ícone.',
+        },
+        { tipo: 'abrir', rotulo: 'Abrir Ajustes › Notificações', ajustes: 'notificacoes' },
+      ],
+    },
+  ],
+};
+
 const GUIA_KANBAN: Guia = {
   id: 'kanban',
   titulo: 'Kanban',
@@ -196,6 +278,20 @@ const GUIA_KANBAN: Guia = {
         { tipo: 'aviso', nivel: 'info', texto: 'Com a IA ligada, o card ganha "Sugerir" nas subtarefas e o botão IA na descrição.' },
       ],
     },
+    {
+      id: 'kanban.extras',
+      titulo: 'Foco, arquivos e Markdown no card',
+      blocos: [
+        {
+          tipo: 'lista',
+          itens: [
+            'Foco: em Detalhes, "Foco de 25 min" começa um Pomodoro no card. O contador fica no canto da tela, e o tempo de cada sessão é guardado no card ("⏱" no quadro) — bom para estimar a próxima vez.',
+            'Arquivos: ligue arquivos das pastas monitoradas da Biblioteca. Eles abrem direto do card, sem cópia; um arquivo movido aparece como "não encontrado".',
+            'Markdown: o botão na Descrição lê o texto com títulos (#), listas, caixas [ ], **negrito**, links e [[Título]] de outro card ou checklist. Desligado, o texto aparece como sempre.',
+          ],
+        },
+      ],
+    },
   ],
 };
 
@@ -235,6 +331,11 @@ const GUIA_TODO: Guia = {
           tipo: 'texto',
           texto:
             'No menu "⋯" da checklist, "Enviar ao Kanban" cria um card na coluna que você escolher, com os itens como subtarefas. A checklist fica marcada como enviada e mostra em que coluna o card está.',
+        },
+        {
+          tipo: 'aviso',
+          nivel: 'dica',
+          texto: 'O mesmo menu tem "Começar foco" (Pomodoro), "Ligar arquivos da Biblioteca" e "Ler a descrição como Markdown" — como nos cards do Kanban.',
         },
         { tipo: 'abrir', rotulo: 'Abrir o To-do', modulo: 'todo' },
       ],
@@ -361,7 +462,7 @@ const GUIA_CONTATOS: Guia = {
           texto:
             'No menu ⋯ do topo da ficha, "Ficha em PDF" monta um documento do contato — dados, empresa, histórico (de um período, se quiser), contratos e observações — com a prévia ao lado e a sua assinatura de Ajustes.',
         },
-        { tipo: 'aviso', nivel: 'dica', texto: 'Ctrl+P encontra qualquer pessoa ou empresa pelo nome e abre a ficha direto, de qualquer lugar do app.' },
+        { tipo: 'atalhos', itens: [{ acao: 'geral.busca', texto: 'Encontra qualquer pessoa ou empresa pelo nome (ou e-mail, telefone, CNPJ) e abre a ficha direto, de qualquer lugar do app' }] },
         { tipo: 'abrir', rotulo: 'Abrir Contatos', modulo: 'contatos' },
       ],
     },
@@ -534,6 +635,17 @@ const GUIA_POSTAGENS: Guia = {
           tipo: 'texto',
           texto:
             'Se suas pautas estão numa planilha, importe-a no Sheets e envie as linhas para Postagens. Cada postagem guarda uma cópia — apagar a planilha depois não afeta nada.',
+        },
+      ],
+    },
+    {
+      id: 'postagens.ideias',
+      titulo: 'O banco de ideias',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            'A aba Ideias guarda ideias de conteúdo soltas, sem compromisso: escreva e Enter (colar várias linhas cria uma por linha). Quando uma amadurecer, "Virar vídeo" ou "Virar imagem" a leva para a primeira etapa da pipeline, com as notas e as tags. Um post-it de Pensamentos também pode ir para cá.',
         },
       ],
     },
@@ -1020,7 +1132,7 @@ const GUIA_ATALHOS: Guia = {
         {
           tipo: 'atalhos',
           itens: [
-            { acao: 'geral.busca', texto: 'Busca rápida: módulos, contatos, seções de Ajustes e guias' },
+            { acao: 'geral.busca', texto: 'Busca em tudo: o conteúdo de todos os módulos, mais seções de Ajustes e guias' },
             { acao: 'geral.ajuda', texto: 'Todos os atalhos, com busca' },
             { acao: 'geral.voltar', texto: 'Volta ao módulo anterior' },
             { acao: 'geral.avancar', texto: 'Avança de novo, depois de voltar' },
@@ -1076,11 +1188,13 @@ const GUIA_AJUSTES: Guia = {
             'n8n, GitHub e Inteligência artificial — as conexões com serviços externos.',
             'Empresas e tags, Escalas de score e Horários padrão — o catálogo usado por Postagens e Relatórios.',
             `Segurança — o ${COFRE} onde ficam senhas e chaves.`,
-            'Aparência — tema escuro, claro ou igual ao Windows.',
-            'Preferências — comportamento geral, como a área que abre ao iniciar.',
+            `Aparência — tema escuro, claro ou igual ${NO_LINUX ? 'ao sistema' : 'ao Windows'}, e a cor de destaque.`,
+            'Preferências — comportamento geral, como a área que abre ao iniciar e continuar na bandeja ao fechar.',
+            'Notificações — os lembretes de postagens, prazos, rotinas e da revisão da semana.',
             'Relatórios — a assinatura do PDF.',
             'Atualizações — versão nova, outra versão ou instalar de um arquivo.',
-            'Backup — exportar e importar seus dados.',
+            'Backup — exportar e importar, e o backup automático numa pasta sua.',
+            'Histórico — desfazer uma exclusão ou edição recente.',
           ],
         },
         { tipo: 'abrir', rotulo: 'Abrir Ajustes', modulo: 'ajustes' },
@@ -1273,6 +1387,7 @@ const GUIA_API_LEADS: Guia = {
 };
 
 export const GUIAS_DAS_AREAS: Guia[] = [
+  GUIA_HOJE,
   GUIA_KANBAN,
   GUIA_TODO,
   GUIA_CONTATOS,

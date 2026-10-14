@@ -13,6 +13,8 @@ import * as contatosLeads from '../modules/contatos/contatos.leads';
 import * as contatosServidor from '../modules/contatos/contatos.servidor';
 import * as whatsappFila from '../modules/whatsapp/whatsapp.fila';
 import * as whatsappReceber from '../modules/whatsapp/whatsapp.receber';
+import * as backupService from '../modules/backup/backup.service';
+import * as lembretesService from '../modules/lembretes/lembretes.service';
 
 /**
  * Raiz de composição das tarefas de fundo — mantém o main.ts sem precisar
@@ -93,6 +95,9 @@ export async function startBackgroundServices(): Promise<void> {
   // Envio para vários: só roda com lote enviando (o "enviando" de antes já foi resolvido em main.ts).
   registerTask(whatsappFila.TAREFA_FILA, 15_000, (signal) => whatsappFila.processarFila(signal));
   whatsappFila.aplicarFila(6_000);
+
+  backupService.iniciarBackupAuto();
+  lembretesService.iniciarLembretes();
 
   exploradorService.iniciarWatchers();
 }

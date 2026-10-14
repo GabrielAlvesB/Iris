@@ -7,6 +7,7 @@ import {
 } from '../../../shared/types/contatos.types.js';
 import { formatarDocumento, formatarTelefone } from '../../../shared/types/brasil.js';
 import { consumirContatoPendente, onContatoSolicitado } from '../../core/navegacao.js';
+import { ligarAtalhos } from '../../core/atalhos.js';
 import { openFormModal } from '../../ui/modal.js';
 import { buildBotao, buildBusca, buildCabecalho, buildSegmentado, buildSelo, buildVazio, svg, type Tom } from '../../ui/pagina.js';
 import { criarCasco, falhou, type CtxContatos } from './contatos.casco.js';
@@ -72,8 +73,29 @@ const casco = criarCasco({
   },
 });
 
-export const montar = casco.montar;
-export const destroy = casco.destroy;
+let desligarAtalhos: (() => void) | null = null;
+
+/** Da paleta, o comando pode chegar antes do arquivo: espera os dados (até 4 s). */
+async function comArquivo(fazer: (file: ContatosFile) => Promise<void>): Promise<void> {
+  const limite = performance.now() + 4000;
+  while (!contatosState.getCurrentState() && performance.now() < limite) await new Promise((r) => setTimeout(r, 40));
+  const file = contatosState.getCurrentState();
+  if (file) await fazer(file);
+}
+
+export function montar(viewRoot: HTMLElement): void {
+  casco.montar(viewRoot);
+  desligarAtalhos = ligarAtalhos({
+    'contatos.novaPessoa': () => void comArquivo(criarPessoa).catch(falhou),
+    'contatos.novaEmpresa': () => void comArquivo(() => criarEmpresa()).catch(falhou),
+  });
+}
+
+export function destroy(): void {
+  desligarAtalhos?.();
+  desligarAtalhos = null;
+  casco.destroy();
+}
 
 function ctx(_file: ContatosFile): CtxContatos {
   return ctxAtual!;

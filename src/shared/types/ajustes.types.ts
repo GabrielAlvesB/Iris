@@ -67,6 +67,35 @@ export function isTema(v: unknown): v is Tema {
   return typeof v === 'string' && TEMAS.some((t) => t.id === v);
 }
 
+/**
+ * Cores de destaque prontas: matiz (h) e croma (c) do OKLCH no tema escuro; o
+ * claro escurece e satura a mesma cor (base.css). Violeta é a cor de sempre.
+ * Na ordem da roda de cores, para a fileira de amostras não parecer aleatória.
+ */
+export const CORES_DESTAQUE = [
+  { id: 'violeta', rotulo: 'Violeta', h: 292, c: 0.15 },
+  { id: 'azul', rotulo: 'Azul', h: 255, c: 0.14 },
+  { id: 'ciano', rotulo: 'Ciano', h: 215, c: 0.11 },
+  { id: 'verde', rotulo: 'Verde', h: 152, c: 0.14 },
+  { id: 'lima', rotulo: 'Lima', h: 128, c: 0.15 },
+  { id: 'ambar', rotulo: 'Âmbar', h: 75, c: 0.14 },
+  { id: 'laranja', rotulo: 'Laranja', h: 50, c: 0.15 },
+  { id: 'vermelho', rotulo: 'Vermelho', h: 25, c: 0.16 },
+  { id: 'rosa', rotulo: 'Rosa', h: 350, c: 0.15 },
+] as const;
+
+export type CorDestaqueId = (typeof CORES_DESTAQUE)[number]['id'];
+
+export function isCorDestaqueId(v: unknown): v is CorDestaqueId {
+  return typeof v === 'string' && CORES_DESTAQUE.some((c) => c.id === v);
+}
+
+/** Uma das prontas, ou "livre" com a cor escolhida no seletor (#rrggbb). */
+export interface Destaque {
+  id: CorDestaqueId | 'livre';
+  hex?: string;
+}
+
 export interface AjustesFile {
   schemaVersion: number;
   updatedAt: string;
@@ -80,7 +109,16 @@ export interface AjustesFile {
    */
   atalhos: Record<string, string>;
   tema: Tema;
+  /** v6. Ausente no arquivo antigo = violeta, a cor de antes. */
+  destaque: Destaque;
+  /** v7. Fechar a janela deixa o Iris na bandeja do sistema (desligado por padrão). */
+  bandeja: boolean;
+  /** v8. Como a Home chama o usuário ("Boa tarde, Gabi"). Vazio = só a saudação. */
+  apelido: string;
 }
+
+/** Cabe numa saudação de uma linha. */
+export const MAX_APELIDO = 40;
 
 export interface AjustesInfo {
   moduloInicial: ModuloInicial;
@@ -93,4 +131,7 @@ export interface AjustesInfo {
   perfil: PerfilUsuario;
   atalhos: Record<string, string>;
   tema: Tema;
+  destaque: Destaque;
+  bandeja: boolean;
+  apelido: string;
 }

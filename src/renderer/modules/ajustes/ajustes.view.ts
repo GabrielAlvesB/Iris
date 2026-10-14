@@ -1,4 +1,5 @@
-import { FORMATOS_ASSINATURA, TEMAS, type AssinaturaRelatorio, type ModuloInicial, type PerfilUsuario } from '../../../shared/types/ajustes.types.js';
+import { CORES_DESTAQUE, FORMATOS_ASSINATURA, MAX_APELIDO, TEMAS, type AssinaturaRelatorio, type Destaque, type ModuloInicial, type PerfilUsuario } from '../../../shared/types/ajustes.types.js';
+import { acentoDoDestaque, hexDoAcento, isHex } from '../../../shared/types/cor.js';
 import { formatarCep, formatarDocumento, formatarTelefone, problemaDoDocumento } from '../../../shared/types/brasil.js';
 
 /** Antes do NAV, que é montado ao carregar o módulo. */
@@ -29,9 +30,11 @@ import * as videosState from '../postagens/videos/videos.state.js';
 import { ICONE_IA } from '../../ui/ia.js';
 import { assinarFixado, definirFixado, estaFixado } from '../../core/sidebar.js';
 import { comAtalho, foiTrocado } from '../../core/atalhos.js';
-import { onTemaMudou } from '../../core/tema.js';
+import { aplicarAcento, onTemaMudou } from '../../core/tema.js';
 import { CATALOGO_ATALHOS } from '../../core/atalhos.catalogo.js';
 import { ICONE_TECLADO, buildSecaoAtalhos } from './ajustes.atalhos.js';
+import { ICONE_HISTORICO, buildSecaoHistorico, destroySecaoHistorico } from './ajustes.historico.js';
+import { ICONE_NOTIFICACOES, buildSecaoNotificacoes, destroySecaoNotificacoes } from './ajustes.notificacoes.js';
 import { ICONES, buildAviso, buildBotao, buildCabecalho, buildSelo, svg, type Tom } from '../../ui/pagina.js';
 import { COFRE } from '../../ui/plataforma.js';
 
@@ -48,10 +51,12 @@ type Secao =
   | 'credenciais'
   | 'aparencia'
   | 'preferencias'
+  | 'notificacoes'
   | 'atalhos'
   | 'relatorios'
   | 'atualizacoes'
-  | 'backup';
+  | 'backup'
+  | 'historico';
 
 let secaoAtiva: Secao = 'n8n';
 /** A seção do último desenho, para saber se a rolagem deve ser mantida. */
@@ -139,6 +144,7 @@ const NAV: ItemNav[] = [
     estado: (s) => ({ texto: TEMAS.find((t) => t.id === s.ajustes.tema)?.rotulo.toLowerCase() ?? 'escuro', tom: 'neutro' }),
   },
   { id: 'preferencias', rotulo: 'Preferências', icone: ICONES.preferencias },
+  { id: 'notificacoes', rotulo: 'Notificações', icone: ICONE_NOTIFICACOES },
   {
     id: 'atalhos',
     rotulo: 'Atalhos de teclado',
@@ -165,6 +171,7 @@ const NAV: ItemNav[] = [
     },
   },
   { id: 'backup', rotulo: 'Backup', icone: ICONES.backup },
+  { id: 'historico', rotulo: 'Histórico', icone: ICONE_HISTORICO },
 ];
 
 function rerender(): void {
@@ -851,8 +858,96 @@ let unsubSidebar: (() => void) | null = null;
 let unsubTema: (() => void) | null = null;
 
 /** Claro, escuro ou igual ao Windows — com uma miniatura de cada um. */
+/**
+ * As amostras desenham a cor como ela fica no tema da tela (a mesma regra do
+ * base.css). Cor livre: o seletor do sistema pré-visualiza ao arrastar e grava
+ * ao soltar — gravar a cada movimento encheria o histórico de alterações.
+ */
+function buildCorDestaque(atual: Destaque, status: ReturnType<typeof buildStatus>): HTMLElement {
+  const bloco = document.createElement('div');
+  bloco.className = 'aj-cor';
+  const titulo = document.createElement('h3');
+  titulo.className = 'aj-cor-titulo';
+  titulo.textContent = 'Cor de destaque';
+  const explica = document.createElement('p');
+  explica.className = 'aj-tema-dica';
+  explica.textContent = 'A cor dos botões principais, das seleções e dos destaques. Cada cor é ajustada para o tema claro e o escuro, para o texto continuar legível.';
+
+  const salvar = (d: Destaque): void => {
+    void ajustesState.setDestaque(d).catch((error: unknown) => status.mostrar(mensagemDe(error), 'erro'));
+  };
+
+  const amostras = document.createElement('div');
+  amostras.className = 'aj-cor-amostras';
+  amostras.setAttribute('role', 'radiogroup');
+  amostras.setAttribute('aria-label', 'Cor de destaque');
+  const marcar = (b: HTMLElement, ativo: boolean): void => {
+    b.classList.toggle('is-ativo', ativo);
+    b.setAttribute('aria-checked', String(ativo));
+    if (ativo) b.innerHTML = svg('<polyline points="20 6 9 17 4 12"/>', 14, 2.6);
+  };
+  CORES_DESTAQUE.forEach((cor) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'aj-cor-amostra';
+    b.setAttribute('role', 'radio');
+    b.setAttribute('aria-label', cor.rotulo);
+    b.title = cor.id === 'violeta' ? `${cor.rotulo} (padrão)` : cor.rotulo;
+    b.style.setProperty('--sw-h', String(cor.h));
+    b.style.setProperty('--sw-c', String(cor.c));
+    marcar(b, atual.id === cor.id);
+    b.addEventListener('click', () => {
+      if (atual.id !== cor.id) salvar({ id: cor.id });
+    });
+    amostras.appendChild(b);
+  });
+
+  // Outra cor: um <input type="color"> dentro da amostra (o seletor nativo do sistema).
+  const livre = document.createElement('label');
+  livre.className = 'aj-cor-amostra is-livre';
+  livre.title = 'Outra cor…';
+  const acentoAtual = acentoDoDestaque(atual);
+  livre.style.setProperty('--sw-h', String(acentoAtual.h));
+  livre.style.setProperty('--sw-c', String(acentoAtual.c));
+  const seletor = document.createElement('input');
+  seletor.type = 'color';
+  seletor.value = atual.id === 'livre' && isHex(atual.hex) ? atual.hex : hexDoAcento(acentoAtual);
+  seletor.setAttribute('aria-label', 'Escolher outra cor de destaque');
+  seletor.addEventListener('input', () => aplicarAcento(acentoDoDestaque({ id: 'livre', hex: seletor.value })));
+  seletor.addEventListener('change', () => salvar({ id: 'livre', hex: seletor.value }));
+  livre.appendChild(seletor);
+  if (atual.id === 'livre') {
+    livre.classList.add('is-ativo');
+    livre.insertAdjacentHTML('beforeend', svg('<polyline points="20 6 9 17 4 12"/>', 14, 2.6));
+  } else {
+    livre.insertAdjacentHTML('beforeend', svg('<path d="M12 5v14"/><path d="M5 12h14"/>', 14, 2.4));
+  }
+  amostras.appendChild(livre);
+
+  const nome = document.createElement('p');
+  nome.className = 'aj-cor-nome';
+  nome.textContent = atual.id === 'livre' ? 'Cor escolhida por você' : `${CORES_DESTAQUE.find((c) => c.id === atual.id)?.rotulo ?? 'Violeta'}${atual.id === 'violeta' ? ' (padrão)' : ''}`;
+
+  // Prévia com as peças reais: botão, seleção, selo e link.
+  const previa = document.createElement('div');
+  previa.className = 'aj-cor-previa';
+  previa.setAttribute('aria-hidden', 'true');
+  const botao = buildBotao('Botão principal', { variante: 'primario', icone: ICONES.check });
+  botao.tabIndex = -1;
+  const selecao = document.createElement('span');
+  selecao.className = 'aj-cor-previa-selecao';
+  selecao.textContent = 'Item selecionado';
+  const link = document.createElement('span');
+  link.className = 'aj-cor-previa-link';
+  link.textContent = 'Um link';
+  previa.append(botao, selecao, buildSelo('Ativo', 'ok'), link);
+
+  bloco.append(titulo, explica, amostras, nome, previa);
+  return bloco;
+}
+
 function buildSecaoAparencia(state: AjustesViewState): HTMLElement {
-  const painel = buildPainel('Aparência', 'O tema do Iris. Vale na hora, em todas as telas; os PDFs saem sempre em papel branco.', ICONE_APARENCIA);
+  const painel = buildPainel('Aparência', 'O tema e a cor de destaque do Iris. Valem na hora, em todas as telas; os PDFs saem sempre em papel branco.', ICONE_APARENCIA);
   const corpo = document.createElement('div');
   corpo.className = 'aj-corpo';
   const grade = document.createElement('div');
@@ -892,6 +987,7 @@ function buildSecaoAparencia(state: AjustesViewState): HTMLElement {
   dica.className = 'aj-tema-dica';
   dica.textContent = comAtalho('Para trocar rápido entre claro e escuro: o sol/lua na barra lateral, logo acima do Tutorial, ou o atalho', 'geral.tema');
   corpo.appendChild(dica);
+  corpo.appendChild(buildCorDestaque(state.ajustes.destaque, status));
   corpo.appendChild(status.el);
   painel.appendChild(corpo);
 
@@ -927,6 +1023,21 @@ function buildSecaoPreferencias(state: AjustesViewState): HTMLElement {
 
   corpo.appendChild(buildCampo('Abrir o Iris em', select, 'A área que aparece primeiro quando o app inicia.'));
 
+  // O mesmo apelido que se edita clicando no nome da saudação, na Home.
+  const apelido = document.createElement('input');
+  apelido.className = 'aj-input';
+  apelido.type = 'text';
+  apelido.maxLength = MAX_APELIDO;
+  apelido.placeholder = 'Ex.: Gabi';
+  apelido.value = state.ajustes.apelido;
+  apelido.addEventListener('change', () => {
+    void ajustesState
+      .setApelido(apelido.value)
+      .then(() => status.mostrar('Salvo', 'ok'))
+      .catch((error: unknown) => status.mostrar(mensagemDe(error), 'erro'));
+  });
+  corpo.appendChild(buildCampo('Como a Home te chama', apelido, 'Aparece na saudação ("Boa tarde, …"). Em branco, só a saudação.'));
+
   // A barra lateral: o painel de categorias abre ao lado (padrão) ou fica fixo.
   const opcaoFixar = buildOpcao(
     'Fixar o painel da barra lateral',
@@ -936,6 +1047,17 @@ function buildSecaoPreferencias(state: AjustesViewState): HTMLElement {
   const interruptorFixar = opcaoFixar.el.querySelector<HTMLButtonElement>('.pg-interruptor');
   interruptorFixar?.addEventListener('click', () => definirFixado(opcaoFixar.valor()));
   corpo.appendChild(opcaoFixar.el);
+
+  // Bandeja: o X só esconde a janela, e o Iris (com os lembretes) segue rodando.
+  const opcaoBandeja = buildOpcao(
+    'Ao fechar, continuar na bandeja',
+    'O X da janela só a esconde: o Iris continua rodando ao lado do relógio, com as tarefas de hoje no menu do ícone e os lembretes chegando. Para fechar de vez, "Sair do Iris" no menu do ícone.',
+    state.ajustes.bandeja,
+  );
+  opcaoBandeja.el.querySelector<HTMLButtonElement>('.pg-interruptor')?.addEventListener('click', () => {
+    void ajustesState.setBandeja(opcaoBandeja.valor()).catch((error: unknown) => status.mostrar(mensagemDe(error), 'erro'));
+  });
+  corpo.appendChild(opcaoBandeja.el);
 
   // Acompanha o botão do próprio painel e o Ctrl+B.
   unsubSidebar?.();
@@ -1159,6 +1281,8 @@ function buildNav(state: AjustesViewState): HTMLElement {
       if (secaoAtiva === item.id) return;
       // A seção de backup mantém uma referência de status; soltar antes de trocar.
       if (secaoAtiva === 'backup') exportacaoView.destroy();
+      if (secaoAtiva === 'historico') destroySecaoHistorico();
+      if (secaoAtiva === 'notificacoes') destroySecaoNotificacoes();
       pararAtualizacao?.();
       pararAtualizacao = null;
       secaoAtiva = item.id;
@@ -1211,11 +1335,15 @@ export function render(container: HTMLElement, state: AjustesViewState): void {
     credenciais: () => buildSecaoCredenciais(state),
     aparencia: () => buildSecaoAparencia(state),
     preferencias: () => buildSecaoPreferencias(state),
+    notificacoes: () =>
+      buildSecaoNotificacoes(
+        buildPainel('Notificações', 'Lembretes do sistema para postagens, prazos e rotinas — o mesmo que aparece na Home.', ICONE_NOTIFICACOES),
+      ),
     atalhos: () =>
       buildSecaoAtalhos(
         buildPainel(
           'Atalhos de teclado',
-          'Ande pelo Iris sem o mouse: G e uma letra abre cada módulo, Ctrl+P busca qualquer coisa. Troque qualquer tecla aqui.',
+          'Ande pelo Iris sem o mouse: G e uma letra abre cada módulo, e a busca encontra qualquer coisa e executa comandos. Troque qualquer tecla aqui.',
           ICONE_TECLADO,
           'atalhos',
         ),
@@ -1224,6 +1352,10 @@ export function render(container: HTMLElement, state: AjustesViewState): void {
     perfil: () => buildSecaoPerfil(state),
     atualizacoes: () => buildSecaoAtualizacoes(),
     backup: () => buildSecaoBackup(),
+    historico: () =>
+      buildSecaoHistorico(
+        buildPainel('Histórico de alterações', 'Desfaça uma exclusão ou edição sem precisar restaurar o backup.', ICONE_HISTORICO),
+      ),
   };
   conteudo.appendChild(secoes[secaoAtiva]());
 
@@ -1248,6 +1380,8 @@ export function destroy(): void {
   unsubTema = null;
   // O statusEl do módulo de exportação sobreviveria ao DOM destruído.
   exportacaoView.destroy();
+  destroySecaoHistorico();
+  destroySecaoNotificacoes();
   pararAtualizacao?.();
   pararAtualizacao = null;
   containerAtual = null;

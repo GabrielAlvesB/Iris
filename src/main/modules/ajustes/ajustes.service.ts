@@ -1,8 +1,11 @@
 import { readStore, writeStore } from '../../storage/jsonStore';
 import { isEncryptionAvailable } from '../../storage/secretStore';
 import {
+  isCorDestaqueId,
   isFormatoAssinatura,
   isTema,
+  MAX_APELIDO,
+  type Destaque,
   type AjustesFile,
   type AjustesInfo,
   type AssinaturaRelatorio,
@@ -13,9 +16,10 @@ import {
 import { MAX_TROCAS_ATALHOS, isIdAtalho, normalizarCombo } from '../../../shared/types/atalhos.types';
 import { enderecoVazio, formatarDocumento, formatarTelefone, lerEndereco } from '../../../shared/types/brasil';
 import { MODULO_PADRAO, isModuloId } from '../../../shared/types/modulos.types';
+import { isHex } from '../../../shared/types/cor';
 
 const FILE_NAME = 'ajustes.json';
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 8;
 
 /** Ids de módulo que mudaram de nome: o módulo inicial salvo acompanha. */
 const MODULOS_RENOMEADOS: Record<string, ModuloInicial> = { videos: 'postagens' };
@@ -46,7 +50,7 @@ function perfilPadrao(): PerfilUsuario {
 }
 
 function createDefaultFile(): AjustesFile {
-  return { schemaVersion: SCHEMA_VERSION, updatedAt: nowIso(), moduloInicial: MODULO_PADRAO, assinatura: assinaturaPadrao(), perfil: perfilPadrao(), atalhos: {}, tema: 'escuro' };
+  return { schemaVersion: SCHEMA_VERSION, updatedAt: nowIso(), moduloInicial: MODULO_PADRAO, assinatura: assinaturaPadrao(), perfil: perfilPadrao(), atalhos: {}, tema: 'escuro', destaque: { id: 'violeta' }, bandeja: false, apelido: '' };
 }
 
 function texto(v: unknown, max = 160): string {
@@ -100,6 +104,12 @@ function migrateAtalhos(raw: unknown): Record<string, string> {
   return saida;
 }
 
+function migrateDestaque(raw: unknown): Destaque {
+  const r = (raw ?? {}) as Partial<Destaque>;
+  if (r.id === 'livre' && isHex(r.hex)) return { id: 'livre', hex: r.hex.toLowerCase() };
+  return { id: isCorDestaqueId(r.id) ? r.id : 'violeta' };
+}
+
 function migrate(raw: unknown): AjustesFile {
   const candidate = (raw ?? {}) as Partial<AjustesFile>;
   const bruto = candidate.moduloInicial as unknown;
@@ -114,7 +124,15 @@ function migrate(raw: unknown): AjustesFile {
     perfil: migratePerfil(candidate.perfil),
     atalhos: migrateAtalhos(candidate.atalhos),
     tema: isTema(candidate.tema) ? candidate.tema : 'escuro',
+    destaque: migrateDestaque(candidate.destaque),
+    bandeja: candidate.bandeja === true,
+    apelido: lerApelido(candidate.apelido),
   };
+}
+
+/** Uma linha só, sem espaços sobrando: vai inteiro no título da Home. */
+function lerApelido(raw: unknown): string {
+  return typeof raw === 'string' ? raw.replace(/\s+/g, ' ').trim().slice(0, MAX_APELIDO) : '';
 }
 
 function loadFile(): AjustesFile {
@@ -135,6 +153,9 @@ export async function getAjustes(): Promise<AjustesInfo> {
     perfil: file.perfil,
     atalhos: file.atalhos,
     tema: file.tema,
+    destaque: file.destaque,
+    bandeja: file.bandeja,
+    apelido: file.apelido,
   };
 }
 
@@ -177,6 +198,38 @@ export async function setTema(tema: Tema): Promise<AjustesInfo> {
   file.tema = tema;
   await saveFile(file);
   return getAjustes();
+}
+
+export async function setDestaque(destaque: unknown): Promise<AjustesInfo> {
+  const d = (destaque ?? {}) as Partial<Destaque>;
+  if (!(d.id === 'livre' ? isHex(d.hex) : isCorDestaqueId(d.id))) throw new Error('Cor inválida.');
+  const file = loadFile();
+  file.destaque = migrateDestaque(d);
+  await saveFile(file);
+  return getAjustes();
+}
+
+export async function setBandeja(ligada: unknown): Promise<AjustesInfo> {
+  const file = loadFile();
+  file.bandeja = ligada === true;
+  await saveFile(file);
+  return getAjustes();
+}
+
+export async function setApelido(apelido: unknown): Promise<AjustesInfo> {
+  const file = loadFile();
+  file.apelido = lerApelido(apelido);
+  await saveFile(file);
+  return getAjustes();
+}
+
+export function getBandeja(): boolean {
+  return loadFile().bandeja;
+}
+
+/** Lido pelo main.ts antes de criar a janela: a cor vai junto, sem a tela pedir. */
+export function getDestaque(): Destaque {
+  return loadFile().destaque;
 }
 
 /** Lido pelo main.ts antes de criar a janela (cor do primeiro quadro). */

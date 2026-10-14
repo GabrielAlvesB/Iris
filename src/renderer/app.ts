@@ -1,4 +1,8 @@
-import { registrarAtendente, registrarVisita } from './core/navegacao.js';
+import { registrarAtendente, registrarRemontagem, registrarVisita } from './core/navegacao.js';
+import { iniciarHistorico } from './core/historico.js';
+import { iniciarLembretes } from './core/lembretes.js';
+import { iniciarPomodoro } from './core/pomodoro.js';
+import { aplicarAcento } from './core/tema.js';
 import { instalarAtalhos } from './core/atalhos.js';
 import { ligarAtalhosGlobais } from './core/atalhos.globais.js';
 import { iniciarAtualizacao } from './core/atualizacao.js';
@@ -67,6 +71,10 @@ const carregadores: Record<ModuleName, () => Promise<AppModule>> = {
   },
   whatsapp: async () => {
     const view = await import('./modules/whatsapp/whatsapp.view.js');
+    return { mount: (viewRoot) => view.montar(viewRoot), destroy: () => view.destroy() };
+  },
+  hoje: async () => {
+    const view = await import('./modules/hoje/hoje.view.js');
     return { mount: (viewRoot) => view.montar(viewRoot), destroy: () => view.destroy() };
   },
   todo: async () => {
@@ -308,6 +316,10 @@ function preCarregarRestantes(): void {
   setTimeout(agendar, 1500);
 }
 
+// Antes de qualquer desenho: a cor de destaque escolhida veio com a janela (main.ts › additionalArguments).
+const acentoInicial = window.irisAPI.system.acentoInicial;
+if (acentoInicial) aplicarAcento(acentoInicial);
+
 function bootstrap(): void {
   const viewRoot = document.getElementById('view-root');
   const navRoot = document.getElementById('sidebar');
@@ -323,6 +335,24 @@ function bootstrap(): void {
   iniciarAtualizacao();
   iniciarLeads();
   iniciarWhatsapp();
+  iniciarHistorico();
+  iniciarLembretes();
+  iniciarPomodoro();
+
+  // Desfazer pelo histórico: o módulo aberto sai antes e volta relendo os dados.
+  registrarRemontagem({
+    fechar: () => {
+      montado?.destroy();
+      montado = null;
+      viewRoot.innerHTML = '';
+    },
+    reabrir: () => {
+      const nome = currentModule;
+      if (!nome) return;
+      currentModule = null;
+      void switchModule(nome, viewRoot);
+    },
+  });
 
   // Permite que um módulo peça navegação sem importar este arquivo de volta.
   registrarAtendente((modulo) => {

@@ -1,7 +1,27 @@
 import fs from 'node:fs';
 import { getDataFilePath } from './paths';
+import { contextoIpc, type ContextoIpc } from '../core/contextoIpc';
 
 const writeQueues = new Map<string, Promise<void>>();
+
+/** Uma gravação feita por uma ação do usuário: o histórico guarda o `antes` para desfazer. */
+export interface GravacaoObservada {
+  arquivo: string;
+  canal: string;
+  /** Conteúdo do disco antes desta gravação, exatamente como estava. */
+  antes: string;
+  depois: string;
+}
+
+let observador: ((g: GravacaoObservada) => void) | null = null;
+
+/**
+ * Registrado pelo histórico na abertura. Fica aqui como gancho, e não como
+ * import, para o jsonStore não depender dos services (que dependem dele).
+ */
+export function aoGravar(fn: (g: GravacaoObservada) => void): void {
+  observador = fn;
+}
 
 function readJsonIfExists<T>(filePath: string): T | undefined {
   if (!fs.existsSync(filePath)) return undefined;
@@ -69,24 +89,44 @@ function guardarVersaoMaisNova(filePath: string, novo: unknown): void {
   }
 }
 
-function writeStoreSync<T>(fileName: string, data: T): void {
+function writeStoreSync<T>(fileName: string, data: T, contexto?: ContextoIpc): void {
   const filePath = getDataFilePath(fileName);
   const tmpPath = `${filePath}.tmp`;
   const backupPath = `${filePath}.bak`;
+  const depois = JSON.stringify(data, null, 2);
+  // Só lê o anterior como texto quando alguém vai usá-lo: o caminho comum segue com copyFile.
+  const observar = !!(observador && contexto);
+  let antes: string | null = null;
 
   if (fs.existsSync(filePath)) {
     guardarVersaoMaisNova(filePath, data);
-    fs.copyFileSync(filePath, backupPath);
+    if (observar) {
+      antes = fs.readFileSync(filePath, 'utf-8');
+      fs.writeFileSync(backupPath, antes, 'utf-8');
+    } else {
+      fs.copyFileSync(filePath, backupPath);
+    }
   }
-  fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
+  fs.writeFileSync(tmpPath, depois, 'utf-8');
   fs.renameSync(tmpPath, filePath);
+
+  if (observar && antes !== null && antes !== depois) {
+    try {
+      observador!({ arquivo: fileName, canal: contexto!.canal, antes, depois });
+    } catch (erro) {
+      // O histórico é um extra: uma falha nele nunca pode desfazer a gravação.
+      console.error('[jsonStore] o histórico falhou', erro);
+    }
+  }
 }
 
 export function writeStore<T>(fileName: string, data: T): Promise<void> {
+  // Lido na hora da chamada: quando a fila andar, o contexto do handler pode já ter acabado.
+  const contexto = contextoIpc.getStore();
   const previous = writeQueues.get(fileName) ?? Promise.resolve();
   const next = previous
     .catch(() => undefined)
-    .then(() => writeStoreSync(fileName, data));
+    .then(() => writeStoreSync(fileName, data, contexto));
   writeQueues.set(fileName, next);
   return next;
 }

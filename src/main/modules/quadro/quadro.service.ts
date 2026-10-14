@@ -3,6 +3,7 @@ import { readStore, writeStore } from '../../storage/jsonStore';
 import type {
   CreateBlockInput,
   CreateConnectionInput,
+  MarcarRotinaInput,
   MoveBlockInput,
   QuadroFile,
   QuadroViewport,
@@ -112,6 +113,34 @@ export async function updateBlock(input: UpdateBlockInput): Promise<QuadroFile> 
   if (input.height !== undefined) block.height = input.height;
   block.updatedAt = nowIso();
 
+  await saveFile(file);
+  return file;
+}
+
+/**
+ * Rotina feita (ou desfeita) num dia: guarda a data e mexe no 🔥 junto, numa
+ * gravação só. Marcar duas vezes o mesmo dia não conta duas vezes.
+ */
+export async function marcarRotina(input: MarcarRotinaInput): Promise<QuadroFile> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.data ?? '')) throw new Error('Data inválida.');
+  const file = loadFile();
+  const block = file.blocks.find((b) => b.id === input.blockId);
+  if (!block || block.type !== 'rotina') throw new Error('Rotina não encontrada.');
+  const streak = block.streakCount ?? 0;
+  const dias = new Set(block.feitasEm ?? []);
+  if (input.feita && block.rotinaFeitaEm !== input.data) {
+    block.rotinaFeitaEm = input.data;
+    block.streakCount = streak + 1;
+    dias.add(input.data);
+  } else if (!input.feita && block.rotinaFeitaEm === input.data) {
+    block.rotinaFeitaEm = undefined;
+    block.streakCount = Math.max(0, streak - 1);
+    dias.delete(input.data);
+  } else {
+    return file;
+  }
+  block.feitasEm = [...dias].sort().slice(-120);
+  block.updatedAt = nowIso();
   await saveFile(file);
   return file;
 }

@@ -1,0 +1,157 @@
+/* Pomodoro (core/pomodoro.ts): o contador fixo no canto e o botão "Foco" das tarefas. Prefixo pm-. */
+
+/* No canto de baixo, à esquerda da área de conteúdo (o trilho da barra lateral tem 64px). */
+.pm-caixa {
+  position: fixed;
+  left: 76px;
+  bottom: 16px;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: min(360px, calc(100vw - 100px));
+  padding: 6px 6px 8px 10px;
+  overflow: hidden;
+  background: var(--bg-elevated);
+  border: 1px solid color-mix(in oklch, var(--accent) 45%, var(--border));
+  border-radius: 12px;
+  box-shadow: 0 12px 28px -10px rgb(0 0 0 / calc(0.6 * var(--sombra-k)));
+}
+
+.pm-caixa.is-pausa {
+  border-color: color-mix(in oklch, var(--success) 45%, var(--border));
+}
+
+.pm-abrir {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 2px 6px 2px 0;
+  font-family: var(--font-sans);
+  text-align: left;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.pm-caixa.is-pausa .pm-abrir {
+  color: var(--success);
+}
+
+.pm-textos {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pm-tempo {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.pm-caixa.is-pausado .pm-tempo {
+  color: var(--text-muted);
+}
+
+.pm-rotulo {
+  overflow: hidden;
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.pm-acao {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.pm-acao:hover {
+  color: var(--text);
+  background: var(--bg-elevated-2);
+}
+
+/* Progresso da fase, uma linha fina embaixo. */
+.pm-barra {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: calc(var(--pm-feito, 0) * 100%);
+  background: var(--accent);
+  transition: width 1s linear;
+}
+
+.pm-caixa.is-pausa .pm-barra {
+  background: var(--success);
+}
+
+/* Botão "Foco" do painel do card e afins. */
+.pm-tarefa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.pm-botao {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  color: var(--text);
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.pm-botao:hover {
+  border-color: var(--accent);
+}
+
+.pm-botao.is-ativo {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: color-mix(in oklch, var(--accent) 40%, transparent);
+}
+
+.pm-total {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.card-tempo,
+.td-tempo {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.td-tempo {
+  margin-right: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pm-barra {
+    transition: none;
+  }
+}

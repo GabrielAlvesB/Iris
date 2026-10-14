@@ -428,7 +428,9 @@ export type TarefaTexto =
   /** Itens acionáveis (checklist do To-do, subtarefas do Kanban). */
   | 'lista-itens'
   /** Descrição + subtarefas de um card do Kanban a partir do título. */
-  | 'kanban-card';
+  | 'kanban-card'
+  /** Home: mensagem calorosa para o dia + até 2 ações ligadas a itens do material (json). O main monta o material. */
+  | 'home-sugestao';
 
 /** O que a tela sabe; o main monta o prompt. Campos vazios são ignorados. */
 export interface ContextoTexto {

@@ -1021,7 +1021,8 @@ select.aj-input {
 
 .aj-tema-area i:first-child {
   width: 46%;
-  background: oklch(0.62 0.17 292);
+  /* A miniatura é fixa por tema, mas o destaque segue a cor escolhida. */
+  background: oklch(0.62 0.17 var(--acento-h));
 }
 
 .aj-tema-area i:nth-child(2) {
@@ -1067,4 +1068,278 @@ select.aj-input {
   color: var(--texto-sobre-acento);
   background: var(--accent);
   border-radius: 50%;
+}
+
+/* ---- Histórico de alterações ---- */
+
+.aj-hist {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.aj-hist-dica p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.aj-hist-dica .aj-hist-tecla {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  color: var(--text-faint);
+}
+
+.aj-hist-dia {
+  margin: 8px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+.aj-hist-lista {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.aj-hist-linha {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px 9px 14px;
+}
+
+.aj-hist-linha + .aj-hist-linha {
+  border-top: 1px solid var(--border-soft);
+}
+
+.aj-hist-linha:hover {
+  background: var(--bg-elevated-2);
+}
+
+.aj-hist-icone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 8px;
+}
+
+.aj-hist-linha.is-exclusao .aj-hist-icone {
+  color: var(--danger-texto);
+  background: var(--danger-soft);
+}
+
+.aj-hist-textos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+  row-gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.aj-hist-textos strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.aj-hist-detalhe {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.aj-hist-meta {
+  flex-basis: 100%;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.aj-hist-linha .pg-botao {
+  flex-shrink: 0;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.aj-hist-rodape {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ---- Cor de destaque (Aparência) ---- */
+
+.aj-cor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.aj-cor-titulo {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.aj-cor-amostras {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+/* A mesma conta do --accent do base.css, com o matiz e o croma da amostra. */
+.aj-cor-amostra {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  color: var(--texto-sobre-acento);
+  background: oklch(0.7 var(--sw-c) var(--sw-h));
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgb(var(--realce) / 0.12);
+}
+
+@media (prefers-color-scheme: light) {
+  .aj-cor-amostra {
+    background: oklch(0.54 min(calc(var(--sw-c) * 1.27), 0.2) var(--sw-h));
+  }
+}
+
+.aj-cor-amostra:hover {
+  transform: scale(1.06);
+}
+
+.aj-cor-amostra.is-ativo {
+  border-color: var(--bg-elevated);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.aj-cor-amostra:focus-visible,
+.aj-cor-amostra:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* "Outra cor": anel em degradê enquanto não é a escolhida. */
+.aj-cor-amostra.is-livre:not(.is-ativo) {
+  color: var(--text);
+  background: conic-gradient(from 0deg, oklch(0.7 0.14 25), oklch(0.7 0.14 90), oklch(0.7 0.14 150), oklch(0.7 0.14 215), oklch(0.7 0.14 292), oklch(0.7 0.14 350), oklch(0.7 0.14 25));
+}
+
+.aj-cor-amostra.is-livre:not(.is-ativo) svg {
+  padding: 3px;
+  background: var(--bg-elevated);
+  border-radius: 50%;
+}
+
+.aj-cor-amostra input[type='color'] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.aj-cor-nome {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.aj-cor-previa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+}
+
+.aj-cor-previa .pg-botao {
+  pointer-events: none;
+}
+
+.aj-cor-previa-selecao {
+  padding: 5px 10px;
+  font-size: 12.5px;
+  color: var(--text);
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in oklch, var(--accent) 40%, transparent);
+  border-radius: 8px;
+}
+
+.aj-cor-previa-link {
+  font-size: 12.5px;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ---- Notificações ---- */
+
+.aj-nt {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.aj-nt-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-left: 14px;
+  border-left: 2px solid var(--border-soft);
+}
+
+.aj-nt-hora {
+  max-width: 110px;
+  font-family: var(--font-mono);
+}
+
+.aj-nt-rodape {
+  display: flex;
+  gap: 8px;
+}
+
+.aj-nt-link {
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  background: none;
+  border: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
 }

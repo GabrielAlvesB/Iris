@@ -531,7 +531,7 @@ function applyViewMode(root: HTMLElement, gridBtn: HTMLElement, listBtn: HTMLEle
 
 function attachShortcuts(): void {
   if (shortcutsHandler) return;
-  // Ctrl+K pelo registro central (core/atalhos.ts); Ctrl+1…9 é a lista de agora, fixo.
+  // Buscar pelo registro central (core/atalhos.ts); Ctrl+1…9 é a lista de agora, fixo.
   desligarAtalhos = ligarAtalhos({
     'links.buscar': () => {
       searchInputEl?.focus();

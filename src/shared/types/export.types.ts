@@ -1,3 +1,5 @@
+import type { LembretesFile } from './lembretes.types';
+import type { IdeiasFile } from './ideias.types';
 import type { KanbanFile } from './kanban.types';
 import type { QuadroFile } from './quadro.types';
 import type { SheetsFile } from './sheets.types';
@@ -43,6 +45,8 @@ export interface ExportBundle {
   /** Chave mantida com o nome antigo: é o arquivo dos vídeos e do catálogo de postagens. */
   videos?: VideosFile;
   imagens?: ImagensFile;
+  /** Banco de ideias de conteúdo (aba Ideias de Postagens). */
+  ideias?: IdeiasFile;
   relatorios?: RelatoriosFile;
   roteiros?: RoteirosFile;
   trafego?: TrafegoFile;
@@ -50,6 +54,8 @@ export interface ExportBundle {
   contatos?: ContatosFile;
   /** Conversas, modelos e envios do WhatsApp; as credenciais ficam no cofre, fora do backup. */
   whatsapp?: WhatsappFile;
+  /** Config das notificações (o que avisar e quando). */
+  lembretes?: LembretesFile;
   /** Config das IAs, sem as chaves (ficam no cofre, fora do backup). */
   ia?: unknown;
   /** @deprecated O módulo Arquivos virou Explorador. Só existe em backups antigos. */
@@ -65,6 +71,7 @@ export type ModuloExportavel =
   | 'kanban'
   | 'todo'
   | 'postagens'
+  | 'ideias'
   | 'relatorios'
   | 'roteiros'
   | 'sheets'
@@ -78,6 +85,7 @@ export type ModuloExportavel =
   | 'github'
   | 'trafego'
   | 'ia'
+  | 'lembretes'
   | 'ajustes';
 
 export interface DescritorExportavel {
@@ -121,6 +129,8 @@ export const EXPORTAVEIS: readonly DescritorExportavel[] = [
     planilha: true,
     observacao: 'Inclui empresas, tags, redes e escalas de score — que também são usadas por Relatórios e Roteiros.',
   },
+  // Item próprio, não dentro de Postagens: backup antigo (sem este arquivo) continua restaurando as Postagens.
+  { id: 'ideias', rotulo: 'Banco de ideias', modulo: 'postagens', chaves: ['ideias'], planilha: false },
   { id: 'relatorios', rotulo: 'Relatórios', modulo: 'relatorios', chaves: ['relatorios'], planilha: false },
   { id: 'roteiros', rotulo: 'Roteiros', modulo: 'roteiros', chaves: ['roteiros'], planilha: true },
   { id: 'sheets', rotulo: 'Sheets', modulo: 'sheets', chaves: ['sheets'], planilha: false },
@@ -141,6 +151,8 @@ export const EXPORTAVEIS: readonly DescritorExportavel[] = [
   { id: 'github', rotulo: 'GitHub', modulo: 'github', chaves: ['github'], planilha: false, observacao: 'O token não vai no arquivo.' },
   { id: 'trafego', rotulo: 'Tráfego pago', modulo: 'trafego', chaves: ['trafego'], planilha: true },
   { id: 'ia', rotulo: 'Inteligência artificial', modulo: 'ia', chaves: ['ia'], planilha: false, observacao: 'Só os modelos e padrões — as chaves de IA não vão no arquivo.' },
+  // Item próprio, não dentro de Ajustes: um backup antigo (sem este arquivo) continua restaurando os Ajustes.
+  { id: 'lembretes', rotulo: 'Notificações', modulo: 'ajustes', chaves: ['lembretes'], planilha: false },
   { id: 'ajustes', rotulo: 'Ajustes', modulo: 'ajustes', chaves: ['ajustes'], planilha: false },
 ];
 

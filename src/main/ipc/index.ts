@@ -1,8 +1,16 @@
 import { ipcMain } from 'electron';
+import { contextoIpc } from '../core/contextoIpc';
 import { registerKanbanIpc } from './kanban.ipc';
 import { registerQuadroIpc } from './quadro.ipc';
 import { registerSheetsIpc } from './sheets.ipc';
 import { registerExportIpc } from './export.ipc';
+import { registerBackupIpc } from './backup.ipc';
+import { registerHistoricoIpc } from './historico.ipc';
+import { registerBuscaIpc } from './busca.ipc';
+import { registerHojeIpc } from './hoje.ipc';
+import { registerLembretesIpc } from './lembretes.ipc';
+import { registerPomodoroIpc } from './pomodoro.ipc';
+import { registerIdeiasIpc } from './ideias.ipc';
 import { registerLinksIpc } from './links.ipc';
 import { registerCopyIpc } from './copy.ipc';
 import { registerPensamentosIpc } from './pensamentos.ipc';
@@ -25,6 +33,11 @@ import { registerContatosIpc } from './contatos.ipc';
 import { registerWhatsappIpc } from './whatsapp.ipc';
 
 /**
+ * Além disso, cada handler roda dentro de `contextoIpc` com o nome do canal: é
+ * por ele que o histórico (desfazer) distingue a ação do usuário de uma tarefa
+ * de fundo. Todo `register…Ipc` precisa registrar de forma síncrona aqui dentro,
+ * senão escapa do embrulho.
+ *
  * A janela abre sem esperar as migrações da abertura (empresas, WhatsApp
  * interrompido): todo `invoke` espera `dadosProntos` antes de chegar ao
  * service. Assim a tela nunca lê um arquivo no meio da migração, e o HTML/CSS/JS
@@ -35,7 +48,7 @@ export function registerAllIpcHandlers(dadosProntos: Promise<unknown>): void {
   ipcMain.handle = (canal, tratar) =>
     handleOriginal(canal, async (event, ...args) => {
       await dadosProntos;
-      return tratar(event, ...args);
+      return contextoIpc.run({ canal }, () => tratar(event, ...args));
     });
   try {
     registrarTodos();
@@ -49,6 +62,13 @@ function registrarTodos(): void {
   registerQuadroIpc();
   registerSheetsIpc();
   registerExportIpc();
+  registerBackupIpc();
+  registerHistoricoIpc();
+  registerBuscaIpc();
+  registerHojeIpc();
+  registerLembretesIpc();
+  registerPomodoroIpc();
+  registerIdeiasIpc();
   registerLinksIpc();
   registerCopyIpc();
   registerPensamentosIpc();

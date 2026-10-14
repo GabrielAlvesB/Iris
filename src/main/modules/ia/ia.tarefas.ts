@@ -32,6 +32,8 @@ import { resolver } from './ia.service';
 function tetoDe(tarefa: PedidoTexto['tarefa']): number {
   if (tarefa === 'roteiro-rascunho' || tarefa === 'roteiro-revisar' || tarefa === 'roteiro-adaptar') return 12_000;
   if (tarefa === 'roteiro-critica' || tarefa === 'roteiro-cena') return 6_000;
+  // A mensagem da Home tem umas 60 palavras: reservar 4 mil tokens só fazia o OpenRouter recusar com saldo baixo.
+  if (tarefa === 'home-sugestao') return 800;
   return 4_096;
 }
 

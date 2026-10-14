@@ -1,4 +1,8 @@
 import type { EstadoAtualizacao } from './atualizacao.types';
+import type { EstadoBackupAuto } from './backup.types';
+import type { MudancaHistorico } from './historico.types';
+import type { AberturaLembrete } from './lembretes.types';
+import type { EstadoPomodoro } from './pomodoro.types';
 import type { RefContato } from './contatos.types';
 import type { GithubSnapshot } from './github.types';
 import type { TarefaIa } from './ia.types';
@@ -22,6 +26,12 @@ export type IrisEvent =
   /** Agendadas publicadas sozinhas no horário: o renderer relê o arquivo do tipo. */
   | { topic: 'postagens:mudou'; payload: { tipo: TipoPostagem } }
   | { topic: 'atualizacao:estado'; payload: EstadoAtualizacao }
+  | { topic: 'backup:estado'; payload: EstadoBackupAuto }
+  | { topic: 'historico:mudou'; payload: MudancaHistorico }
+  | { topic: 'lembretes:abrir'; payload: AberturaLembrete }
+  | { topic: 'pomodoro:estado'; payload: EstadoPomodoro }
+  /** Um comando do catálogo de atalhos pedido de fora da tela (menu da bandeja). */
+  | { topic: 'app:executar'; payload: { acao: string } }
   /** Geração de imagem em andamento, pronta, com erro ou cancelada. */
   | { topic: 'ia:tarefa'; payload: TarefaIa }
   /**
