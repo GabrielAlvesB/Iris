@@ -43,7 +43,24 @@ export function registerAjustesIpc(): void {
 
   ipcMain.handle(AJUSTES_CHANNELS.setApelido, (_event, apelido: unknown) => toResult<AjustesInfo>(ajustesService.setApelido(apelido)));
 
-  ipcMain.handle(AJUSTES_CHANNELS.setDestaque, (_event, destaque: unknown) => toResult<AjustesInfo>(ajustesService.setDestaque(destaque)));
+  // Cor e intensidade tingem o fundo: a cor da janela (primeiro quadro, PDF) acompanha.
+  ipcMain.handle(AJUSTES_CHANNELS.setDestaque, (_event, destaque: unknown) =>
+    toResult<AjustesInfo>(
+      ajustesService.setDestaque(destaque).then((info) => {
+        aplicarTema(info.tema);
+        return info;
+      }),
+    ),
+  );
+
+  ipcMain.handle(AJUSTES_CHANNELS.setIntensidade, (_event, intensidade: unknown) =>
+    toResult<AjustesInfo>(
+      ajustesService.setIntensidade(intensidade).then((info) => {
+        aplicarTema(info.tema);
+        return info;
+      }),
+    ),
+  );
 
   ipcMain.handle(AJUSTES_CHANNELS.setTema, (_event, tema: Tema) =>
     toResult<AjustesInfo>(

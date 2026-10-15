@@ -7,7 +7,7 @@ import { registerAllIpcHandlers } from './ipc';
 import { startBackgroundServices, stopBackgroundServices } from './core/backgroundServices';
 import { iconeDoApp } from './core/icone';
 import { aplicarTema, corDeFundo } from './core/tema';
-import { getBandeja, getDestaque, getTema } from './modules/ajustes/ajustes.service';
+import { getBandeja, getDestaque, getIntensidade, getTema } from './modules/ajustes/ajustes.service';
 import { aplicarBandeja, bandejaAtiva, garantirInstanciaUnica, marcarSaida, prepararJanela } from './core/bandeja';
 import { acentoDoDestaque } from '../shared/types/cor';
 import { migrarEmpresas } from './modules/relatorios/relatorios.service';
@@ -74,7 +74,7 @@ function registerAppProtocol(): void {
 function argumentoDoAcento(): string {
   try {
     const { h, c } = acentoDoDestaque(getDestaque());
-    return `--iris-acento=${h},${c}`;
+    return `--iris-acento=${h},${c},${getIntensidade()}`;
   } catch {
     return '--iris-acento=';
   }

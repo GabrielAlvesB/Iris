@@ -3,6 +3,7 @@ import { empilharCamada } from '../ui/modal.js';
 import { comAtalho, comboDe, onAtalhosMudaram, textoDoCombo } from './atalhos.js';
 import { alternarTema, onTemaMudou, temaEfetivo } from './tema.js';
 import { idIrPara } from './atalhos.catalogo.js';
+import { abrirAjustes } from './navegacao.js';
 
 /**
  * Barra lateral em duas partes: um trilho de ícones sempre visível e um
@@ -211,13 +212,36 @@ function buildBotaoTema(): HTMLButtonElement {
   return btn;
 }
 
+/**
+ * A marca no topo do trilho: o olho do ícone do app (marca/icone.svg) sem o quadrado —
+ * com ele, a marca se confundia com o item ativo logo abaixo, que tem o mesmo bloco em
+ * gradiente. Segue as cores do destaque, por isso é SVG no código e não o PNG do ícone.
+ * As classes `mc-*` são o que o sidebar.css anima (piscar e a íris se mexer no hover).
+ */
+const MARCA_SVG =
+  '<svg class="marca" viewBox="0 0 64 64" width="38" height="38" aria-hidden="true">' +
+  '<defs>' +
+  '<linearGradient id="mc-olho" x1="0" y1="0" x2="1" y2="1">' +
+  '<stop offset="0" style="stop-color: var(--accent)"/><stop offset="1" style="stop-color: var(--acento-2)"/>' +
+  '</linearGradient>' +
+  '</defs>' +
+  '<g class="mc-olho">' +
+  '<path d="M2 32C14 11 50 11 62 32C50 53 14 53 2 32Z" fill="url(#mc-olho)"/>' +
+  '<g class="mc-iris">' +
+  '<circle cx="32" cy="32" r="13.5" fill="#fff"/>' +
+  '<circle class="mc-pupila" cx="32" cy="32" r="7"/>' +
+  '<circle cx="35.2" cy="28.8" r="2.2" fill="#fff"/>' +
+  '</g>' +
+  '</g>' +
+  '</svg>';
+
 function buildTrilho(): HTMLElement {
   const trilho = document.createElement('div');
   trilho.className = 'trilho';
 
   const logo = document.createElement('div');
   logo.className = 'trilho-logo';
-  logo.innerHTML = '<img src="./assets/icon-64.png" alt="" width="28" height="28" />';
+  logo.innerHTML = MARCA_SVG;
   logo.title = 'Iris';
   trilho.appendChild(logo);
 
@@ -242,8 +266,33 @@ function buildTrilho(): HTMLElement {
   rodape.appendChild(Object.assign(document.createElement('span'), { className: 'trilho-divisor' }));
   rodape.appendChild(buildBotaoTema());
   MODULOS.filter((m) => m.posicao === 'rodape').forEach((m) => rodape.appendChild(itemDeModulo(m.id, m.rotulo)));
+  rodape.appendChild(buildAvatar());
   trilho.appendChild(rodape);
   return trilho;
+}
+
+/**
+ * Você, no pé do trilho: a inicial do apelido (o mesmo da saudação da Home) num
+ * círculo com o gradiente da cor. Leva a Ajustes › Preferências, onde o apelido
+ * se troca. Relido a cada gravação (historico:mudou), que é como o apelido muda.
+ */
+function buildAvatar(): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'trilho-avatar';
+  btn.addEventListener('click', () => abrirAjustes('preferencias'));
+  const desenhar = async (): Promise<void> => {
+    const r = await window.irisAPI.ajustes.getAjustes();
+    const apelido = r.ok ? r.data.apelido : '';
+    btn.textContent = apelido ? apelido.charAt(0).toUpperCase() : '';
+    if (!apelido) btn.innerHTML = svg('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>', 17);
+    const dica = apelido ? `${apelido} · Preferências` : 'Como quer ser chamado? · Preferências';
+    btn.dataset.dica = dica;
+    btn.setAttribute('aria-label', dica);
+  };
+  void desenhar();
+  window.irisAPI.events.on('historico:mudou', () => void desenhar());
+  return btn;
 }
 
 // ---------- Painel ----------

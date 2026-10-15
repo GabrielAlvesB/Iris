@@ -10,11 +10,27 @@
 /* ---- Navegação ---- */
 
 .aj-nav {
-  width: 210px;
+  width: 220px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.aj-nav-grupo {
+  margin: 14px 11px 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.aj-nav-grupo:first-child {
+  margin-top: 2px;
 }
 
 .aj-nav-item {
@@ -22,7 +38,7 @@
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 9px 11px;
+  padding: 6px 10px 6px 6px;
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 500;
@@ -30,29 +46,43 @@
   color: var(--text-muted);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 9px;
+  border-radius: 12px;
   cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease;
 }
 
 .aj-nav-item:hover {
   color: var(--text);
-  background: var(--bg-elevated);
+  background: var(--accent-soft);
 }
 
+/* O mesmo ativo do trilho e das abas: o ícone vira um bloco no gradiente da cor. */
 .aj-nav-item.is-ativo {
+  font-weight: 600;
   color: var(--text);
-  background: var(--bg-elevated-2);
-  border-color: var(--border-soft);
+  background: var(--accent-soft);
+  border-color: color-mix(in oklch, var(--accent) 30%, transparent);
 }
 
 .aj-nav-icone {
-  display: flex;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
   color: var(--text-faint);
+  border-radius: 9px;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+
+.aj-nav-item:hover .aj-nav-icone {
+  color: var(--accent);
 }
 
 .aj-nav-item.is-ativo .aj-nav-icone {
-  color: var(--accent);
+  color: var(--texto-sobre-acento);
+  background: var(--grad-acento);
+  box-shadow: var(--glow-acento);
 }
 
 .aj-nav-rotulo {
@@ -85,32 +115,37 @@
 }
 
 .aj-painel {
-  max-width: 680px;
+  max-width: 720px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-soft);
-  border-radius: 14px;
+  border-radius: var(--radius-xl);
   overflow: hidden;
 }
 
+/* O topo de cada seção: uma faixa com o degradê da cor e o ícone em bloco. */
 .aj-painel-topo {
   display: flex;
-  align-items: flex-start;
-  gap: 13px;
-  padding: 18px 20px;
+  align-items: center;
+  gap: 14px;
+  padding: 22px 22px 20px;
   border-bottom: 1px solid var(--border-soft);
-  background: linear-gradient(180deg, var(--bg-elevated-2), var(--bg-elevated));
+  background:
+    radial-gradient(90% 160% at 0% 0%, color-mix(in oklch, var(--accent) 22%, transparent), transparent 60%),
+    radial-gradient(60% 140% at 100% 0%, color-mix(in oklch, var(--acento-2) 12%, transparent), transparent 70%),
+    var(--bg-elevated);
 }
 
 .aj-painel-icone {
-  width: 36px;
-  height: 36px;
+  width: 46px;
+  height: 46px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border-radius: 10px;
+  color: var(--texto-sobre-acento);
+  background: var(--grad-acento);
+  border-radius: 15px;
+  box-shadow: var(--glow-acento), inset 0 1px 0 rgb(255 255 255 / 0.22);
 }
 
 .aj-painel-textos {
@@ -120,8 +155,9 @@
 
 .aj-painel-textos h2 {
   margin: 0 0 4px;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--text);
 }
 
@@ -1206,40 +1242,68 @@ select.aj-input {
 .aj-cor-amostras {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 4px;
+  gap: 6px 4px;
+  margin-top: 8px;
 }
 
-/* A mesma conta do --accent do base.css, com o matiz e o croma da amostra. */
+.aj-cor-op {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  width: 62px;
+}
+
+.aj-cor-op-nome {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.aj-cor-op.is-ativo .aj-cor-op-nome {
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* A dupla do gradiente com a mesma conta do base.css (croma × intensidade Vibrante). */
+/* Círculos iguais, sem brilho em repouso: a cor fala sozinha. O escolhido ganha
+   um anel com um vão (o fundo entre a cor e o anel) e o ✓. */
 .aj-cor-amostra {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 42px;
+  height: 42px;
   padding: 0;
   color: var(--texto-sobre-acento);
-  background: oklch(0.7 var(--sw-c) var(--sw-h));
-  border: 2px solid transparent;
+  background: linear-gradient(135deg, oklch(0.7 min(calc(var(--sw-c) * 1.3), 0.24) var(--sw-h)), oklch(0.72 min(calc(var(--sw-c) * 1.3), 0.24) calc(var(--sw-h) + 42)));
+  border: none;
   border-radius: 50%;
   cursor: pointer;
   box-shadow: inset 0 0 0 1px rgb(var(--realce) / 0.12);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 @media (prefers-color-scheme: light) {
   .aj-cor-amostra {
-    background: oklch(0.54 min(calc(var(--sw-c) * 1.27), 0.2) var(--sw-h));
+    color: #fff;
+    /* A mesma curva de luminosidade do base.css (tema claro), com o matiz da amostra. */
+    --sw-l: calc(0.515 + 0.045 * cos(calc((var(--sw-h) - 340) * 1deg)));
+    background: linear-gradient(135deg, oklch(var(--sw-l) min(calc(var(--sw-c) * 1.45), 0.24) var(--sw-h)), oklch(var(--sw-l) min(calc(var(--sw-c) * 1.45), 0.24) calc(var(--sw-h) + 42)));
   }
 }
 
 .aj-cor-amostra:hover {
-  transform: scale(1.06);
+  transform: scale(1.08);
 }
 
 .aj-cor-amostra.is-ativo {
-  border-color: var(--bg-elevated);
-  box-shadow: 0 0 0 2px var(--accent);
+  transform: none;
+  box-shadow: 0 0 0 3px var(--bg-elevated), 0 0 0 5px var(--accent);
+}
+
+.aj-cor-amostra.is-ativo svg {
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.25));
 }
 
 .aj-cor-amostra:focus-visible,
@@ -1251,7 +1315,7 @@ select.aj-input {
 /* "Outra cor": anel em degradê enquanto não é a escolhida. */
 .aj-cor-amostra.is-livre:not(.is-ativo) {
   color: var(--text);
-  background: conic-gradient(from 0deg, oklch(0.7 0.14 25), oklch(0.7 0.14 90), oklch(0.7 0.14 150), oklch(0.7 0.14 215), oklch(0.7 0.14 292), oklch(0.7 0.14 350), oklch(0.7 0.14 25));
+  background: conic-gradient(from 0deg, oklch(0.7 0.16 25), oklch(0.7 0.16 90), oklch(0.7 0.16 150), oklch(0.7 0.16 215), oklch(0.7 0.16 292), oklch(0.7 0.16 350), oklch(0.7 0.16 25));
 }
 
 .aj-cor-amostra.is-livre:not(.is-ativo) svg {
@@ -1269,42 +1333,239 @@ select.aj-input {
   cursor: pointer;
 }
 
-.aj-cor-nome {
-  margin: 0;
-  font-size: 12px;
-  color: var(--text-muted);
+/* ---- Intensidade ---- */
+
+.aj-intensidades {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 4px;
 }
 
-.aj-cor-previa {
+.aj-intensidade {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  margin-top: 6px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
   padding: 12px;
+  font-family: var(--font-sans);
+  text-align: left;
+  color: var(--text-muted);
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.aj-intensidade:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in oklch, var(--accent) 40%, var(--border));
+}
+
+.aj-intensidade.is-ativo {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.aj-intensidade strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.aj-intensidade span:not(.aj-intensidade-faixa) {
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+/* A faixa faz a conta da própria intensidade: fundo tingido, um bloco e o gradiente. */
+.aj-intensidade-faixa {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+  height: 34px;
+  margin-bottom: 6px;
+  padding: 5px;
+  background: oklch(0.165 var(--tinta) var(--acento-h));
+  border-radius: 10px;
+}
+
+@media (prefers-color-scheme: light) {
+  .aj-intensidade-faixa {
+    background: oklch(0.96 calc(var(--tinta) * 1.4) var(--acento-h));
+  }
+}
+
+.aj-intensidade-faixa i {
+  flex: 1;
+  border-radius: 7px;
+  background: oklch(0.3 calc(var(--tinta) * 1.8) var(--acento-h));
+}
+
+.aj-intensidade-faixa i:first-child {
+  flex: 2;
+  background: linear-gradient(135deg, oklch(0.7 min(calc(var(--acento-c) * var(--k)), 0.24) var(--acento-h)), oklch(0.72 min(calc(var(--acento-c) * var(--k)), 0.24) calc(var(--acento-h) + 42)));
+}
+
+@media (prefers-color-scheme: light) {
+  .aj-intensidade-faixa i {
+    background: oklch(0.9 calc(var(--tinta) * 1.4) var(--acento-h));
+  }
+}
+
+/* ---- Prévia do app (Aparência) ---- */
+
+.aj-previa {
+  display: flex;
+  gap: 12px;
+  height: 172px;
+  padding: 12px;
+  overflow: hidden;
   background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: inset 0 1px 0 rgb(var(--realce) / 0.04);
+}
+
+.aj-previa-trilho {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  width: 38px;
+  padding: 8px 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+}
+
+.aj-previa-trilho i {
+  width: 22px;
+  height: 22px;
+  background: var(--bg-elevated-3);
+  border-radius: 7px;
+}
+
+.aj-previa-trilho i.is-logo {
+  border-radius: 50%;
+  background: var(--accent-soft);
+}
+
+.aj-previa-trilho i.is-ativo {
+  background: var(--grad-acento);
+  box-shadow: var(--glow-acento);
+}
+
+.aj-previa-trilho b {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-top: auto;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--texto-sobre-acento);
+  background: var(--grad-acento);
+  border-radius: 50%;
+}
+
+.aj-previa-area {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 4px;
+}
+
+.aj-previa-data {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+}
+
+.aj-previa-titulo {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+.aj-previa-abas {
+  display: inline-flex;
+  gap: 2px;
+  align-self: flex-start;
+  padding: 3px;
+  background: var(--bg-elevated);
   border: 1px solid var(--border-soft);
   border-radius: 10px;
 }
 
-.aj-cor-previa .pg-botao {
-  pointer-events: none;
+.aj-previa-abas i {
+  padding: 3px 10px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-radius: 7px;
 }
 
-.aj-cor-previa-selecao {
-  padding: 5px 10px;
-  font-size: 12.5px;
-  color: var(--text);
-  background: var(--accent-soft);
-  border: 1px solid color-mix(in oklch, var(--accent) 40%, transparent);
+.aj-previa-abas i.is-ativo {
+  color: var(--texto-sobre-acento);
+  background: var(--grad-acento);
+}
+
+.aj-previa-cartao {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: auto;
+  padding: 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+}
+
+.aj-previa-cartao .is-anel {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) 0 62%, var(--bg-elevated-3) 62% 100%);
+  mask: radial-gradient(circle, transparent 55%, #000 57%);
+}
+
+.aj-previa-cartao > span {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.aj-previa-cartao b {
+  height: 6px;
+  width: 80%;
+  background: var(--text-muted);
+  border-radius: 3px;
+  opacity: 0.55;
+}
+
+.aj-previa-cartao b.is-curta {
+  width: 50%;
+  opacity: 0.3;
+}
+
+.aj-previa-cartao .is-botao {
+  padding: 4px 10px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 600;
+  color: var(--texto-sobre-acento);
+  background: var(--grad-acento);
   border-radius: 8px;
-}
-
-.aj-cor-previa-link {
-  font-size: 12.5px;
-  color: var(--accent);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  box-shadow: var(--glow-acento);
 }
 
 /* ---- Notificações ---- */

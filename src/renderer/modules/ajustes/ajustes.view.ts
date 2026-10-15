@@ -1,4 +1,4 @@
-import { CORES_DESTAQUE, FORMATOS_ASSINATURA, MAX_APELIDO, TEMAS, type AssinaturaRelatorio, type Destaque, type ModuloInicial, type PerfilUsuario } from '../../../shared/types/ajustes.types.js';
+import { CORES_DESTAQUE, FORMATOS_ASSINATURA, INTENSIDADES, MAX_APELIDO, TEMAS, type AssinaturaRelatorio, type Destaque, type ModuloInicial, type PerfilUsuario } from '../../../shared/types/ajustes.types.js';
 import { acentoDoDestaque, hexDoAcento, isHex } from '../../../shared/types/cor.js';
 import { formatarCep, formatarDocumento, formatarTelefone, problemaDoDocumento } from '../../../shared/types/brasil.js';
 
@@ -172,6 +172,18 @@ const NAV: ItemNav[] = [
   },
   { id: 'backup', rotulo: 'Backup', icone: ICONES.backup },
   { id: 'historico', rotulo: 'Histórico', icone: ICONE_HISTORICO },
+];
+
+/**
+ * A navegação em grupos: dezesseis seções numa lista só eram difíceis de achar.
+ * Os ids e a ordem dentro de cada grupo não mudam (SECOES_AJUSTES, a busca e o
+ * Tutorial abrem as seções pelo id).
+ */
+const GRUPOS_NAV: Array<{ rotulo: string; ids: Secao[] }> = [
+  { rotulo: 'Você', ids: ['perfil', 'aparencia', 'preferencias', 'notificacoes', 'atalhos'] },
+  { rotulo: 'Conteúdo', ids: ['empresas', 'escalas', 'horarios', 'relatorios'] },
+  { rotulo: 'Conexões', ids: ['ia', 'n8n', 'github'] },
+  { rotulo: 'Sistema', ids: ['credenciais', 'atualizacoes', 'backup', 'historico'] },
 ];
 
 function rerender(): void {
@@ -886,6 +898,13 @@ function buildCorDestaque(atual: Destaque, status: ReturnType<typeof buildStatus
     b.setAttribute('aria-checked', String(ativo));
     if (ativo) b.innerHTML = svg('<polyline points="20 6 9 17 4 12"/>', 14, 2.6);
   };
+  // Cada amostra mostra a dupla de cores do gradiente (o matiz e o vizinho), como o app vai ficar.
+  const comNome = (amostra: HTMLElement, rotulo: string, ativo: boolean): HTMLElement => {
+    const op = document.createElement('div');
+    op.className = `aj-cor-op${ativo ? ' is-ativo' : ''}`;
+    op.append(amostra, Object.assign(document.createElement('span'), { className: 'aj-cor-op-nome', textContent: rotulo }));
+    return op;
+  };
   CORES_DESTAQUE.forEach((cor) => {
     const b = document.createElement('button');
     b.type = 'button';
@@ -899,7 +918,7 @@ function buildCorDestaque(atual: Destaque, status: ReturnType<typeof buildStatus
     b.addEventListener('click', () => {
       if (atual.id !== cor.id) salvar({ id: cor.id });
     });
-    amostras.appendChild(b);
+    amostras.appendChild(comNome(b, cor.rotulo, atual.id === cor.id));
   });
 
   // Outra cor: um <input type="color"> dentro da amostra (o seletor nativo do sistema).
@@ -922,32 +941,95 @@ function buildCorDestaque(atual: Destaque, status: ReturnType<typeof buildStatus
   } else {
     livre.insertAdjacentHTML('beforeend', svg('<path d="M12 5v14"/><path d="M5 12h14"/>', 14, 2.4));
   }
-  amostras.appendChild(livre);
+  amostras.appendChild(comNome(livre, 'Outra', atual.id === 'livre'));
 
-  const nome = document.createElement('p');
-  nome.className = 'aj-cor-nome';
-  nome.textContent = atual.id === 'livre' ? 'Cor escolhida por você' : `${CORES_DESTAQUE.find((c) => c.id === atual.id)?.rotulo ?? 'Violeta'}${atual.id === 'violeta' ? ' (padrão)' : ''}`;
-
-  // Prévia com as peças reais: botão, seleção, selo e link.
-  const previa = document.createElement('div');
-  previa.className = 'aj-cor-previa';
-  previa.setAttribute('aria-hidden', 'true');
-  const botao = buildBotao('Botão principal', { variante: 'primario', icone: ICONES.check });
-  botao.tabIndex = -1;
-  const selecao = document.createElement('span');
-  selecao.className = 'aj-cor-previa-selecao';
-  selecao.textContent = 'Item selecionado';
-  const link = document.createElement('span');
-  link.className = 'aj-cor-previa-link';
-  link.textContent = 'Um link';
-  previa.append(botao, selecao, buildSelo('Ativo', 'ok'), link);
-
-  bloco.append(titulo, explica, amostras, nome, previa);
+  bloco.append(titulo, explica, amostras);
   return bloco;
 }
 
+/**
+ * Intensidade: três cartões com uma faixa que mostra a força de cada um. A faixa
+ * faz a própria conta de cor (--k local), porque o --accent do app já vem pronto
+ * do :root e não mudaria só dentro do cartão.
+ */
+function buildIntensidade(atual: (typeof INTENSIDADES)[number]['id'], status: ReturnType<typeof buildStatus>): HTMLElement {
+  const bloco = document.createElement('div');
+  bloco.className = 'aj-cor';
+  const titulo = document.createElement('h3');
+  titulo.className = 'aj-cor-titulo';
+  titulo.textContent = 'Intensidade da cor';
+  const explica = document.createElement('p');
+  explica.className = 'aj-tema-dica';
+  explica.textContent = 'Quanto a cor toma conta do app: só nos detalhes, ou no fundo, nos botões e nos destaques com brilho.';
+  const grade = document.createElement('div');
+  grade.className = 'aj-intensidades';
+  grade.setAttribute('role', 'radiogroup');
+  grade.setAttribute('aria-label', 'Intensidade da cor');
+  const FORCA: Record<(typeof INTENSIDADES)[number]['id'], { k: number; tinta: number }> = {
+    sutil: { k: 1, tinta: 0.004 },
+    vibrante: { k: 1.3, tinta: 0.014 },
+    intensa: { k: 1.6, tinta: 0.026 },
+  };
+  INTENSIDADES.forEach((i) => {
+    const ativo = atual === i.id;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `aj-intensidade${ativo ? ' is-ativo' : ''}`;
+    b.setAttribute('role', 'radio');
+    b.setAttribute('aria-checked', String(ativo));
+    b.style.setProperty('--k', String(FORCA[i.id].k));
+    b.style.setProperty('--tinta', String(FORCA[i.id].tinta));
+    const faixa = document.createElement('span');
+    faixa.className = 'aj-intensidade-faixa';
+    faixa.setAttribute('aria-hidden', 'true');
+    faixa.innerHTML = '<i></i><i></i><i></i>';
+    const nome = document.createElement('strong');
+    nome.textContent = i.id === 'vibrante' ? `${i.rotulo} (padrão)` : i.rotulo;
+    const desc = document.createElement('span');
+    desc.textContent = i.descricao;
+    b.append(faixa, nome, desc);
+    b.addEventListener('click', () => {
+      if (ativo) return;
+      void ajustesState.setIntensidade(i.id).catch((error: unknown) => status.mostrar(mensagemDe(error), 'erro'));
+    });
+    grade.appendChild(b);
+  });
+  bloco.append(titulo, explica, grade);
+  return bloco;
+}
+
+/**
+ * A prévia grande: uma miniatura do Iris desenhada com os tokens reais (trilho
+ * com o item ativo, título, um cartão, abas e o botão principal). Muda na hora
+ * com a cor, a intensidade e o tema, porque usa as mesmas variáveis do app.
+ */
+function buildPreviaApp(apelido: string): HTMLElement {
+  const previa = document.createElement('div');
+  previa.className = 'aj-previa';
+  previa.setAttribute('aria-hidden', 'true');
+  const trilho = '<span class="aj-previa-trilho"><i class="is-logo"></i><i class="is-ativo"></i><i></i><i></i><i></i><b>' + (apelido ? apelido.charAt(0).toUpperCase() : '·') + '</b></span>';
+  previa.innerHTML = trilho;
+  const area = document.createElement('span');
+  area.className = 'aj-previa-area';
+  const data = document.createElement('span');
+  data.className = 'aj-previa-data';
+  data.textContent = 'QUINTA · 15 DE OUTUBRO';
+  const saudacao = document.createElement('span');
+  saudacao.className = 'aj-previa-titulo';
+  saudacao.textContent = apelido ? `Bom dia, ${apelido}.` : 'Bom dia.';
+  const abas = document.createElement('span');
+  abas.className = 'aj-previa-abas';
+  abas.innerHTML = '<i class="is-ativo">Dia</i><i>Semana</i>';
+  const cartao = document.createElement('span');
+  cartao.className = 'aj-previa-cartao';
+  cartao.innerHTML = '<i class="is-anel"></i><span><b></b><b class="is-curta"></b></span><i class="is-botao">Abrir</i>';
+  area.append(data, saudacao, abas, cartao);
+  previa.appendChild(area);
+  return previa;
+}
+
 function buildSecaoAparencia(state: AjustesViewState): HTMLElement {
-  const painel = buildPainel('Aparência', 'O tema e a cor de destaque do Iris. Valem na hora, em todas as telas; os PDFs saem sempre em papel branco.', ICONE_APARENCIA);
+  const painel = buildPainel('Aparência', 'O tema, a cor e quanto ela toma conta do Iris. Valem na hora, em todas as telas; os PDFs saem sempre em papel branco.', ICONE_APARENCIA);
   const corpo = document.createElement('div');
   corpo.className = 'aj-corpo';
   const grade = document.createElement('div');
@@ -955,6 +1037,11 @@ function buildSecaoAparencia(state: AjustesViewState): HTMLElement {
   grade.setAttribute('role', 'radiogroup');
   grade.setAttribute('aria-label', 'Tema');
   const status = buildStatus('tema');
+  corpo.appendChild(buildPreviaApp(state.ajustes.apelido));
+  const tituloTema = document.createElement('h3');
+  tituloTema.className = 'aj-cor-titulo';
+  tituloTema.textContent = 'Tema';
+  corpo.appendChild(tituloTema);
   TEMAS.forEach((t) => {
     const ativo = state.ajustes.tema === t.id;
     const b = document.createElement('button');
@@ -988,6 +1075,7 @@ function buildSecaoAparencia(state: AjustesViewState): HTMLElement {
   dica.textContent = comAtalho('Para trocar rápido entre claro e escuro: o sol/lua na barra lateral, logo acima do Tutorial, ou o atalho', 'geral.tema');
   corpo.appendChild(dica);
   corpo.appendChild(buildCorDestaque(state.ajustes.destaque, status));
+  corpo.appendChild(buildIntensidade(state.ajustes.intensidade, status));
   corpo.appendChild(status.el);
   painel.appendChild(corpo);
 
@@ -1255,40 +1343,46 @@ function buildNav(state: AjustesViewState): HTMLElement {
   const nav = document.createElement('nav');
   nav.className = 'aj-nav';
 
-  NAV.forEach((item) => {
-    const btn = document.createElement('button');
-    btn.className = `aj-nav-item${secaoAtiva === item.id ? ' is-ativo' : ''}`;
+  // Seção que ficar fora dos grupos ainda aparece, no fim (nada some por esquecimento).
+  const agrupados = new Set(GRUPOS_NAV.flatMap((g) => g.ids));
+  const grupos = [...GRUPOS_NAV, { rotulo: 'Mais', ids: NAV.map((n) => n.id).filter((id) => !agrupados.has(id)) }].filter((g) => g.ids.length);
+  grupos.forEach((grupo) => {
+    nav.appendChild(Object.assign(document.createElement('span'), { className: 'aj-nav-grupo', textContent: grupo.rotulo }));
+    grupo.ids.map((id) => NAV.find((n) => n.id === id)).filter((n): n is ItemNav => !!n).forEach((item) => {
+      const btn = document.createElement('button');
+      btn.className = `aj-nav-item${secaoAtiva === item.id ? ' is-ativo' : ''}`;
 
-    const icone = document.createElement('span');
-    icone.className = 'aj-nav-icone';
-    icone.innerHTML = svg(item.icone, 16);
-    btn.appendChild(icone);
+      const icone = document.createElement('span');
+      icone.className = 'aj-nav-icone';
+      icone.innerHTML = svg(item.icone, 16);
+      btn.appendChild(icone);
 
-    const rotulo = document.createElement('span');
-    rotulo.className = 'aj-nav-rotulo';
-    rotulo.textContent = item.rotulo;
-    btn.appendChild(rotulo);
+      const rotulo = document.createElement('span');
+      rotulo.className = 'aj-nav-rotulo';
+      rotulo.textContent = item.rotulo;
+      btn.appendChild(rotulo);
 
-    if (item.estado) {
-      const { texto, tom } = item.estado(state);
-      const ponto = document.createElement('span');
-      ponto.className = `aj-nav-ponto is-${tom}`;
-      ponto.title = texto;
-      btn.appendChild(ponto);
-    }
+      if (item.estado) {
+        const { texto, tom } = item.estado(state);
+        const ponto = document.createElement('span');
+        ponto.className = `aj-nav-ponto is-${tom}`;
+        ponto.title = texto;
+        btn.appendChild(ponto);
+      }
 
-    btn.addEventListener('click', () => {
-      if (secaoAtiva === item.id) return;
-      // A seção de backup mantém uma referência de status; soltar antes de trocar.
-      if (secaoAtiva === 'backup') exportacaoView.destroy();
-      if (secaoAtiva === 'historico') destroySecaoHistorico();
-      if (secaoAtiva === 'notificacoes') destroySecaoNotificacoes();
-      pararAtualizacao?.();
-      pararAtualizacao = null;
-      secaoAtiva = item.id;
-      rerender();
+      btn.addEventListener('click', () => {
+        if (secaoAtiva === item.id) return;
+        // A seção de backup mantém uma referência de status; soltar antes de trocar.
+        if (secaoAtiva === 'backup') exportacaoView.destroy();
+        if (secaoAtiva === 'historico') destroySecaoHistorico();
+        if (secaoAtiva === 'notificacoes') destroySecaoNotificacoes();
+        pararAtualizacao?.();
+        pararAtualizacao = null;
+        secaoAtiva = item.id;
+        rerender();
+      });
+      nav.appendChild(btn);
     });
-    nav.appendChild(btn);
   });
 
   return nav;

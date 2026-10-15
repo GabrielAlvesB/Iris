@@ -61,10 +61,10 @@
 .kanban-tabs {
   display: flex;
   gap: 2px;
-  background: var(--bg-elevated-2);
+  background: var(--bg-elevated);
   border: 1px solid var(--border-soft);
-  border-radius: var(--radius-sm);
-  padding: 2px;
+  border-radius: 13px;
+  padding: 4px;
   margin-right: auto;
 }
 
@@ -78,7 +78,7 @@
   font-size: 12px;
   font-family: inherit;
   padding: 6px 12px;
-  border-radius: 4px;
+  border-radius: 9px;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
@@ -88,14 +88,16 @@
   opacity: 0.6;
 }
 
+/* O mesmo ativo das abas comuns (.pg-segmento): gradiente da cor com brilho. */
 .kanban-tab.active {
-  background: var(--bg-elevated-3);
-  color: var(--text);
+  font-weight: 600;
+  background: var(--grad-acento);
+  color: var(--texto-sobre-acento);
+  box-shadow: var(--glow-acento);
 }
 
 .kanban-tab.active svg {
   opacity: 1;
-  stroke: var(--accent);
 }
 
 .kanban-tab:hover:not(.active) {

@@ -19,17 +19,16 @@
 }
 
 .pg-cabecalho-icone {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
-  color: var(--accent);
-  background: linear-gradient(145deg, var(--accent-soft), rgb(var(--realce) / 0.02));
-  border: 1px solid color-mix(in oklch, var(--accent) 22%, transparent);
-  box-shadow: 0 6px 18px -8px color-mix(in oklch, var(--accent) 55%, transparent);
+  border-radius: 14px;
+  color: var(--texto-sobre-acento);
+  background: var(--grad-acento);
+  box-shadow: var(--glow-acento), inset 0 1px 0 rgb(255 255 255 / 0.25);
 }
 
 .pg-cabecalho-textos {
@@ -46,9 +45,9 @@
 
 .pg-titulo {
   margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-size: 23px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
   color: var(--text);
 }
 
@@ -163,10 +162,10 @@
 .pg-segmentado {
   display: inline-flex;
   gap: 2px;
-  padding: 3px;
+  padding: 4px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-soft);
-  border-radius: 10px;
+  border-radius: 13px;
 }
 
 .pg-segmento {
@@ -177,19 +176,21 @@
   color: var(--text-muted);
   background: transparent;
   border: none;
-  border-radius: 7px;
+  border-radius: 9px;
   cursor: pointer;
-  transition: color 0.12s ease, background 0.12s ease;
+  transition: color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
 }
 
 .pg-segmento:hover {
   color: var(--text);
 }
 
+/* O ativo tem a mesma cara em todo o app: o gradiente do destaque com brilho. */
 .pg-segmento.is-ativo {
-  color: var(--text);
-  background: var(--bg-elevated-3);
-  box-shadow: 0 1px 2px rgb(0 0 0 / calc(0.35 * var(--sombra-k)));
+  font-weight: 600;
+  color: var(--texto-sobre-acento);
+  background: var(--grad-acento);
+  box-shadow: var(--glow-acento);
 }
 
 .pg-busca {
@@ -197,17 +198,18 @@
   align-items: center;
   gap: 7px;
   width: 230px;
-  padding: 0 11px;
+  padding: 0 12px;
   color: var(--text-faint);
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  transition: border-color 0.14s ease;
+  border-radius: 12px;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease;
 }
 
 .pg-busca:focus-within {
   border-color: var(--accent);
   color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .pg-busca input {
@@ -237,8 +239,8 @@
   padding: 0 14px;
   font-family: var(--font-sans);
   font-size: 12.5px;
-  font-weight: 500;
-  border-radius: 9px;
+  font-weight: 600;
+  border-radius: 11px;
   border: 1px solid transparent;
   cursor: pointer;
   white-space: nowrap;
@@ -256,12 +258,13 @@
 
 .pg-botao.is-primario {
   color: var(--accent-text);
-  background: var(--accent);
-  box-shadow: 0 4px 14px -6px color-mix(in oklch, var(--accent) 70%, transparent);
+  background: var(--grad-acento);
+  box-shadow: var(--glow-acento), inset 0 1px 0 rgb(255 255 255 / 0.22);
 }
 
 .pg-botao.is-primario:hover:not(:disabled) {
-  background: var(--accent-hover);
+  filter: brightness(1.08) saturate(1.05);
+  box-shadow: 0 12px 30px -10px color-mix(in oklch, var(--accent) calc(var(--int-glow) + 15%), transparent), inset 0 1px 0 rgb(255 255 255 / 0.22);
 }
 
 .pg-botao.is-secundario {
@@ -463,13 +466,14 @@
 }
 
 .pg-interruptor.is-ligado {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--grad-acento);
+  border-color: transparent;
+  box-shadow: var(--glow-acento);
 }
 
 .pg-interruptor.is-ligado::after {
   transform: translateX(14px);
-  background: #fff;
+  background: var(--texto-sobre-acento);
 }
 
 .pg-interruptor:disabled {

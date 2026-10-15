@@ -1,6 +1,6 @@
 {
   "name": "iris",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Iris — assistente pessoal de tarefas e organização de conteúdo (100% local)",
   "desktopName": "iris.desktop",
   "author": "Gabriel Alves Tech",
@@ -29,7 +29,8 @@
     "release": "npm run build && npm run clean:release && electron-builder --win --publish always",
     "clean:release": "node scripts/clean-release.mjs",
     "dist:linux": "npm run build && npm run clean:release && electron-builder --linux --publish never",
-    "release:linux": "npm run build && npm run clean:release && electron-builder --linux --publish always"
+    "release:linux": "npm run build && npm run clean:release && electron-builder --linux --publish always",
+    "icones": "electron scripts/gerar-icones.cjs"
   },
   "build": {
     "appId": "com.iris.app",

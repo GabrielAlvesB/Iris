@@ -322,10 +322,12 @@ function buildInicio(state: TutorialViewState): HTMLElement {
   const pagina = el('div', 'tut-pagina tut-inicio');
   pagina.appendChild(buildHero(state));
 
-  ORDEM_GRUPOS.filter((g) => g !== 'comecar').forEach((grupo) => {
+  ORDEM_GRUPOS.filter((g) => g !== 'comecar').forEach((grupo, n) => {
     const guias = GUIAS.filter((g) => g.grupo === grupo);
     if (!guias.length) return;
     const secao = el('section', 'tut-secao');
+    // Cada trilha anda um pouco no círculo de cores a partir do destaque: colorido, mas da família da cor escolhida.
+    secao.style.setProperty('--trilha-h', `calc(var(--acento-h) + ${(n % 6) * 28 - 56})`);
     const cab = el('header', 'tut-secao-cab');
     cab.appendChild(el('h3', undefined, ROTULO_DO_GRUPO[grupo]));
     const descricao = DESCRICAO_DO_GRUPO[grupo];

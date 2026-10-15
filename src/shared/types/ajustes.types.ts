@@ -73,16 +73,33 @@ export function isTema(v: unknown): v is Tema {
  * Na ordem da roda de cores, para a fileira de amostras não parecer aleatória.
  */
 export const CORES_DESTAQUE = [
-  { id: 'violeta', rotulo: 'Violeta', h: 292, c: 0.15 },
-  { id: 'azul', rotulo: 'Azul', h: 255, c: 0.14 },
-  { id: 'ciano', rotulo: 'Ciano', h: 215, c: 0.11 },
-  { id: 'verde', rotulo: 'Verde', h: 152, c: 0.14 },
-  { id: 'lima', rotulo: 'Lima', h: 128, c: 0.15 },
-  { id: 'ambar', rotulo: 'Âmbar', h: 75, c: 0.14 },
-  { id: 'laranja', rotulo: 'Laranja', h: 50, c: 0.15 },
-  { id: 'vermelho', rotulo: 'Vermelho', h: 25, c: 0.16 },
-  { id: 'rosa', rotulo: 'Rosa', h: 350, c: 0.15 },
+  { id: 'violeta', rotulo: 'Violeta', h: 292, c: 0.16 },
+  { id: 'azul', rotulo: 'Azul', h: 258, c: 0.15 },
+  { id: 'ciano', rotulo: 'Ciano', h: 215, c: 0.13 },
+  { id: 'verde', rotulo: 'Verde', h: 150, c: 0.16 },
+  { id: 'lima', rotulo: 'Lima', h: 128, c: 0.17 },
+  { id: 'ambar', rotulo: 'Âmbar', h: 75, c: 0.15 },
+  { id: 'laranja', rotulo: 'Laranja', h: 48, c: 0.17 },
+  { id: 'vermelho', rotulo: 'Vermelho', h: 25, c: 0.18 },
+  { id: 'rosa', rotulo: 'Rosa', h: 350, c: 0.17 },
 ] as const;
+
+/**
+ * Quanto a cor de destaque toma conta do app (base.css, `data-intensidade` no
+ * <html>): saturação do acento, o tom que tinge fundo e bordas e o brilho.
+ * Vibrante é o padrão desde a 0.4; Sutil fica perto do visual antigo.
+ */
+export const INTENSIDADES = [
+  { id: 'sutil', rotulo: 'Sutil', descricao: 'A cor só nos detalhes, fundo quase neutro' },
+  { id: 'vibrante', rotulo: 'Vibrante', descricao: 'A cor no app inteiro, com gradiente e brilho' },
+  { id: 'intensa', rotulo: 'Intensa', descricao: 'Saturada ao máximo, fundo bem tingido' },
+] as const;
+
+export type Intensidade = (typeof INTENSIDADES)[number]['id'];
+
+export function isIntensidade(v: unknown): v is Intensidade {
+  return typeof v === 'string' && INTENSIDADES.some((i) => i.id === v);
+}
 
 export type CorDestaqueId = (typeof CORES_DESTAQUE)[number]['id'];
 
@@ -115,6 +132,8 @@ export interface AjustesFile {
   bandeja: boolean;
   /** v8. Como a Home chama o usuário ("Boa tarde, Gabi"). Vazio = só a saudação. */
   apelido: string;
+  /** v9. Quanto a cor de destaque toma conta do app. Ausente no arquivo antigo = vibrante. */
+  intensidade: Intensidade;
 }
 
 /** Cabe numa saudação de uma linha. */
@@ -134,4 +153,5 @@ export interface AjustesInfo {
   destaque: Destaque;
   bandeja: boolean;
   apelido: string;
+  intensidade: Intensidade;
 }

@@ -1,22 +1,45 @@
 :root {
-  --bg: #0c0d12;
-  --bg-elevated: #14161c;
-  --bg-elevated-2: #1b1e27;
-  --bg-elevated-3: #232631;
-  --border: #262933;
-  --border-soft: #1e212a;
-  --text: #f2f3f5;
-  --text-muted: #9498a3;
-  --text-faint: #5b5f6b;
-  /* Cor de destaque (Ajustes › Aparência): só matiz e croma mudam; a luminosidade é a de
-     cada tema, e é ela que garante o contraste — por isso toda cor escolhida fica legível.
-     O app.ts põe as duas no <html> (core/tema.ts › aplicarAcento); estas são o violeta. */
+  /* ---------- Cor de destaque (Ajustes › Aparência) ----------
+     Só matiz e croma são do usuário — o app.ts os põe no <html> (core/tema.ts ›
+     aplicarAcento); estes são o violeta. A luminosidade é a de cada tema, e é ela
+     que garante o contraste: em OKLCH ela é perceptual, então qualquer matiz fica
+     tão legível quanto o violeta.
+
+     Intensidade (data-intensidade no <html>, abaixo): multiplica o croma (--int-k),
+     tinge fundo, bordas e textos com o matiz (--int-tinta), e dá a força do
+     --accent-soft e do brilho. Vibrante é o padrão desde a 0.4. */
   --acento-h: 292;
-  --acento-c: 0.15;
-  --accent: oklch(0.7 var(--acento-c) var(--acento-h));
-  --accent-hover: oklch(0.62 calc(var(--acento-c) + 0.01) var(--acento-h));
-  --accent-soft: oklch(0.7 var(--acento-c) var(--acento-h) / 0.16);
-  --accent-text: #fff;
+  --acento-c: 0.16;
+  --int-k: 1.3;
+  --int-tinta: 0.014;
+  --int-soft: 0.2;
+  --int-glow: 50%;
+  --acento-l: 0.7;
+  --acento-cc: min(calc(var(--acento-c) * var(--int-k)), 0.24);
+  --accent: oklch(var(--acento-l) var(--acento-cc) var(--acento-h));
+  /* A segunda cor dos gradientes: o mesmo tom, o matiz um pouco adiante. */
+  --acento-2: oklch(calc(var(--acento-l) + 0.02) var(--acento-cc) calc(var(--acento-h) + 42));
+  --accent-hover: oklch(calc(var(--acento-l) - 0.07) calc(var(--acento-cc) + 0.01) var(--acento-h));
+  --accent-soft: oklch(var(--acento-l) var(--acento-cc) var(--acento-h) / var(--int-soft));
+  --grad-acento: linear-gradient(135deg, var(--accent), var(--acento-2));
+  --glow-acento: 0 10px 28px -10px color-mix(in oklch, var(--accent) var(--int-glow), transparent);
+  /* Um texto só sobre o acento (antes eram dois tokens, um sempre branco). */
+  --accent-text: var(--texto-sobre-acento);
+
+  /* Superfícies e textos tingidos pelo matiz do destaque: é o que faz o app
+     inteiro "virar verde" quando a cor é verde. A luminosidade de cada degrau é
+     fixa (o contraste não muda); só o croma vem da intensidade. O --bg precisa
+     bater com fundoDaJanela (cor.ts): é a cor do primeiro quadro da janela. */
+  --bg: oklch(0.165 var(--int-tinta) var(--acento-h));
+  --bg-elevated: oklch(0.205 calc(var(--int-tinta) * 1.1) var(--acento-h));
+  --bg-elevated-2: oklch(0.24 calc(var(--int-tinta) * 1.2) var(--acento-h));
+  --bg-elevated-3: oklch(0.275 calc(var(--int-tinta) * 1.3) var(--acento-h));
+  --border: oklch(0.3 calc(var(--int-tinta) * 1.5) var(--acento-h));
+  --border-soft: oklch(0.255 calc(var(--int-tinta) * 1.3) var(--acento-h));
+  --text: oklch(0.965 calc(var(--int-tinta) * 0.4) var(--acento-h));
+  --text-muted: oklch(0.72 calc(var(--int-tinta) * 1.4) var(--acento-h));
+  --text-faint: oklch(0.53 calc(var(--int-tinta) * 1.5) var(--acento-h));
+  --radius-xl: 20px;
   --font-sans: 'Space Grotesk', -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   --danger: #ef4444;
@@ -25,9 +48,9 @@
   --warning-soft: rgba(245, 158, 11, 0.16);
   --success: #22c55e;
   --success-soft: rgba(34, 197, 94, 0.16);
-  --radius-sm: 5px;
-  --radius: 8px;
-  --radius-lg: 10px;
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
   /* Série principal dos gráficos (validada contra a superfície escura). */
   --gf-serie-1: #3987e5;
   --shadow: 0 12px 32px rgb(0 0 0 / calc(0.45 * var(--sombra-k)));
@@ -44,7 +67,7 @@
   --tinta-chip: 80%;
   --tinta-texto: 100%;
   /* Texto sobre o --accent quando ele é fundo de selo pequeno. */
-  --texto-sobre-acento: #16141f;
+  --texto-sobre-acento: oklch(0.2 0.03 var(--acento-h));
   --danger-texto: #fca5a5;
   --warning-texto: #fcd34d;
   --codigo-texto: #d6d8de;
@@ -60,19 +83,25 @@
    texto ou sombra, ou ela some num dos dois temas. */
 @media (prefers-color-scheme: light) {
   :root {
-    --bg: #f5f6f8;
-    --bg-elevated: #ffffff;
-    --bg-elevated-2: #f0f1f4;
-    --bg-elevated-3: #e6e8ed;
-    --border: #d9dce3;
-    --border-soft: #e6e8ed;
-    --text: #16181d;
-    --text-muted: #565b67;
-    --text-faint: #8a8f9b;
+    --bg: oklch(0.975 calc(var(--int-tinta) * 0.6) var(--acento-h));
+    --bg-elevated: oklch(0.997 calc(var(--int-tinta) * 0.2) var(--acento-h));
+    --bg-elevated-2: oklch(0.955 calc(var(--int-tinta) * 0.7) var(--acento-h));
+    --bg-elevated-3: oklch(0.925 calc(var(--int-tinta) * 0.8) var(--acento-h));
+    --border: oklch(0.885 var(--int-tinta) var(--acento-h));
+    --border-soft: oklch(0.928 calc(var(--int-tinta) * 0.8) var(--acento-h));
+    --text: oklch(0.22 calc(var(--int-tinta) * 1.2) var(--acento-h));
+    --text-muted: oklch(0.46 calc(var(--int-tinta) * 1.4) var(--acento-h));
+    --text-faint: oklch(0.63 calc(var(--int-tinta) * 1.2) var(--acento-h));
     /* Mais escuro e mais saturado (0,15 → 0,19 no violeta), com teto para não sair do sRGB. */
-    --accent: oklch(0.54 min(calc(var(--acento-c) * 1.27), 0.2) var(--acento-h));
-    --accent-hover: oklch(0.47 min(calc(var(--acento-c) * 1.33), 0.21) var(--acento-h));
-    --accent-soft: oklch(0.54 min(calc(var(--acento-c) * 1.27), 0.2) var(--acento-h) / 0.11);
+    /* No claro o acento desce de luminosidade para o texto branco por cima (e o acento
+       como texto sobre o fundo) passar de 4,5:1. Na mesma luminosidade OKLCH o verde e o
+       ciano ficam mais claros para o WCAG que o violeta, então o L acompanha o matiz:
+       curva medida para passar em todos os matizes com croma até 0,24 (0,47 no verde,
+       0,56 no rosa). Satura um pouco mais; o --accent-soft fica mais leve sobre o branco. */
+    --acento-l: calc(0.515 + 0.045 * cos(calc((var(--acento-h) - 340) * 1deg)));
+    --acento-cc: min(calc(var(--acento-c) * var(--int-k) * 1.12), 0.24);
+    --acento-2: oklch(var(--acento-l) var(--acento-cc) calc(var(--acento-h) + 42));
+    --accent-soft: oklch(var(--acento-l) var(--acento-cc) var(--acento-h) / calc(var(--int-soft) * 0.6));
     --danger: #dc2626;
     --danger-soft: rgba(220, 38, 38, 0.1);
     /* Mais escuros que no escuro: aqui eles também são cor de texto sobre branco. */
@@ -96,6 +125,25 @@
     --texto-sobre-acento: #ffffff;
     --esquema: light;
   }
+}
+
+/* ---------- Intensidade da cor (Ajustes › Aparência) ----------
+   Sutil fica perto do visual de antes da 0.4 (cor só nos detalhes, fundo quase
+   cinza); Intensa satura ao máximo e tinge bem o fundo. As contas de cor ficam
+   todas no :root acima: aqui só mudam os quatro botões. Os valores de --int-tinta
+   precisam bater com TINTA_DO_FUNDO (cor.ts), a cor da janela no primeiro quadro. */
+:root[data-intensidade='sutil'] {
+  --int-k: 1;
+  --int-tinta: 0.004;
+  --int-soft: 0.15;
+  --int-glow: 22%;
+}
+
+:root[data-intensidade='intensa'] {
+  --int-k: 1.6;
+  --int-tinta: 0.026;
+  --int-soft: 0.26;
+  --int-glow: 72%;
 }
 
 * {
@@ -204,13 +252,14 @@ button {
 }
 
 .btn {
-  background: var(--accent);
+  background: var(--grad-acento);
   color: var(--accent-text);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   padding: 8px 14px;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
+  box-shadow: var(--glow-acento);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -220,7 +269,7 @@ button {
 }
 
 .btn:hover {
-  background: var(--accent-hover);
+  filter: brightness(1.08) saturate(1.05);
 }
 
 .btn:active {
@@ -231,6 +280,7 @@ button {
   background: var(--bg-elevated-3);
   color: var(--text);
   border: 1px solid var(--border);
+  box-shadow: none;
 }
 
 .btn-secondary:hover {
@@ -241,6 +291,7 @@ button {
   background: var(--danger);
   color: #fff;
   border: 1px solid transparent;
+  box-shadow: none;
 }
 
 .btn-danger:hover {

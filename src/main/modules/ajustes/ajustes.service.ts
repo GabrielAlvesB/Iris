@@ -4,6 +4,8 @@ import {
   isCorDestaqueId,
   isFormatoAssinatura,
   isTema,
+  isIntensidade,
+  type Intensidade,
   MAX_APELIDO,
   type Destaque,
   type AjustesFile,
@@ -19,7 +21,7 @@ import { MODULO_PADRAO, isModuloId } from '../../../shared/types/modulos.types';
 import { isHex } from '../../../shared/types/cor';
 
 const FILE_NAME = 'ajustes.json';
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 9;
 
 /** Ids de módulo que mudaram de nome: o módulo inicial salvo acompanha. */
 const MODULOS_RENOMEADOS: Record<string, ModuloInicial> = { videos: 'postagens' };
@@ -50,7 +52,7 @@ function perfilPadrao(): PerfilUsuario {
 }
 
 function createDefaultFile(): AjustesFile {
-  return { schemaVersion: SCHEMA_VERSION, updatedAt: nowIso(), moduloInicial: MODULO_PADRAO, assinatura: assinaturaPadrao(), perfil: perfilPadrao(), atalhos: {}, tema: 'escuro', destaque: { id: 'violeta' }, bandeja: false, apelido: '' };
+  return { schemaVersion: SCHEMA_VERSION, updatedAt: nowIso(), moduloInicial: MODULO_PADRAO, assinatura: assinaturaPadrao(), perfil: perfilPadrao(), atalhos: {}, tema: 'escuro', destaque: { id: 'violeta' }, bandeja: false, apelido: '', intensidade: 'vibrante' };
 }
 
 function texto(v: unknown, max = 160): string {
@@ -127,6 +129,7 @@ function migrate(raw: unknown): AjustesFile {
     destaque: migrateDestaque(candidate.destaque),
     bandeja: candidate.bandeja === true,
     apelido: lerApelido(candidate.apelido),
+    intensidade: isIntensidade(candidate.intensidade) ? candidate.intensidade : 'vibrante',
   };
 }
 
@@ -156,6 +159,7 @@ export async function getAjustes(): Promise<AjustesInfo> {
     destaque: file.destaque,
     bandeja: file.bandeja,
     apelido: file.apelido,
+    intensidade: file.intensidade,
   };
 }
 
@@ -221,6 +225,19 @@ export async function setApelido(apelido: unknown): Promise<AjustesInfo> {
   file.apelido = lerApelido(apelido);
   await saveFile(file);
   return getAjustes();
+}
+
+export async function setIntensidade(intensidade: unknown): Promise<AjustesInfo> {
+  if (!isIntensidade(intensidade)) throw new Error('Intensidade inválida.');
+  const file = loadFile();
+  file.intensidade = intensidade;
+  await saveFile(file);
+  return getAjustes();
+}
+
+/** Lido pelo main.ts antes de criar a janela (vai junto com a cor) e pela cor de fundo da janela. */
+export function getIntensidade(): Intensidade {
+  return loadFile().intensidade;
 }
 
 export function getBandeja(): boolean {

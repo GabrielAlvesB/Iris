@@ -160,13 +160,33 @@ aberto (`onSecaoAjustesSolicitada`).
   desenha algo fixo: papel dos documentos, logos de rede, post-its, teleprompter, miniaturas de Ajustes › Aparência.
 - Renderer: [core/tema.ts](src/renderer/core/tema.ts) (`temaEfetivo`, `alternarTema`, `onTemaMudou` pela media query).
 - **Cor de destaque** (`ajustes.json` v6 › `destaque`: uma de `CORES_DESTAQUE` ou `{ id: 'livre', hex }`): só **matiz e croma**
-  são do usuário — `--acento-h`/`--acento-c` no `<html>` (`aplicarAcento`); o base.css monta `--accent`, `--accent-hover` e
-  `--accent-soft` com a luminosidade de cada tema (0,70 no escuro, 0,54 no claro, croma ×1,27 com teto). OKLCH é perceptual: a
-  mesma luminosidade dá o mesmo contraste em qualquer matiz, por isso toda cor fica legível. Cor livre passa por `hexParaOklch`
-  ([cor.ts](src/shared/types/cor.ts), puro), croma até `CROMA_MAXIMO`. A cor inicial vai com a janela (`additionalArguments`
-  `--iris-acento=h,c` → `system.acentoInicial`), aplicada no topo do app.ts: sem IPC e sem piscar o violeta. **Nunca escrever
-  o matiz 292 num CSS novo** — use `var(--accent)` ou `var(--acento-h)`. O documento do PDF tem acento próprio (`--rd-acento`)
-  e não muda.
+  são do usuário — `--acento-h`/`--acento-c` no `<html>` (`aplicarAcento`). O base.css monta o resto. Cor livre passa por
+  `hexParaOklch` ([cor.ts](src/shared/types/cor.ts), puro), croma até `CROMA_MAXIMO` (0,2). **Nunca escrever o matiz 292 num CSS
+  novo** — use os tokens. O documento do PDF tem acento próprio (`--rd-acento`) e não muda.
+- **Visual "Vibrante + imersivo" (0.4)** — a cor vira o tema, não um detalhe:
+  - Tokens: `--accent` (L `--acento-l`: 0,70 no escuro; no claro uma **curva por matiz**
+    `0,515 + 0,045·cos(h − 340°)` — verde/ciano precisam de L menor para o texto branco passar de 4,5:1), croma
+    `--acento-cc = min(c × --int-k, 0,24)`; `--acento-2` (matiz + 42) e **`--grad-acento`** (os dois em 135°); **`--glow-acento`**
+    (sombra colorida); `--accent-soft` com opacidade `--int-soft`. `--accent-text` = `--texto-sobre-acento` (escuro no escuro,
+    branco no claro) — um token só. Contraste medido para as 9 cores × 3 intensidades × 2 temas (≥ 4,5).
+  - **Superfícies tingidas**: `--bg`, `--bg-elevated*`, `--border*` e `--text*` são `oklch(L fixo, croma pequeno, --acento-h)`;
+    a luminosidade de cada degrau é fixa (contraste igual), só o croma (`--int-tinta`) vem da intensidade. Cor nova continua
+    saindo desses tokens; superfície nova também (nada de hex de cinza).
+  - **Intensidade** (`ajustes.json` v9 › `intensidade`: `sutil` | `vibrante` (padrão) | `intensa`, `setIntensidade`): atributo
+    `data-intensidade` no `<html>` (`aplicarIntensidade`/`definirIntensidade` em core/tema.ts), regras
+    `:root[data-intensidade=…]` mudam só `--int-k`, `--int-tinta`, `--int-soft`, `--int-glow`. Chega com a janela junto da cor
+    (`--iris-acento=h,c,intensidade` → `system.acentoInicial`) e o app.ts relê os ajustes logo depois (o argumento é o da
+    criação da janela: um Ctrl+R depois de trocar a cor traria a antiga). `corDeFundo()` (main/core/tema.ts) calcula o `--bg`
+    tingido por `fundoDaJanela` (cor.ts) — **`TINTA_DO_FUNDO` precisa bater com o base.css** — e trocar cor/intensidade
+    reaplica a cor da janela (primeiro quadro e PDF).
+  - **Um desenho só de "ativo"** no app todo: bloco/pílula em `--grad-acento` com `--glow-acento` e texto `--texto-sobre-acento`
+    (item do trilho, `.pg-segmento`, abas do Kanban, ícone do item ativo dos Ajustes e do Tutorial, botão primário). Tela nova
+    com abas ou navegação usa as peças comuns (`buildSegmentado`) ou esse mesmo desenho — não um cinza.
+  - Barra lateral = **dock flutuante** (`#sidebar` com margem; `.trilho` com raio `--radius-xl`; painel solto em `left: 84px`)
+    com o avatar do apelido no pé (`.trilho-avatar` → Ajustes › Preferências). Ajustes: navegação em grupos (`GRUPOS_NAV`:
+    Você, Conteúdo, Conexões, Sistema; seção fora deles cai em "Mais") e Aparência com prévia ao vivo (`buildPreviaApp`),
+    amostras em gradiente e os três cartões de intensidade. Tutorial: cada trilha ganha `--trilha-h` (matiz vizinho do
+    destaque) no ícone e na barra dos cartões.
   Trocar: sol/lua no trilho (acima do Tutorial), atalho `geral.tema` (Ctrl+Shift+L), Ctrl+P e Ajustes › Aparência.
 
 ## Persistência
@@ -1080,6 +1100,10 @@ Quando a configuração muda na UI, chamar `reaplicarAgendamentos()` em vez de e
   ambiente — herdado do VS Code, ele faz o `electron.exe` rodar como Node puro ("bad option").
 - **Imports do renderer terminam em `.js`** (`./modules/x/x.state.js`), porque é ESM nativo no
   browser. Os imports do main, não.
+- **Ícone do app**: a fonte é [marca/icone.svg](marca/icone.svg) (e `icone-pequeno.svg`, usado até 24 px — bandeja).
+  `npm run icones` (roda no Electron, sem dependência) gera `icon.ico` com 10 tamanhos, `icon.png` 512 (Linux) e o
+  favicon `icon-64.png`. Nunca editar os PNG/ICO à mão. A marca da sidebar é outro desenho: `MARCA_SVG` em sidebar.ts,
+  só o olho, nas cores do destaque.
 - Arquivo estático novo (CSS, fonte, asset) precisa entrar em
   [scripts/copy-static.mjs](scripts/copy-static.mjs), senão ele simplesmente não existe no
   build.

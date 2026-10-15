@@ -1,4 +1,4 @@
-import type { Destaque, Tema } from '../../shared/types/ajustes.types.js';
+import type { Destaque, Intensidade, Tema } from '../../shared/types/ajustes.types.js';
 import { acentoDoDestaque, type Acento } from '../../shared/types/cor.js';
 
 /**
@@ -43,6 +43,22 @@ export function aplicarAcento({ h, c }: Acento): void {
   const raiz = document.documentElement.style;
   raiz.setProperty('--acento-h', String(h));
   raiz.setProperty('--acento-c', String(c));
+}
+
+/**
+ * Intensidade da cor (Sutil / Vibrante / Intensa): um atributo no <html> que o
+ * base.css lê para saturação, tom do fundo e brilho.
+ */
+export function aplicarIntensidade(intensidade: Intensidade): void {
+  document.documentElement.dataset.intensidade = intensidade;
+}
+
+export async function definirIntensidade(intensidade: Intensidade): Promise<Intensidade> {
+  aplicarIntensidade(intensidade);
+  const r = await window.irisAPI.ajustes.setIntensidade(intensidade);
+  if (!r.ok) throw new Error(r.error);
+  aplicarIntensidade(r.data.intensidade);
+  return r.data.intensidade;
 }
 
 /** Grava e já pinta: a troca vale na hora, em todas as telas. */

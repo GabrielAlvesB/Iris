@@ -1,12 +1,14 @@
 /* Barra lateral: trilho de ícones + painel de módulos (core/sidebar.ts) e busca rápida (core/paleta.ts). */
 
+/* Desde a 0.4 a barra não é mais uma faixa colada na borda: é um dock que flutua
+   sobre o fundo (já tingido pela cor), com cantos e sombra. */
 #sidebar {
   position: relative;
   display: flex;
   flex-shrink: 0;
   height: 100vh;
-  background: var(--bg-elevated);
-  border-right: 1px solid var(--border-soft);
+  padding: 10px 0 10px 10px;
+  background: transparent;
   user-select: none;
   z-index: 50;
 }
@@ -20,6 +22,12 @@
   width: 64px;
   flex-shrink: 0;
   padding: 14px 0 12px;
+  background:
+    linear-gradient(180deg, color-mix(in oklch, var(--accent) 9%, transparent), transparent 40%),
+    var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 18px 40px -24px rgb(0 0 0 / calc(0.9 * var(--sombra-k)));
 }
 
 .trilho-logo {
@@ -43,9 +51,59 @@
   opacity: 0.35;
 }
 
-.trilho-logo img {
+.trilho-logo .marca {
   position: relative;
-  border-radius: 8px;
+  display: block;
+}
+
+.marca .mc-pupila {
+  /* Desenho fixo: a pupila é quase preta nos dois temas, só puxada para o destaque. */
+  fill: color-mix(in oklch, var(--accent) 18%, black);
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.35s ease;
+}
+
+.marca .mc-olho {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.marca .mc-iris {
+  transition: transform 0.45s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+
+/* Passar o mouse: o olho pisca uma vez, olha para o lado dos módulos e a pupila dilata. */
+.trilho-logo:hover .mc-olho {
+  animation: mc-piscar 0.42s ease-in-out;
+}
+
+.trilho-logo:hover .mc-iris {
+  transform: translate(3px, 1px);
+}
+
+.trilho-logo:hover .mc-pupila {
+  transform: scale(1.25);
+}
+
+@keyframes mc-piscar {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  45% {
+    transform: scaleY(0.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trilho-logo:hover .mc-olho {
+    animation: none;
+  }
+  .marca .mc-iris,
+  .marca .mc-pupila {
+    transition: none;
+  }
 }
 
 .trilho-grupo {
@@ -88,8 +146,8 @@
 }
 
 .trilho-item:hover {
-  color: var(--text);
-  background: var(--bg-elevated-2);
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .trilho-item:focus-visible {
@@ -102,21 +160,63 @@
   background: var(--bg-elevated-3);
 }
 
+/* O ativo é um bloco cheio no gradiente da cor, com brilho: a forma (não só a cor)
+   diz onde se está. É o mesmo desenho de ativo das abas, dos Ajustes e do Tutorial. */
 .trilho-item.is-ativo {
-  color: var(--accent);
-  background: var(--accent-soft);
+  color: var(--texto-sobre-acento);
+  background: var(--grad-acento);
+  box-shadow: var(--glow-acento), inset 0 1px 0 rgb(255 255 255 / 0.22);
 }
 
-/* Marca do ativo na borda do trilho: a posição é lida sem depender só da cor. */
-.trilho-item.is-ativo::before {
-  content: '';
+/* Você: inicial do apelido no pé do trilho. */
+.trilho-avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-top: 8px;
+  padding: 0;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--texto-sobre-acento);
+  background: var(--grad-acento);
+  border: 2px solid var(--bg-elevated);
+  border-radius: 50%;
+  outline: 1.5px solid color-mix(in oklch, var(--accent) 60%, transparent);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.trilho-avatar:hover {
+  transform: scale(1.06);
+}
+
+.trilho-avatar[data-dica]::after {
+  content: attr(data-dica);
   position: absolute;
-  left: -11px;
-  top: 10px;
-  bottom: 10px;
-  width: 3px;
-  background: var(--accent);
-  border-radius: 0 3px 3px 0;
+  left: calc(100% + 14px);
+  top: 50%;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--text);
+  background: var(--bg-elevated-3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgb(0 0 0 / calc(0.4 * var(--sombra-k)));
+  opacity: 0;
+  transform: translate(-4px, -50%);
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.trilho-avatar:hover::after {
+  opacity: 1;
+  transform: translate(0, -50%);
+  transition-delay: 0.25s;
 }
 
 /* Dica ao lado: o trilho não tem rótulo, e o title do sistema demora ~1 s. */
@@ -233,12 +333,13 @@
 /* Solto: flutua sobre a tela, ao lado do trilho, sem empurrar o conteúdo. */
 #sidebar:not(.is-fixado) .sb-painel {
   position: absolute;
-  top: 8px;
-  bottom: 8px;
-  left: 64px;
+  top: 10px;
+  bottom: 10px;
+  /* 10px de margem do dock + 64px do trilho + 10px de respiro. */
+  left: 84px;
   z-index: 60;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius-xl);
   box-shadow: 0 24px 48px -16px rgb(0 0 0 / calc(0.7 * var(--sombra-k))), 0 0 0 1px rgb(var(--realce) / 0.02);
   animation: sb-painel-entrar 0.16s ease-out;
 }
@@ -250,9 +351,18 @@
   }
 }
 
-/* Fixado: parte da barra, separado do trilho por uma linha. */
+/* Fixado: um segundo cartão ao lado do dock, no mesmo desenho. */
 #sidebar.is-fixado .sb-painel {
-  border-left: 1px solid var(--border-soft);
+  margin-left: 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-xl);
+}
+
+.sb-painel {
+  overflow: hidden;
+  background:
+    radial-gradient(120% 60% at 0% 0%, color-mix(in oklch, var(--accent) 12%, transparent), transparent 60%),
+    var(--bg-elevated);
 }
 
 .sb-painel-cab {
@@ -264,11 +374,10 @@
 }
 
 .sb-painel-titulo {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-faint);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
 }
 
 .sb-painel-fixar {
@@ -311,7 +420,7 @@
   color: var(--text-muted);
   background: transparent;
   border: none;
-  border-radius: 10px;
+  border-radius: 14px;
   cursor: pointer;
   transition: background 0.14s ease, color 0.14s ease;
 }
@@ -319,7 +428,7 @@
 .sb-painel-item:hover,
 .sb-painel-item:focus-visible {
   color: var(--text);
-  background: var(--bg-elevated-2);
+  background: var(--accent-soft);
   outline: none;
 }
 
@@ -332,17 +441,20 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 34px;
-  height: 34px;
-  color: var(--text-muted);
-  background: var(--bg-elevated-2);
-  border: 1px solid var(--border-soft);
-  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in oklch, var(--accent) 22%, transparent);
+  border-radius: 12px;
+  transition: transform 0.15s ease;
 }
 
 .sb-painel-item:hover .sb-painel-item-icone {
-  color: var(--accent);
+  transform: scale(1.06);
 }
+
+
 
 .sb-painel-item-textos {
   display: flex;
@@ -353,7 +465,7 @@
 
 .sb-painel-item-nome {
   font-size: 13.5px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text);
 }
 
@@ -371,9 +483,10 @@
 }
 
 .sb-painel-item.is-ativo .sb-painel-item-icone {
-  color: var(--accent);
-  background: var(--bg);
-  border-color: color-mix(in oklch, var(--accent) 35%, transparent);
+  color: var(--texto-sobre-acento);
+  background: var(--grad-acento);
+  border-color: transparent;
+  box-shadow: var(--glow-acento);
 }
 
 /* Fixado: lista compacta de todas as categorias. */
@@ -401,12 +514,13 @@
 }
 
 .sb-painel-grupo-rotulo {
-  margin: 2px 8px 4px;
-  font-size: 10.5px;
+  margin: 4px 8px 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--accent);
 }
 
 .sb-painel-grupo.is-destacado {

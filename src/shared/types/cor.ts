@@ -1,5 +1,5 @@
 // .js: importado em runtime pelo renderer (ESM nativo).
-import { CORES_DESTAQUE, type Destaque } from './ajustes.types.js';
+import { CORES_DESTAQUE, type Destaque, type Intensidade } from './ajustes.types.js';
 
 /**
  * Cor de destaque: só o matiz (h) e a saturação (c, croma do OKLCH) vêm da
@@ -14,8 +14,24 @@ export interface Acento {
   c: number;
 }
 
-/** Acima disso, no tema claro (que multiplica o croma), boa parte dos matizes sai do sRGB. */
-export const CROMA_MAXIMO = 0.16;
+/**
+ * Teto da cor livre. A intensidade ainda multiplica o croma no CSS (com teto
+ * próprio), e o navegador encaixa no sRGB o que passar: aqui só se evita um
+ * valor absurdo vindo do seletor.
+ */
+export const CROMA_MAXIMO = 0.2;
+
+/**
+ * O fundo da janela (--bg do base.css) em cada intensidade: luminosidade fixa
+ * do tema e um croma pequeno no matiz do destaque. Precisa bater com o base.css:
+ * é a cor do primeiro quadro, antes do CSS, e a que o PDF restaura.
+ */
+const TINTA_DO_FUNDO: Record<Intensidade, number> = { sutil: 0.004, vibrante: 0.014, intensa: 0.026 };
+
+export function fundoDaJanela(acento: Acento, intensidade: Intensidade, escuro: boolean): string {
+  const tinta = TINTA_DO_FUNDO[intensidade];
+  return hexDoAcento({ h: acento.h, c: escuro ? tinta : tinta * 0.6 }, escuro ? 0.165 : 0.975);
+}
 
 export function isHex(v: unknown): v is string {
   return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);

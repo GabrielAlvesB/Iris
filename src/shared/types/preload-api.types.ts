@@ -85,7 +85,7 @@ import type {
   GithubSnapshot,
   SalvarGithubConfigInput,
 } from './github.types';
-import type { AjustesInfo, AssinaturaRelatorio, Destaque, ModuloInicial, PerfilUsuario, Tema } from './ajustes.types';
+import type { AjustesInfo, AssinaturaRelatorio, Destaque, Intensidade, ModuloInicial, PerfilUsuario, Tema } from './ajustes.types';
 import type {
   ArquivarImagemInput,
   AtualizarImagemInput,
@@ -318,6 +318,7 @@ export interface AjustesApi {
   setAtalhos(atalhos: Record<string, string>): Promise<IpcResult<AjustesInfo>>;
   setTema(tema: Tema): Promise<IpcResult<AjustesInfo>>;
   setDestaque(destaque: Destaque): Promise<IpcResult<AjustesInfo>>;
+  setIntensidade(intensidade: Intensidade): Promise<IpcResult<AjustesInfo>>;
   /** Liga/desliga o ícone na bandeja (fechar a janela deixa o Iris rodando). */
   setBandeja(ligada: boolean): Promise<IpcResult<AjustesInfo>>;
   /** Como a Home chama o usuário ('' = sem apelido). */
@@ -378,7 +379,7 @@ export interface SystemApi {
   /** Avisa o main que a primeira tela tem conteúdo (medição de abertura). */
   primeiraTela(msDesdeNavegacao: number): void;
   /** A cor de destaque na abertura (matiz e croma do OKLCH), vinda do main com a janela. */
-  acentoInicial: { h: number; c: number } | null;
+  acentoInicial: { h: number; c: number; intensidade: Intensidade | null } | null;
 }
 
 export interface LinksApi {

@@ -276,6 +276,7 @@ export const AJUSTES_CHANNELS = {
   setAtalhos: 'ajustes:setAtalhos',
   setTema: 'ajustes:setTema',
   setDestaque: 'ajustes:setDestaque',
+  setIntensidade: 'ajustes:setIntensidade',
   setBandeja: 'ajustes:setBandeja',
   setApelido: 'ajustes:setApelido',
 } as const;

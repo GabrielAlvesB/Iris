@@ -2,7 +2,8 @@ import { registrarAtendente, registrarRemontagem, registrarVisita } from './core
 import { iniciarHistorico } from './core/historico.js';
 import { iniciarLembretes } from './core/lembretes.js';
 import { iniciarPomodoro } from './core/pomodoro.js';
-import { aplicarAcento } from './core/tema.js';
+import { aplicarAcento, aplicarIntensidade } from './core/tema.js';
+import { acentoDoDestaque } from '../shared/types/cor.js';
 import { instalarAtalhos } from './core/atalhos.js';
 import { ligarAtalhosGlobais } from './core/atalhos.globais.js';
 import { iniciarAtualizacao } from './core/atualizacao.js';
@@ -319,6 +320,14 @@ function preCarregarRestantes(): void {
 // Antes de qualquer desenho: a cor de destaque escolhida veio com a janela (main.ts › additionalArguments).
 const acentoInicial = window.irisAPI.system.acentoInicial;
 if (acentoInicial) aplicarAcento(acentoInicial);
+aplicarIntensidade(acentoInicial?.intensidade ?? 'vibrante');
+// O argumento é o da criação da janela: depois de um Ctrl+R ele ainda traz a cor
+// de antes de uma troca. A leitura dos ajustes corrige (sem piscar quando é a mesma).
+void window.irisAPI.ajustes.getAjustes().then((r) => {
+  if (!r.ok) return;
+  aplicarAcento(acentoDoDestaque(r.data.destaque));
+  aplicarIntensidade(r.data.intensidade);
+});
 
 function bootstrap(): void {
   const viewRoot = document.getElementById('view-root');

@@ -42,11 +42,14 @@ import type {
 } from '../shared/types/events.types';
 import type { IrisApi } from '../shared/types/preload-api.types';
 
-/** "--iris-acento=292,0.15" (main.ts). Ausente ou estragado = null: fica a cor do CSS. */
-function lerAcentoInicial(): { h: number; c: number } | null {
+/** "--iris-acento=292,0.15,vibrante" (main.ts). Ausente ou estragado = null: fica a cor do CSS. */
+function lerAcentoInicial(): { h: number; c: number; intensidade: 'sutil' | 'vibrante' | 'intensa' | null } | null {
   const arg = process.argv.find((a) => a.startsWith('--iris-acento='));
-  const [h, c] = (arg?.slice('--iris-acento='.length) ?? '').split(',').map(Number);
-  return Number.isFinite(h) && Number.isFinite(c) ? { h: h as number, c: c as number } : null;
+  const [hTexto, cTexto, intensidade] = (arg?.slice('--iris-acento='.length) ?? '').split(',');
+  const h = Number(hTexto);
+  const c = Number(cTexto);
+  if (!hTexto || !cTexto || !Number.isFinite(h) || !Number.isFinite(c)) return null;
+  return { h, c, intensidade: intensidade === 'sutil' || intensidade === 'vibrante' || intensidade === 'intensa' ? intensidade : null };
 }
 
 function openExternalLink(url: string): void {
@@ -412,6 +415,7 @@ const irisAPI: IrisApi = {
     setAtalhos: (atalhos) => ipcRenderer.invoke(AJUSTES_CHANNELS.setAtalhos, atalhos),
     setTema: (tema) => ipcRenderer.invoke(AJUSTES_CHANNELS.setTema, tema),
     setDestaque: (destaque) => ipcRenderer.invoke(AJUSTES_CHANNELS.setDestaque, destaque),
+    setIntensidade: (intensidade) => ipcRenderer.invoke(AJUSTES_CHANNELS.setIntensidade, intensidade),
     setBandeja: (ligada) => ipcRenderer.invoke(AJUSTES_CHANNELS.setBandeja, ligada),
     setApelido: (apelido) => ipcRenderer.invoke(AJUSTES_CHANNELS.setApelido, apelido),
   },

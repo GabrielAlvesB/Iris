@@ -3,7 +3,7 @@ import type {} from '../../shared/types/preload-api.types';
 import { mostrarToast } from '../ui/toast.js';
 import { openAvisoModal } from '../ui/modal.js';
 import { comModuloFechado } from './navegacao.js';
-import { aplicarAcento } from './tema.js';
+import { aplicarAcento, aplicarIntensidade } from './tema.js';
 import { acentoDoDestaque } from '../../shared/types/cor.js';
 
 /**
@@ -44,7 +44,10 @@ async function executar(pedir: () => ReturnType<typeof window.irisAPI.historico.
     // A cor de destaque é estilo no <html>, não uma tela que remonta: repinta à mão.
     if (r.data.arquivo === 'ajustes.json') {
       const a = await window.irisAPI.ajustes.getAjustes();
-      if (a.ok) aplicarAcento(acentoDoDestaque(a.data.destaque));
+      if (a.ok) {
+        aplicarAcento(acentoDoDestaque(a.data.destaque));
+        aplicarIntensidade(a.data.intensidade);
+      }
     }
     mostrarToast(`Desfeito: ${textoDaEntrada(r.data)} (${r.data.modulo})`, [], 5000);
     return r.data;
