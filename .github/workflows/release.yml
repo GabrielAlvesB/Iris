@@ -91,18 +91,18 @@ jobs:
 
       # Cada pacote instalado na sua distribuição, pelo gerenciador dela (é o
       # que confere as dependências declaradas), abrindo em X11 e em Wayland.
-      # O runner Ubuntu 24.04 bloqueia user namespaces sem privilégio pelo
-      # AppArmor, e isso vale dentro dos contêineres: o GTK do Arch carrega os
-      # ícones por um processo isolado no bwrap, que precisa deles, e o Iris caía
-      # no Wayland ("Failed to load /usr/share/icons/Adwaita…"). Num Arch de
-      # verdade isso não acontece; aqui liberamos só no runner de teste.
+      # O GTK do Arch carrega os ícones por um processo isolado no bwrap, que
+      # precisa criar user namespaces e montar /proc. No runner, o AppArmor barra
+      # as duas coisas — o sysctl no host e o perfil docker-default no contêiner —
+      # e o Iris caía no Wayland ("Failed to load /usr/share/icons/Adwaita…").
+      # Num Arch de verdade isso não acontece; liberamos só no runner de teste.
       - name: Conferir os pacotes nas distribuições
         run: |
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           for alvo in ubuntu:24.04:ubuntu fedora:41:fedora archlinux:latest:arch; do
             imagem="${alvo%:*}"; distro="${alvo##*:}"
             echo "::group::$distro"
-            docker run --rm --security-opt seccomp=unconfined \
+            docker run --rm --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
               -v "$PWD/release:/r:ro" -v "$PWD/scripts/linux:/s:ro" "$imagem" bash /s/testar-pacote.sh "$distro"
             echo "::endgroup::"
           done
