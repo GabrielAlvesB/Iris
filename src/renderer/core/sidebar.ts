@@ -104,7 +104,9 @@ let painelEl: HTMLElement | null = null;
 let aoEscolher: (modulo: ModuloId) => void = () => undefined;
 let moduloAtivo: ModuloId | null = null;
 let fixado = lerFixado();
-let categoriaAberta: CategoriaId | null = null;
+/** 'mais' = o painel com os itens do trilho que não couberam na altura da janela. */
+type PainelAberto = CategoriaId | 'mais';
+let categoriaAberta: PainelAberto | null = null;
 let soltarCamada: (() => void) | null = null;
 const ouvintesFixado = new Set<(fixado: boolean) => void>();
 /** Selos de contagem por módulo (leads não vistos em Contatos). */
@@ -168,6 +170,12 @@ function desenharContagens(): void {
     const total = modulosDa(c.id).reduce((s, m) => s + (contagens.get(m.id) ?? 0), 0);
     sidebarEl!.querySelectorAll<HTMLElement>(`.trilho-item[data-categoria="${c.id}"]`).forEach((b) => aplicarContagem(b, total, c.rotulo));
   });
+  // O "Mais" soma o que está escondido nele: um lead novo não some junto com o ícone.
+  const mais = sidebarEl.querySelector<HTMLElement>('.trilho-mais');
+  if (mais) {
+    const total = escondidos().reduce((s, b) => s + Number(b.dataset.contagem ?? 0), 0);
+    aplicarContagem(mais, total, 'Mais');
+  }
 }
 
 /** Leads não vistos em Contatos (core/leads.ts). Zero tira o selo. */
@@ -246,7 +254,7 @@ function buildTrilho(): HTMLElement {
   trilho.appendChild(logo);
 
   const principal = document.createElement('div');
-  principal.className = 'trilho-grupo';
+  principal.className = 'trilho-grupo trilho-principal';
   MODULOS.filter((m) => m.posicao === 'topo').forEach((m) => principal.appendChild(itemDeModulo(m.id, m.rotulo)));
   principal.appendChild(Object.assign(document.createElement('span'), { className: 'trilho-divisor' }));
   CATEGORIAS.forEach((c) => {
@@ -254,6 +262,7 @@ function buildTrilho(): HTMLElement {
     if (modulos.length > 1) principal.appendChild(itemDeCategoria(c.id, c.rotulo));
     else if (modulos[0]) principal.appendChild(itemDeModulo(modulos[0].id, modulos[0].rotulo));
   });
+  principal.appendChild(buildBotaoMais());
   trilho.appendChild(principal);
 
   trilho.appendChild(Object.assign(document.createElement('span'), { className: 'trilho-espaco' }));
@@ -269,6 +278,90 @@ function buildTrilho(): HTMLElement {
   rodape.appendChild(buildAvatar());
   trilho.appendChild(rodape);
   return trilho;
+}
+
+// ---------- Altura: o que não cabe vai para o "Mais" ----------
+
+const ICONE_MAIS = '<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>';
+
+/**
+ * "⋯" no fim do grupo principal, só quando falta altura (notebook, janela baixa).
+ * Abre o painel com o que não coube — o mesmo desenho dos painéis de categoria.
+ * Nada de rolagem no trilho: ela cortaria as dicas, que saem para o lado.
+ */
+function buildBotaoMais(): HTMLButtonElement {
+  const btn = itemDoTrilho(ICONE_MAIS, 'Mais', (e) => {
+    if (fixado) {
+      rolarAteCategoria('mais');
+      return;
+    }
+    if (categoriaAberta === 'mais') fecharPainel();
+    else abrirPainel('mais', e.detail === 0);
+  });
+  btn.classList.add('trilho-mais', 'is-escondido');
+  btn.dataset.categoria = 'mais';
+  btn.setAttribute('aria-haspopup', 'true');
+  btn.setAttribute('aria-expanded', 'false');
+  return btn;
+}
+
+/** Itens do grupo principal que não couberam, na ordem do trilho. */
+function escondidos(): HTMLElement[] {
+  return [...(sidebarEl?.querySelectorAll<HTMLElement>('.trilho-principal > .trilho-item.is-escondido:not(.trilho-mais)') ?? [])];
+}
+
+/**
+ * Mede o trilho e esconde, nesta ordem, o logo e os últimos itens do grupo
+ * principal até caber. O rodapé (busca, tema, Tutorial, Ajustes, avatar) nunca
+ * sai, e o primeiro item (Home) também não. Roda no resize e quando o aviso de
+ * atualização entra ou sai.
+ */
+function acomodarTrilho(): void {
+  const trilho = sidebarEl?.querySelector<HTMLElement>('.trilho');
+  const mais = trilho?.querySelector<HTMLElement>('.trilho-mais');
+  if (!trilho || !mais) return;
+  const logo = trilho.querySelector<HTMLElement>('.trilho-logo');
+  const itens = [...trilho.querySelectorAll<HTMLElement>('.trilho-principal > .trilho-item:not(.trilho-mais)')];
+  const antes = escondidos().length;
+
+  logo?.classList.remove('is-escondido');
+  itens.forEach((i) => i.classList.remove('is-escondido'));
+  mais.classList.add('is-escondido');
+  const cabe = (): boolean => trilho.scrollHeight <= trilho.clientHeight;
+  if (!cabe()) logo?.classList.add('is-escondido');
+  if (!cabe()) {
+    mais.classList.remove('is-escondido');
+    for (let i = itens.length - 1; i > 0 && !cabe(); i--) itens[i].classList.add('is-escondido');
+  }
+
+  marcarMais();
+  desenharContagens();
+  const depois = escondidos().length;
+  if (categoriaAberta === 'mais' && depois === 0) fecharPainel();
+  else if (depois !== antes && (fixado || categoriaAberta === 'mais')) desenharPainel();
+}
+
+/** O "Mais" fica ativo quando o módulo aberto está escondido nele. */
+function marcarMais(): void {
+  const mais = sidebarEl?.querySelector<HTMLElement>('.trilho-mais');
+  if (!mais) return;
+  const ativo = escondidos().some((b) => b.classList.contains('is-ativo'));
+  mais.classList.toggle('is-ativo', ativo);
+}
+
+/** O conteúdo do "Mais": módulo escondido vira item; categoria escondida vira grupo com os módulos dela. */
+function listaDoMais(comDescricao: boolean): HTMLElement[] {
+  return escondidos().flatMap((b): HTMLElement[] => {
+    const modulo = MODULOS.find((m) => m.id === b.dataset.module);
+    if (modulo) return [itemDoPainel(modulo, comDescricao)];
+    const categoria = CATEGORIAS.find((c) => c.id === b.dataset.categoria);
+    if (!categoria) return [];
+    const grupo = document.createElement('section');
+    grupo.className = 'sb-painel-grupo';
+    grupo.appendChild(Object.assign(document.createElement('span'), { className: 'sb-painel-grupo-rotulo', textContent: categoria.rotulo }));
+    modulosDa(categoria.id).forEach((m) => grupo.appendChild(itemDoPainel(m, false)));
+    return [grupo];
+  });
 }
 
 /**
@@ -350,6 +443,18 @@ function desenharPainel(): void {
     painelEl.replaceChildren(cabecalhoDoPainel('Navegação'));
     const lista = document.createElement('div');
     lista.className = 'sb-painel-rolagem';
+    // As categorias escondidas já estão abaixo; os atalhos diretos escondidos (ex.: Tráfego) não.
+    const soltos = escondidos()
+      .map((b) => MODULOS.find((m) => m.id === b.dataset.module))
+      .filter((m): m is (typeof MODULOS)[number] => Boolean(m));
+    if (soltos.length) {
+      const grupo = document.createElement('section');
+      grupo.className = 'sb-painel-grupo';
+      grupo.dataset.categoria = 'mais';
+      grupo.appendChild(Object.assign(document.createElement('span'), { className: 'sb-painel-grupo-rotulo', textContent: 'Mais' }));
+      soltos.forEach((m) => grupo.appendChild(itemDoPainel(m, false)));
+      lista.appendChild(grupo);
+    }
     categoriasComPainel().forEach((c) => {
       const grupo = document.createElement('section');
       grupo.className = 'sb-painel-grupo';
@@ -358,6 +463,16 @@ function desenharPainel(): void {
       modulosDa(c.id).forEach((m) => grupo.appendChild(itemDoPainel(m, false)));
       lista.appendChild(grupo);
     });
+    painelEl.appendChild(lista);
+    desenharContagens();
+    return;
+  }
+
+  if (categoriaAberta === 'mais') {
+    painelEl.replaceChildren(cabecalhoDoPainel('Mais'));
+    const lista = document.createElement('div');
+    lista.className = 'sb-painel-rolagem';
+    lista.append(...listaDoMais(true));
     painelEl.appendChild(lista);
     desenharContagens();
     return;
@@ -377,7 +492,7 @@ function aoClicarFora(e: PointerEvent): void {
   if (sidebarEl && !sidebarEl.contains(e.target as Node)) fecharPainel();
 }
 
-function abrirPainel(categoria: CategoriaId, focar = false): void {
+function abrirPainel(categoria: PainelAberto, focar = false): void {
   categoriaAberta = categoria;
   desenharPainel();
   if (!soltarCamada && painelEl) {
@@ -402,7 +517,7 @@ function fecharPainel(): void {
   }
 }
 
-function rolarAteCategoria(categoria: CategoriaId): void {
+function rolarAteCategoria(categoria: PainelAberto): void {
   const grupo = painelEl?.querySelector<HTMLElement>(`.sb-painel-grupo[data-categoria="${categoria}"]`);
   if (!grupo) return;
   grupo.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -457,6 +572,17 @@ export function montarSidebar(container: HTMLElement, escolherModulo: (modulo: M
   container.replaceChildren(buildTrilho(), painelEl);
   desenharPainel();
   desenharTeclas();
+  // Um quadro por resize basta: medir força layout, e o arrasto da janela dispara dezenas.
+  let quadro = 0;
+  const agendar = (): void => {
+    cancelAnimationFrame(quadro);
+    quadro = requestAnimationFrame(acomodarTrilho);
+  };
+  window.addEventListener('resize', agendar);
+  // O aviso de atualização entra e sai do rodapé e muda a altura disponível.
+  const aviso = container.querySelector('.trilho-aviso');
+  if (aviso) new MutationObserver(agendar).observe(aviso, { childList: true });
+  acomodarTrilho();
   onAtalhosMudaram(() => {
     desenharTeclas();
     desenharPainel();
@@ -474,4 +600,5 @@ export function marcarAtivo(modulo: ModuloId): void {
     else b.removeAttribute('aria-current');
   });
   sidebarEl.querySelectorAll<HTMLElement>('.sb-painel-item').forEach((b) => b.classList.toggle('is-ativo', b.dataset.module === modulo));
+  marcarMais();
 }

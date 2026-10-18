@@ -108,10 +108,21 @@
   background: var(--danger);
 }
 
+/* Janela estreita: a lista de seções afina (os rótulos quebram em duas linhas). */
+@media (max-width: 980px) {
+  .aj-layout {
+    gap: 14px;
+  }
+  .aj-nav {
+    width: 176px;
+  }
+}
+
 /* ---- Painel ---- */
 
 .aj-conteudo {
   flex: 1;
+  min-width: 0;
 }
 
 .aj-painel {
@@ -125,6 +136,7 @@
 /* O topo de cada seção: uma faixa com o degradê da cor e o ícone em bloco. */
 .aj-painel-topo {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 14px;
   padding: 22px 22px 20px;
@@ -148,8 +160,11 @@
   box-shadow: var(--glow-acento), inset 0 1px 0 rgb(255 255 255 / 0.22);
 }
 
+/* Base de 220px: em janela estreita (meia tela de notebook) o botão do topo
+   ("Como configurar") desce para a linha de baixo, em vez de espremer o título
+   numa palavra por linha. */
 .aj-painel-textos {
-  flex: 1;
+  flex: 1 1 220px;
   min-width: 0;
 }
 

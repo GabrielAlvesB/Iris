@@ -182,8 +182,12 @@ aberto (`onSecaoAjustesSolicitada`).
   - **Um desenho só de "ativo"** no app todo: bloco/pílula em `--grad-acento` com `--glow-acento` e texto `--texto-sobre-acento`
     (item do trilho, `.pg-segmento`, abas do Kanban, ícone do item ativo dos Ajustes e do Tutorial, botão primário). Tela nova
     com abas ou navegação usa as peças comuns (`buildSegmentado`) ou esse mesmo desenho — não um cinza.
-  - Barra lateral = **dock flutuante** (`#sidebar` com margem; `.trilho` com raio `--radius-xl`; painel solto em `left: 84px`)
-    com o avatar do apelido no pé (`.trilho-avatar` → Ajustes › Preferências). Ajustes: navegação em grupos (`GRUPOS_NAV`:
+  - Barra lateral = a **faixa colada na borda da 0.3.0** (altura toda, `border-right`, painel solto em `left: 64px`) com as
+    cores da 0.4 — o dock flutuante foi desfeito: a margem roubava altura e num notebook os últimos ícones ficavam fora.
+    Avatar do apelido no pé (`.trilho-avatar` → Ajustes › Preferências). **Altura**: `acomodarTrilho` (resize e aviso de
+    atualização) esconde o logo e depois os últimos itens do grupo principal (`.is-escondido`) num botão **"⋯ Mais"**, que
+    abre o painel com eles (`categoriaAberta = 'mais'`; fixado, os atalhos diretos escondidos entram num grupo "Mais").
+    Rodapé e Home nunca saem. Nada de encolher ícones nem rolar o trilho (a rolagem corta as dicas laterais). Ajustes: navegação em grupos (`GRUPOS_NAV`:
     Você, Conteúdo, Conexões, Sistema; seção fora deles cai em "Mais") e Aparência com prévia ao vivo (`buildPreviaApp`),
     amostras em gradiente e os três cartões de intensidade. Tutorial: cada trilha ganha `--trilha-h` (matiz vizinho do
     destaque) no ícone e na barra dos cartões.
@@ -1118,6 +1122,10 @@ sudo apt remove iris
 ```
 
 Use `apt install ./arquivo` e não `dpkg -i`: o apt instala as dependências que faltam, o dpkg só reclama delas.
+A linha final `N: O download é executado sem isolamento e como root, pois o arquivo … não pôde ser acessado pelo
+usuário '_apt'` **não é erro**: o apt tenta ler o pacote com um usuário restrito, que não entra na sua pasta pessoal,
+e lê como root. A instalação terminou se apareceu "Configurando iris". Para não ver o aviso, instale de `/tmp`
+(`cp iris_*.deb /tmp && sudo apt install /tmp/iris_*.deb`).
 
 **Fedora, RHEL, Rocky, AlmaLinux, Nobara** (`.rpm`):
 

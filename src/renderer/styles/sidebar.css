@@ -1,33 +1,38 @@
 /* Barra lateral: trilho de ícones + painel de módulos (core/sidebar.ts) e busca rápida (core/paleta.ts). */
 
-/* Desde a 0.4 a barra não é mais uma faixa colada na borda: é um dock que flutua
-   sobre o fundo (já tingido pela cor), com cantos e sombra. */
+/* Uma faixa colada na borda, da altura toda da janela (o desenho da 0.3.0). O dock
+   flutuante da 0.3.1 foi desfeito: com margem e cantos ele roubava altura e, num
+   notebook, os últimos ícones ficavam fora dele. As cores são as da 0.3.1. */
 #sidebar {
   position: relative;
   display: flex;
   flex-shrink: 0;
   height: 100vh;
-  padding: 10px 0 10px 10px;
-  background: transparent;
+  background:
+    linear-gradient(180deg, color-mix(in oklch, var(--accent) 9%, transparent), transparent 40%),
+    var(--bg-elevated);
+  border-right: 1px solid var(--border-soft);
   user-select: none;
   z-index: 50;
 }
 
 /* ---------- Trilho ---------- */
 
+/* Sem overflow: as dicas saem para o lado. O que não cabe na altura vai para o
+   botão "Mais" (acomodarTrilho em sidebar.ts), nunca para uma rolagem. */
 .trilho {
   display: flex;
   flex-direction: column;
   align-items: center;
   width: 64px;
   flex-shrink: 0;
+  min-height: 0;
   padding: 14px 0 12px;
-  background:
-    linear-gradient(180deg, color-mix(in oklch, var(--accent) 9%, transparent), transparent 40%),
-    var(--bg-elevated);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-xl);
-  box-shadow: 0 18px 40px -24px rgb(0 0 0 / calc(0.9 * var(--sombra-k)));
+}
+
+/* Item que não coube: está no painel do "Mais". */
+.trilho .is-escondido {
+  display: none;
 }
 
 .trilho-logo {
@@ -333,10 +338,10 @@
 /* Solto: flutua sobre a tela, ao lado do trilho, sem empurrar o conteúdo. */
 #sidebar:not(.is-fixado) .sb-painel {
   position: absolute;
-  top: 10px;
-  bottom: 10px;
-  /* 10px de margem do dock + 64px do trilho + 10px de respiro. */
-  left: 84px;
+  top: 8px;
+  bottom: 8px;
+  /* Encostado no trilho (64px), como na 0.3.0. */
+  left: 64px;
   z-index: 60;
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
@@ -351,11 +356,9 @@
   }
 }
 
-/* Fixado: um segundo cartão ao lado do dock, no mesmo desenho. */
+/* Fixado: parte da barra, separado do trilho por uma linha. */
 #sidebar.is-fixado .sb-painel {
-  margin-left: 8px;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-xl);
+  border-left: 1px solid var(--border-soft);
 }
 
 .sb-painel {
