@@ -13,11 +13,29 @@ export type SituacaoAtualizacao =
   | 'erro';
 
 /**
- * Só a instalação feita pelo instalador (NSIS) consegue se substituir sozinha.
- * O .zip portátil, o Linux (AppImage/.deb) e o `npm run dev` só avisam e abrem
- * a página da release.
+ * Como esta cópia se atualiza:
+ * - `instalado`: instalador do Windows (NSIS) — baixa e reinstala por cima, em silêncio;
+ * - `appimage`: troca o próprio arquivo .AppImage pelo novo e reabre;
+ * - `pacote`: .deb, .rpm ou pacman — baixa o pacote e instala com a senha de
+ *   administrador (pkexec), como a central de programas faria;
+ * - `portatil` (.zip), `linux` (pasta solta, sem pacote) e `desenvolvimento`
+ *   só avisam e abrem a página da release.
  */
-export type ModoAtualizacao = 'instalado' | 'portatil' | 'linux' | 'desenvolvimento';
+export type ModoAtualizacao = 'instalado' | 'appimage' | 'pacote' | 'portatil' | 'linux' | 'desenvolvimento';
+
+/** O formato do pacote Linux instalado (arquivo `resources/package-type`, gravado pelo electron-builder). */
+export type PacoteLinux = 'deb' | 'rpm' | 'pacman';
+
+export const NOME_DO_PACOTE: Record<PacoteLinux, string> = {
+  deb: '.deb',
+  rpm: '.rpm',
+  pacman: 'pacote do pacman',
+};
+
+/** Esta cópia consegue baixar e instalar uma versão sozinha? */
+export function seAtualizaSozinho(modo: ModoAtualizacao | undefined): boolean {
+  return modo === 'instalado' || modo === 'appimage' || modo === 'pacote';
+}
 
 export interface NovaVersao {
   versao: string;
@@ -33,6 +51,8 @@ export interface EstadoAtualizacao {
   versaoAtual: string;
   situacao: SituacaoAtualizacao;
   modo: ModoAtualizacao;
+  /** Só no modo `pacote`. */
+  pacote?: PacoteLinux;
   nova?: NovaVersao;
   /** Versão sendo baixada/instalada — pode não ser a `nova` (instalação manual de outra versão). */
   versaoAlvo?: string;
@@ -55,7 +75,7 @@ export interface VersaoPublicada {
   paginaUrl: string;
   tamanho?: number;
   preRelease: boolean;
-  /** Tem instalador e latest.yml: dá para instalar pelo app. */
+  /** Tem o arquivo deste formato (instalador, AppImage ou pacote) e o .yml que o confere. */
   instalavel: boolean;
   relacao: RelacaoVersao;
 }

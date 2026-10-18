@@ -1,6 +1,6 @@
 {
   "name": "iris",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Iris — assistente pessoal de tarefas e organização de conteúdo (100% local)",
   "desktopName": "iris.desktop",
   "author": "Gabriel Alves Tech",
@@ -86,14 +86,38 @@
           "arch": [
             "x64"
           ]
+        },
+        {
+          "target": "rpm",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "pacman",
+          "arch": [
+            "x64"
+          ]
         }
       ],
-      "icon": "src/main/assets/icon.png",
+      "icon": "src/main/assets/linux",
       "category": "Office",
       "synopsis": "Assistente pessoal de tarefas e organização de conteúdo (100% local)",
       "maintainer": "Gabriel Alves Tech <gabrielalveskos@gmail.com>",
       "executableName": "iris",
-      "syncDesktopName": true
+      "syncDesktopName": true,
+      "executableArgs": [
+        "--ozone-platform-hint=auto",
+        "--enable-features=WaylandWindowDecorations"
+      ],
+      "desktop": {
+        "entry": {
+          "Comment[pt_BR]": "Assistente pessoal de tarefas e organização de conteúdo (100% local)",
+          "GenericName": "Organizador pessoal",
+          "GenericName[pt_BR]": "Organizador pessoal",
+          "Keywords": "tarefas;kanban;todo;crm;roteiros;postagens;organização;produtividade;"
+        }
+      }
     },
     "appImage": {
       "artifactName": "${productName}-${version}.${ext}"
@@ -112,6 +136,41 @@
         "libsecret-1-0",
         "libasound2t64 | libasound2",
         "libgbm1"
+      ]
+    },
+    "rpm": {
+      "artifactName": "${name}-${version}.x86_64.${ext}",
+      "fpm": [
+        "--rpm-rpmbuild-define=_build_id_links none"
+      ],
+      "depends": [
+        "(gtk3 or libgtk-3-0)",
+        "(libnotify or libnotify4)",
+        "(nss or mozilla-nss)",
+        "(libXScrnSaver or libXss1)",
+        "(libXtst or libXtst6)",
+        "xdg-utils",
+        "(at-spi2-core or libatspi0)",
+        "(libuuid or libuuid1)",
+        "(libsecret or libsecret-1-0)",
+        "(alsa-lib or libasound2)",
+        "(mesa-libgbm or libgbm1)"
+      ]
+    },
+    "pacman": {
+      "artifactName": "${name}-${version}-x86_64.pkg.tar.xz",
+      "depends": [
+        "gtk3",
+        "libnotify",
+        "nss",
+        "libxss",
+        "libxtst",
+        "xdg-utils",
+        "at-spi2-core",
+        "util-linux-libs",
+        "libsecret",
+        "alsa-lib",
+        "mesa"
       ]
     },
     "publish": [

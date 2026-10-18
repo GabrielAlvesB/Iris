@@ -149,7 +149,7 @@ export const GUIA_COMECAR: Guia = {
           nivel: 'atencao',
           texto:
             NO_LINUX
-              ? 'No Linux, a versão nova vem pelo .deb ou pelo AppImage da página da release; os dados continuam onde estão.'
+              ? 'No Linux, o Iris baixa a versão do jeito que foi instalado (AppImage, .deb, .rpm ou pacote do Arch). Nos pacotes, o sistema pede a senha de administrador para instalar; os dados continuam onde estão.'
               : 'Se o Windows bloquear o instalador ("Controle Inteligente de Aplicativos"), o Iris explica o que fazer. Em Ajustes › Atualizações também dá para escolher outra versão ou instalar de um arquivo.',
         },
         { tipo: 'abrir', rotulo: 'Abrir Ajustes › Atualizações', ajustes: 'atualizacoes' },

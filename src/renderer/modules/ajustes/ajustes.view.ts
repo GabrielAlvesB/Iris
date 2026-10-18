@@ -19,7 +19,7 @@ import {
   onAtualizacao,
   verificarAgora,
 } from '../../core/atualizacao.js';
-import type { EstadoAtualizacao } from '../../../shared/types/atualizacao.types.js';
+import { NOME_DO_PACOTE, seAtualizaSozinho, type EstadoAtualizacao } from '../../../shared/types/atualizacao.types.js';
 import { buildAssinatura } from '../../ui/documento.js';
 import { buildSecaoIa } from './ajustes.ia.js';
 import { buildCadastroTags, contarEmpresas } from '../postagens/postagens.tags.js';
@@ -1177,7 +1177,13 @@ function descreverSituacao(e: EstadoAtualizacao): { texto: string; tom: Tom } {
     case 'baixando':
       return { texto: `Baixando${e.versaoAlvo ? ` a ${e.versaoAlvo}` : ''}… ${Math.round((e.progresso ?? 0) * 100)}%`, tom: 'neutro' };
     case 'instalando':
-      return { texto: `Instalando${e.versaoAlvo ? ` a ${e.versaoAlvo}` : ''} — o Iris vai fechar e abrir de novo`, tom: 'neutro' };
+      return {
+        texto:
+          e.modo === 'pacote'
+            ? `Instalando${e.versaoAlvo ? ` a ${e.versaoAlvo}` : ''} — confirme na janela de senha do sistema`
+            : `Instalando${e.versaoAlvo ? ` a ${e.versaoAlvo}` : ''} — o Iris vai fechar e abrir de novo`,
+        tom: 'neutro',
+      };
     case 'erro':
       return { texto: e.erro ?? 'Falhou', tom: 'erro' };
     default:
@@ -1241,14 +1247,22 @@ function desenharAtualizacao(corpo: HTMLElement, e: EstadoAtualizacao | null): v
     corpo.appendChild(nova);
   }
 
-  if (e.modo !== 'instalado' && e.nova) {
+  if (!seAtualizaSozinho(e.modo) && e.nova) {
     corpo.appendChild(
       buildAviso(
         e.modo === 'portatil'
           ? 'Esta é a versão portátil (.zip): ela não se substitui sozinha. Baixe o .zip novo na página da release, ou use o instalador para receber as próximas automaticamente.'
           : e.modo === 'linux'
-            ? 'No Linux o Iris não se substitui sozinho: baixe o .deb (Ubuntu, Debian, Mint) ou o AppImage novo na página da release. Os dados continuam onde estão.'
+            ? 'Esta cópia não veio de um pacote nem de um AppImage: baixe o .deb, o .rpm, o pacote do Arch ou o AppImage na página da release e ela passa a se atualizar sozinha. Os dados continuam onde estão.'
             : 'Rodando pelo código-fonte (npm run dev): atualize com git pull.',
+        'neutro',
+      ),
+    );
+  }
+  if (e.modo === 'pacote' && e.pacote && e.nova) {
+    corpo.appendChild(
+      buildAviso(
+        `O Iris baixa o ${NOME_DO_PACOTE[e.pacote]} novo, confere o arquivo e pede a senha de administrador para instalar. Se a janela de senha não aparecer, o pacote fica na pasta Downloads com o comando para o terminal.`,
         'neutro',
       ),
     );
@@ -1259,7 +1273,7 @@ function desenharAtualizacao(corpo: HTMLElement, e: EstadoAtualizacao | null): v
   const ocupado = e.situacao === 'verificando' || e.situacao === 'baixando' || e.situacao === 'instalando';
   const falhou = (error: unknown): void => desenharAtualizacao(corpo, { ...e, situacao: 'erro', erro: mensagemDe(error) });
 
-  if (e.nova && e.modo === 'instalado') {
+  if (e.nova && seAtualizaSozinho(e.modo)) {
     const atualizar = buildBotao(e.situacao === 'erro' ? 'Tentar de novo' : 'Atualizar agora', {
       variante: 'primario',
       icone: ICONE_ATUALIZACAO,
@@ -1268,7 +1282,7 @@ function desenharAtualizacao(corpo: HTMLElement, e: EstadoAtualizacao | null): v
     atualizar.addEventListener('click', () => void atualizarAgora().catch(falhou));
     acoes.appendChild(atualizar);
   }
-  if (e.nova && e.modo !== 'instalado') {
+  if (e.nova && !seAtualizaSozinho(e.modo)) {
     const pagina = buildBotao('Abrir página do download', { variante: 'primario', icone: ICONES.externo });
     pagina.addEventListener('click', () => void abrirPaginaDaRelease().catch(falhou));
     acoes.appendChild(pagina);
@@ -1288,7 +1302,10 @@ function desenharAtualizacao(corpo: HTMLElement, e: EstadoAtualizacao | null): v
   textos.appendChild(
     Object.assign(document.createElement('span'), {
       className: 'aj-campo-dica',
-      textContent: 'Escolha qualquer versão publicada (inclusive voltar para uma anterior) ou instale um Iris-Setup-….exe que está no seu computador.',
+      textContent:
+        e.modo === 'appimage' || e.modo === 'pacote'
+          ? 'Escolha qualquer versão publicada, inclusive voltar para uma anterior.'
+          : 'Escolha qualquer versão publicada (inclusive voltar para uma anterior) ou instale um Iris-Setup-….exe que está no seu computador.',
     }),
   );
   const acoesManuais = document.createElement('div');
@@ -1299,9 +1316,10 @@ function desenharAtualizacao(corpo: HTMLElement, e: EstadoAtualizacao | null): v
   const arquivo = buildBotao('Instalar de um arquivo…', { icone: ICONES.pasta });
   arquivo.disabled = ocupado;
   arquivo.addEventListener('click', () => void instalarDeArquivo().catch(falhou));
-  acoesManuais.append(versoes, arquivo);
+  // "Instalar de um arquivo" é do instalador do Windows (Iris-Setup-….exe).
+  acoesManuais.append(...(window.irisAPI.system.plataforma === 'linux' ? [versoes] : [versoes, arquivo]));
   manual.append(textos, acoesManuais);
-  // Trocar de versão e instalar de um arquivo são do instalador do Windows.
+  // Pasta solta no Linux não tem como se trocar.
   if (e.modo !== 'linux') corpo.appendChild(manual);
 }
 
@@ -1309,7 +1327,7 @@ function buildSecaoAtualizacoes(): HTMLElement {
   const painel = buildPainel(
     'Atualizações',
     window.irisAPI.system.plataforma === 'linux'
-      ? 'O Iris procura versão nova no GitHub ao abrir e a cada 6 horas e avisa aqui e na barra lateral. A instalação é pelo .deb ou pelo AppImage novo — os dados continuam onde estão.'
+      ? 'O Iris procura versão nova no GitHub ao abrir e a cada 6 horas. Atualizar baixa o AppImage ou o pacote (.deb, .rpm, Arch) do seu sistema, confere o arquivo e instala — os dados continuam onde estão.'
       : 'O Iris procura versão nova no GitHub ao abrir e a cada 6 horas. Atualizar baixa o instalador, confere o arquivo e reinstala por cima — os dados continuam onde estão.',
     ICONE_ATUALIZACAO,
   );

@@ -8,10 +8,12 @@ import { isFalha, request } from '../../core/httpClient';
 import { aguardarEscritas } from '../../storage/jsonStore';
 import {
   relacaoCom,
+  seAtualizaSozinho,
   versaoMaior,
   type EstadoAtualizacao,
   type InstaladorLocal,
   type ModoAtualizacao,
+  type PacoteLinux,
   type VersaoPublicada,
 } from '../../../shared/types/atualizacao.types';
 
@@ -29,6 +31,11 @@ import {
  * para uma anterior) ou um instalador que está no disco — o de `release/`
  * recém-gerado, antes de publicar. Nos dois casos o fim é o mesmo: conferir
  * e rodar o instalador por cima.
+ *
+ * No Linux o arquivo da release depende de como o Iris foi instalado: o
+ * AppImage troca o próprio arquivo; .deb, .rpm e pacman baixam o pacote e o
+ * instalam pelo pkexec (a janela de senha de administrador do sistema). A
+ * conferência é a mesma, pelo latest-linux.yml, que lista os quatro arquivos.
  */
 
 /** Mesmo repositório do `build.publish` no package.json. */
@@ -57,14 +64,17 @@ interface ReleaseGithub {
 /** O que só o main precisa (urls dos arquivos); a UI recebe o EstadoAtualizacao. */
 interface Pacote {
   versao: string;
+  /** O arquivo deste formato: Iris-Setup-….exe, Iris-….AppImage, .deb, .rpm ou .pkg.tar.xz. */
   instalador?: AssetGithub;
   latestYml?: AssetGithub;
 }
 
+const pacoteLinux = detectarPacoteLinux();
 let estado: EstadoAtualizacao = {
   versaoAtual: app.getVersion(),
   situacao: 'ocioso',
   modo: detectarModo(),
+  ...(pacoteLinux ? { pacote: pacoteLinux } : {}),
 };
 let pacote: Pacote | null = null;
 /** Pacotes da última listagem, por versão: instalarVersao só aceita o que veio do GitHub. */
@@ -78,12 +88,25 @@ let ultimoProgresso = 0;
 
 const CABECALHOS_GITHUB = { Accept: 'application/vnd.github+json', 'User-Agent': 'Iris-app' };
 
+/** O nome do arquivo da release que serve para esta cópia. */
+function arquivoDoFormato(): RegExp {
+  if (estado.pacote === 'deb') return /_amd64\.deb$/i;
+  if (estado.pacote === 'rpm') return /\.x86_64\.rpm$/i;
+  if (estado.pacote === 'pacman') return /\.pkg\.tar\.(xz|zst)$/i;
+  // AppImage, ou uma pasta solta no Linux (o tamanho mostrado é o do AppImage).
+  if (process.platform === 'linux') return /\.AppImage$/i;
+  return /setup.*\.exe$/i;
+}
+
+const NOME_DO_YML = process.platform === 'linux' ? 'latest-linux.yml' : 'latest.yml';
+
 function pacoteDaRelease(release: ReleaseGithub): Pacote {
   const assets = Array.isArray(release.assets) ? release.assets : [];
+  const formato = arquivoDoFormato();
   return {
     versao: release.tag_name.replace(/^v/i, ''),
-    instalador: assets.find((a) => /setup.*\.exe$/i.test(a.name)),
-    latestYml: assets.find((a) => a.name === 'latest.yml'),
+    instalador: assets.find((a) => formato.test(a.name)),
+    latestYml: assets.find((a) => a.name === NOME_DO_YML),
   };
 }
 
@@ -91,9 +114,28 @@ function ocupado(): boolean {
   return estado.situacao === 'baixando' || estado.situacao === 'instalando';
 }
 
+/**
+ * O electron-builder grava `resources/package-type` ("deb", "rpm", "pacman")
+ * dentro de cada pacote — é o mesmo arquivo que o electron-updater lê.
+ * AppImage não tem: lá quem diz é a variável APPIMAGE, posta pelo runtime dele.
+ */
+function detectarPacoteLinux(): PacoteLinux | undefined {
+  if (process.platform !== 'linux' || !app.isPackaged || process.env.APPIMAGE) return undefined;
+  try {
+    const tipo = fs.readFileSync(path.join(process.resourcesPath, 'package-type'), 'utf8').trim();
+    return tipo === 'deb' || tipo === 'rpm' || tipo === 'pacman' ? tipo : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function detectarModo(): ModoAtualizacao {
   if (!app.isPackaged) return 'desenvolvimento';
-  // O instalador e a troca de versão são do NSIS: no Linux o app só avisa.
+  if (process.platform === 'linux') {
+    if (process.env.APPIMAGE) return 'appimage';
+    // Pasta solta (linux-unpacked, um .tar): não há o que trocar, só avisa.
+    return detectarPacoteLinux() ? 'pacote' : 'linux';
+  }
   if (process.platform !== 'win32') return 'linux';
   // O desinstalador só existe na pasta criada pelo instalador NSIS.
   const desinstalador = path.join(path.dirname(process.execPath), `Uninstall ${app.getName()}.exe`);
@@ -170,8 +212,24 @@ export async function verificar(signal?: AbortSignal): Promise<EstadoAtualizacao
   });
 }
 
-/** SHA-512 em base64 da linha de topo do latest.yml (a do instalador). */
-function sha512DoYml(yml: string): string | null {
+/**
+ * SHA-512 (base64) de um arquivo no latest.yml / latest-linux.yml. O do Linux
+ * lista os quatro formatos em `files:` (cada um com `url` e `sha512`), por
+ * isso a busca é pelo nome. O do Windows também tem a lista; o `sha512` de
+ * topo fica de reserva para um .yml antigo.
+ */
+function sha512DoYml(yml: string, nome: string): string | null {
+  let atual: string | null = null;
+  for (const linha of yml.split(/\r?\n/)) {
+    const url = /^\s*-\s*url:\s*(\S+)\s*$/.exec(linha);
+    if (url) {
+      atual = url[1];
+      continue;
+    }
+    const sha = /^\s+sha512:\s*(\S+)\s*$/.exec(linha);
+    if (sha && atual === nome) return sha[1];
+  }
+  if (process.platform === 'linux') return null;
   return /^sha512:\s*(\S+)\s*$/m.exec(yml)?.[1] ?? null;
 }
 
@@ -212,6 +270,8 @@ async function baixarPara(url: string, destino: string, total: number): Promise<
 async function rodarInstalador(caminho: string, versao: string | undefined): Promise<EstadoAtualizacao> {
   publicar({ situacao: 'instalando', progresso: 1, versaoAlvo: versao, erro: undefined });
   await aguardarEscritas();
+  if (estado.modo === 'appimage') return trocarAppImage(caminho);
+  if (estado.modo === 'pacote' && estado.pacote) return instalarPacote(caminho, estado.pacote);
   if (estado.modo !== 'instalado') {
     const erro = await shell.openPath(caminho);
     if (erro) return falhar(`Não deu para abrir o instalador: ${erro}`);
@@ -258,21 +318,141 @@ function mensagemDeBloqueio(codigo: string, erro: unknown): string {
   return `Não deu para abrir o instalador (${codigo || (erro instanceof Error ? erro.message : String(erro))}).`;
 }
 
-/** Baixa o instalador de uma release, confere com o latest.yml dela e instala. */
+/**
+ * Reabre o Iris depois da troca. O relaunch do Electron espera este processo
+ * sair antes de abrir o novo — por isso não briga com a instância única da bandeja.
+ */
+function reabrir(execPath?: string): void {
+  app.relaunch(execPath ? { execPath, args: process.argv.slice(1) } : undefined);
+  // Um respiro para o push chegar à tela antes da janela fechar.
+  setTimeout(() => app.quit(), 600);
+}
+
+/**
+ * AppImage: o arquivo novo entra no lugar do antigo, no mesmo caminho — o
+ * atalho do menu continua valendo. O antigo está montado (o processo atual lê
+ * dele), mas o rename só troca a entrada da pasta; o conteúdo antigo continua
+ * aberto até o app fechar.
+ */
+async function trocarAppImage(baixado: string): Promise<EstadoAtualizacao> {
+  const atual = process.env.APPIMAGE;
+  if (!atual) return falhar('Não deu para achar o arquivo do AppImage em uso.');
+  // O temporário fica ao lado: rename entre discos diferentes falha (EXDEV).
+  const aoLado = path.join(path.dirname(atual), `.${path.basename(atual)}.novo`);
+  try {
+    await fs.promises.copyFile(baixado, aoLado);
+    await fs.promises.chmod(aoLado, 0o755);
+    await fs.promises.rename(aoLado, atual);
+  } catch (erro) {
+    await fs.promises.rm(aoLado, { force: true }).catch(() => undefined);
+    const codigo = (erro as NodeJS.ErrnoException).code;
+    return falhar(
+      codigo === 'EACCES' || codigo === 'EPERM' || codigo === 'EROFS'
+        ? `Sem permissão para trocar ${atual}. Mova o AppImage para uma pasta sua (ex.: ~/Aplicativos) ou baixe o novo pela página da release.`
+        : `Não deu para trocar o AppImage (${codigo ?? String(erro)}).`,
+    );
+  }
+  await fs.promises.rm(baixado, { force: true }).catch(() => undefined);
+  reabrir(atual);
+  return estado;
+}
+
+/**
+ * O comando de baixo nível de cada família — existe em toda distribuição dela
+ * e aceita subir, repetir ou voltar de versão (as dependências vieram na
+ * primeira instalação): dpkg (Debian, Ubuntu, Mint, Pop!_OS), rpm (Fedora,
+ * openSUSE, RHEL e derivados) e pacman (Arch, Manjaro, EndeavourOS).
+ */
+const COMANDO_DO_PACOTE: Record<PacoteLinux, (arquivo: string) => string[]> = {
+  deb: (arquivo) => ['dpkg', '-i', arquivo],
+  rpm: (arquivo) => ['rpm', '-U', '--oldpackage', '--replacepkgs', arquivo],
+  pacman: (arquivo) => ['pacman', '-U', '--noconfirm', arquivo],
+};
+
+/** O mesmo comando para colar no terminal, quando a janela de senha não deu certo. */
+function comandoParaTerminal(pacote: PacoteLinux, arquivo: string): string {
+  return ['sudo', ...COMANDO_DO_PACOTE[pacote](arquivo)].map((p) => (/\s/.test(p) ? `"${p}"` : p)).join(' ');
+}
+
+interface ResultadoPkexec {
+  codigo: number | null;
+  erro?: NodeJS.ErrnoException;
+  saida: string;
+}
+
+function rodarPkexec(args: string[]): Promise<ResultadoPkexec> {
+  return new Promise((resolve) => {
+    let saida = '';
+    try {
+      const filho = spawn('pkexec', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+      filho.stdout.on('data', (d: Buffer) => (saida += d.toString()));
+      filho.stderr.on('data', (d: Buffer) => (saida += d.toString()));
+      filho.once('error', (erro: NodeJS.ErrnoException) => resolve({ codigo: null, erro, saida }));
+      filho.once('close', (codigo) => resolve({ codigo, saida }));
+    } catch (erro) {
+      resolve({ codigo: null, erro: erro as NodeJS.ErrnoException, saida });
+    }
+  });
+}
+
+/**
+ * Pacote do sistema: instala pelo pkexec, que abre a janela de senha de
+ * administrador do GNOME/KDE (o agente do polkit). O pacote vai antes para a
+ * pasta Downloads — se a senha for recusada, ele está lá para instalar à mão.
+ */
+async function instalarPacote(baixado: string, pacote: PacoteLinux): Promise<EstadoAtualizacao> {
+  let arquivo = baixado;
+  try {
+    const destino = path.join(app.getPath('downloads'), path.basename(baixado));
+    await fs.promises.copyFile(baixado, destino);
+    await fs.promises.rm(baixado, { force: true });
+    arquivo = destino;
+  } catch {
+    // Sem pasta Downloads: instala do temporário mesmo.
+  }
+  const comando = COMANDO_DO_PACOTE[pacote](arquivo);
+  const manual = `O pacote ficou em ${arquivo}. Para instalar pelo terminal: ${comandoParaTerminal(pacote, arquivo)}`;
+  const r = await rodarPkexec(comando);
+
+  if (r.erro?.code === 'ENOENT') return falhar(`Este sistema não tem o pkexec (polkit). ${manual}`);
+  if (r.erro) return falhar(`Não deu para pedir a senha de administrador (${r.erro.code ?? r.erro.message}). ${manual}`);
+  // 126: senha recusada ou janela fechada; 127: não há agente do polkit na
+  // sessão (comum num gerenciador de janelas sem ambiente completo).
+  if (r.codigo === 126) return falhar(`A instalação foi cancelada na janela de senha. ${manual}`);
+  if (r.codigo === 127) return falhar(`A janela de senha de administrador não apareceu. ${manual}`);
+  if (r.codigo !== 0) {
+    const ultima = r.saida.trim().split('\n').filter(Boolean).pop() ?? `código ${r.codigo}`;
+    return falhar(`O ${comando[0]} não conseguiu instalar (${ultima}). ${manual}`);
+  }
+  await fs.promises.rm(arquivo, { force: true }).catch(() => undefined);
+  // Mesmo caminho (/opt/Iris/iris), arquivos novos.
+  reabrir();
+  return estado;
+}
+
+function descreverArquivo(): string {
+  if (estado.modo === 'appimage') return 'o AppImage';
+  if (estado.pacote === 'deb') return 'o .deb';
+  if (estado.pacote === 'rpm') return 'o .rpm';
+  if (estado.pacote === 'pacman') return 'o pacote do pacman (.pkg.tar.xz)';
+  return 'o instalador (Iris-Setup-….exe)';
+}
+
+/** Baixa o arquivo de uma release, confere com o .yml dela e instala. */
 async function baixarEInstalar(alvo: Pacote): Promise<EstadoAtualizacao> {
   if (ocupado()) return estado;
-  if (estado.modo !== 'instalado') {
+  if (!seAtualizaSozinho(estado.modo)) {
     throw new Error(
       estado.modo === 'linux'
-        ? 'No Linux o Iris não se atualiza sozinho: baixe o AppImage ou o .deb na página da release.'
+        ? 'Esta cópia do Iris não veio de um pacote (.deb, .rpm, pacman) nem de um AppImage: baixe a versão nova na página da release.'
         : 'Só a versão instalada se atualiza sozinha. Baixe a versão pela página da release ou use "Instalar de um arquivo".',
     );
   }
   if (!alvo.instalador) {
-    throw new Error(`A release ${alvo.versao} não tem o instalador (Iris-Setup-….exe). Publique com "npm run release".`);
+    throw new Error(`A release ${alvo.versao} não tem ${descreverArquivo()}. Baixe pela página da release.`);
   }
   if (!alvo.latestYml) {
-    throw new Error(`A release ${alvo.versao} não tem o latest.yml, que confere o instalador baixado. Publique com "npm run release".`);
+    throw new Error(`A release ${alvo.versao} não tem o ${NOME_DO_YML}, que confere o arquivo baixado.`);
   }
 
   ultimoProgresso = 0;
@@ -280,8 +460,8 @@ async function baixarEInstalar(alvo: Pacote): Promise<EstadoAtualizacao> {
 
   try {
     const yml = await request(alvo.latestYml.browser_download_url, { timeoutMs: 20_000 });
-    const esperado = !isFalha(yml) && yml.ok ? sha512DoYml(yml.body) : null;
-    if (!esperado) return falhar('Não deu para ler o latest.yml da release.');
+    const esperado = !isFalha(yml) && yml.ok ? sha512DoYml(yml.body, alvo.instalador.name) : null;
+    if (!esperado) return falhar(`O ${NOME_DO_YML} da release não descreve ${alvo.instalador.name}.`);
 
     const pasta = path.join(app.getPath('temp'), 'iris-atualizacao');
     await fs.promises.rm(pasta, { recursive: true, force: true });
@@ -375,7 +555,7 @@ function ymlDescreve(yml: string, nome: string): boolean {
  */
 export async function escolherInstalador(janela: BrowserWindow | null): Promise<InstaladorLocal | null> {
   if (ocupado()) throw new Error('Já há uma instalação em andamento.');
-  if (estado.modo === 'linux') throw new Error('No Linux, baixe o AppImage ou o .deb na página da release.');
+  if (process.platform === 'linux') throw new Error('No Linux a troca de versão é por "Escolher versão…" ou pela página da release.');
   const opcoes: OpenDialogOptions = {
     title: 'Escolher o instalador do Iris',
     properties: ['openFile'],
@@ -394,7 +574,7 @@ export async function escolherInstalador(janela: BrowserWindow | null): Promise<
   let conferido = false;
   const yml = await fs.promises.readFile(path.join(path.dirname(caminho), 'latest.yml'), 'utf8').catch(() => null);
   if (yml && ymlDescreve(yml, nome)) {
-    const esperado = sha512DoYml(yml);
+    const esperado = sha512DoYml(yml, nome);
     if (esperado && (await sha512DoArquivo(caminho)) !== esperado) {
       throw new Error('O instalador não confere com o latest.yml ao lado dele (arquivo corrompido ou trocado). Gere de novo com npm run dist.');
     }

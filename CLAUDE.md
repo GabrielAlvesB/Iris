@@ -36,7 +36,7 @@ A fonte única dessa lista é [modulos.types.ts](src/shared/types/modulos.types.
 | `npm run dist` | instalador NSIS + pasta portátil em .zip em `release/` (apaga `release/` antes: só a versão atual fica) |
 | `npm run dist:portable` | só o .zip portátil |
 | `npm run release` | build + instalador/zip + **publica a release no GitHub** (precisa de `GH_TOKEN`). Roda no GitHub Actions — ver Atualização do app |
-| `npm run dist:linux` | AppImage + .deb em `release/` — **só numa máquina Linux** (o .deb precisa do fpm). No Windows: Docker, ver "Linux" |
+| `npm run dist:linux` | AppImage + .deb + .rpm + pacman em `release/` — **só numa máquina Linux** (precisa de `rpmbuild` e `bsdtar`). No Windows: Docker, ver "Linux" |
 | `npm run release:linux` | o mesmo, publicando na release. Roda no GitHub Actions, depois do Windows |
 
 Não há testes automatizados nem linter no projeto. A verificação é **compilar e rodar**.
@@ -847,8 +847,8 @@ não seria decifrável em outra máquina.
   "did not meet the signing level requirements"). Nada no código contorna isso — só assinatura
   digital. `rodarInstalador` só fecha o app no evento `spawn` (antes fechava às cegas) e traduz
   o erro em `mensagemDeBloqueio`.
-- Só a instalação NSIS se atualiza (detectada pelo `Uninstall Iris.exe` ao lado do exe); o .zip
-  portátil e o `npm run dev` só avisam e abrem a página da release.
+- No Windows só a instalação NSIS se atualiza (detectada pelo `Uninstall Iris.exe` ao lado do exe); o .zip
+  portátil e o `npm run dev` só avisam e abrem a página da release. No Linux, AppImage e pacotes também (ver abaixo).
 - **Troca manual** (Ajustes › Atualizações): "Escolher versão…" lista todas as releases
   (`listarVersoes`, sem rascunhos) e instala qualquer uma — mais nova, a mesma ou anterior
   (voltar avisa que dados de recursos novos podem não ser entendidos). "Instalar de um
@@ -868,8 +868,15 @@ não seria decifrável em outra máquina.
   sem espaços é o que o service procura (`/setup.*\.exe$/i`).
 - O mesmo workflow tem um job `linux` (`needs: release`, para não disputar a criação da release): `dist:linux`, teste de
   fumaça (abre o app empacotado em `xvfb-run` com `IRIS_SAIR_APOS_ABRIR=1` e exige o marco "primeira tela") e só então
-  publica AppImage + .deb. No Linux o modo de atualização é `linux`: avisa e abre a página da release; "Escolher versão…"
-  e "Instalar de um arquivo…" (NSIS) não aparecem.
+  publica AppImage + .deb + .rpm + pacman (o runner instala `rpm` e `libarchive-tools` antes).
+- **Atualização no Linux** (`ModoAtualizacao`; `seAtualizaSozinho` diz quem baixa e instala): `appimage` (variável
+  `APPIMAGE`) troca o próprio arquivo — cópia ao lado + rename, mesmo caminho — e reabre; `pacote` (arquivo
+  `resources/package-type` que o electron-builder grava: `deb`/`rpm`/`pacman`) copia para Downloads e instala por
+  `pkexec` com o comando de baixo nível da família (`COMANDO_DO_PACOTE`: `dpkg -i`, `rpm -U --oldpackage
+  --replacepkgs`, `pacman -U` — aceitam subir, repetir e voltar de versão); 126/127 do pkexec = senha recusada / sem
+  agente do polkit, e o erro traz o comando `sudo …` para o terminal. Reabrir é `app.relaunch` (espera este processo
+  sair, não briga com a instância única). O SHA-512 vem do `latest-linux.yml` pela entrada `files[].url` do arquivo
+  (`sha512DoYml(yml, nome)`); `linux` (pasta solta) só avisa. "Instalar de um arquivo…" continua só do Windows.
 
 ## Backup e exportação
 
@@ -1067,9 +1074,20 @@ Quando a configuração muda na UI, chamar `reaplicarAgendamentos()` em vez de e
 
 ## Linux
 
-- AppImage + .deb x64 (`package.json › build.linux/appImage/deb`). O `.deb` declara `depends` à mão: a lista padrão
-  do electron-builder não traz `libasound2` (no Ubuntu 24.04, `libasound2t64`) e o app nem abre sem ela.
-  `desktopName` + `syncDesktopName` ligam a janela ao `.desktop`.
+- Quatro formatos x64 (`package.json › build.linux/appImage/deb/rpm/pacman`): AppImage, `.deb` (Debian/Ubuntu/Mint),
+  `.rpm` (Fedora/openSUSE/RHEL) e `.pkg.tar.xz` (Arch/Manjaro). Todos declaram `depends` à mão: a lista padrão do
+  electron-builder não traz o ALSA (`libasound2t64 | libasound2`, `alsa-lib`) nem o gbm, e o app nem abre sem eles.
+  O `.rpm` usa dependências booleanas (`(gtk3 or libgtk-3-0)`) para servir Fedora **e** openSUSE, que dão nomes
+  diferentes às mesmas bibliotecas, e `_build_id_links none` — sem isso os links `/usr/lib/.build-id` do Electron
+  conflitam com outro app Electron instalado em RPM. `desktopName` + `syncDesktopName` ligam a janela ao `.desktop`.
+- **Wayland**: `build.linux.executableArgs` põe `--ozone-platform-hint=auto --enable-features=WaylandWindowDecorations`
+  no `Exec` do `.desktop`: aberto pelo menu numa sessão Wayland, roda nativo (nítido com escala fracionada). O `auto`
+  decide pelo `XDG_SESSION_TYPE`, não pelo `WAYLAND_DISPLAY` — teste com weston precisa exportar
+  `XDG_SESSION_TYPE=wayland`. `iris` pelo terminal, sem argumentos, continua em X11/XWayland (a saída de emergência).
+- O workflow instala cada pacote na sua distro antes de publicar ([scripts/linux/testar-pacote.sh](scripts/linux/testar-pacote.sh):
+  `ubuntu:24.04`, `fedora:41`, `archlinux`) e exige a primeira tela em X11 e em Wayland.
+- Ícones do tema hicolor: `src/main/assets/linux/<N>x<N>.png` (16–512, gerados por `npm run icones`); o `icon.png`
+  avulso é só o da janela e das notificações.
 - No Ubuntu 23.10+ o AppArmor bloqueia o sandbox do Chromium em AppImage (comum a todo app Electron): o README
   manda Ubuntu/Debian/Mint para o `.deb`, que deixa o `chrome-sandbox` SUID na instalação. Não desligar o sandbox.
 - Código que muda por sistema: `iconeDoApp()` ([core/icone.ts](src/main/core/icone.ts) — `.ico` no Windows, `.png`
@@ -1079,9 +1097,79 @@ Quando a configuração muda na UI, chamar `reaplicarAgendamentos()` em vez de e
   `COFRE`, `DO_SISTEMA`). Texto novo que cite o Windows (cofre, notificação, Lixeira, firewall, PowerShell, Store)
   usa essas constantes.
 - Testar sem Linux: Docker Desktop. Montar em `electronuserland/builder:20` (copiar o projeto sem `node_modules`,
-  `npm ci && npm run dist:linux`) e rodar o `.deb` num `ubuntu:24.04` com `xvfb-run`, como usuário comum e
+  `npm ci && npm run dist:linux`) e instalar cada pacote na sua distro (`ubuntu:24.04`, `fedora:41`,
+  `opensuse/tumbleweed`, `archlinux`) pelo gerenciador dela, abrindo com `xvfb-run` (e Wayland com `weston
+  --backend=headless`), como usuário comum e
   `--security-opt seccomp=unconfined` (o seccomp padrão do Docker bloqueia o sandbox do Chromium). Capturas: socat
   repassando o `--remote-debugging-port` para fora do contêiner.
+
+### Instalar no Linux
+
+Os arquivos ficam na [página da última release](https://github.com/GabrielAlvesB/Iris/releases/latest), em
+**Assets**. Só x64. Escolha pela família da distribuição; os pacotes puxam as dependências pelo gerenciador do
+sistema e põem o Iris no menu de aplicativos. O executável fica em `/opt/Iris/iris`, com um link em `/usr/bin/iris`.
+
+**Debian, Ubuntu, Linux Mint, Pop!_OS, Zorin, elementary** (`.deb`):
+
+```bash
+sudo apt install ./iris_<versão>_amd64.deb
+# remover:
+sudo apt remove iris
+```
+
+Use `apt install ./arquivo` e não `dpkg -i`: o apt instala as dependências que faltam, o dpkg só reclama delas.
+
+**Fedora, RHEL, Rocky, AlmaLinux, Nobara** (`.rpm`):
+
+```bash
+sudo dnf install ./iris-<versão>.x86_64.rpm
+# remover:
+sudo dnf remove iris
+```
+
+**openSUSE Tumbleweed / Leap** (o mesmo `.rpm`; o pacote não é assinado, daí a opção):
+
+```bash
+sudo zypper install --allow-unsigned-rpm ./iris-<versão>.x86_64.rpm
+# remover:
+sudo zypper remove iris
+```
+
+**Arch, Manjaro, EndeavourOS, CachyOS, Garuda** (pacote do pacman):
+
+```bash
+sudo pacman -U ./iris-<versão>-x86_64.pkg.tar.xz
+# remover:
+sudo pacman -R iris
+```
+
+**Qualquer outra distribuição** (AppImage, sem instalar nada):
+
+```bash
+chmod +x Iris-<versão>.AppImage
+./Iris-<versão>.AppImage
+```
+
+- O AppImage precisa do FUSE 2: `sudo dnf install fuse-libs` (Fedora), `sudo pacman -S fuse2` (Arch),
+  `sudo apt install libfuse2t64` (Ubuntu 24.04+; antes, `libfuse2`).
+- No Ubuntu 23.10+ o AppArmor impede o AppImage de abrir (vale para todo app Electron em AppImage): nesses
+  sistemas, use o `.deb`.
+- Guarde o AppImage numa pasta sua (ex.: `~/Aplicativos`): a atualização automática troca o próprio arquivo e
+  precisa poder escrever nele.
+
+**Depois de instalar**
+
+- **Atualizações**: o Iris se atualiza do jeito que foi instalado. O AppImage troca o próprio arquivo; os pacotes
+  baixam o novo e pedem a senha de administrador (pkexec). Sem a janela de senha, o pacote fica na pasta de downloads
+  e o Iris mostra o comando `sudo …` para o terminal. Pasta solta (`linux-unpacked`) não se atualiza.
+- **Wayland**: pelo menu de aplicativos numa sessão Wayland, roda nativo. Se algo estranhar, abra pelo terminal com
+  `iris` (sem argumentos fica em X11/XWayland) ou force com `iris --ozone-platform=x11`.
+- **Senhas e chaves** vão para o chaveiro do sistema (GNOME Keyring ou KWallet). Sem chaveiro (um gerenciador de
+  janelas sem ambiente completo), Ajustes › Segurança avisa "sem cofre": instale `gnome-keyring` ou `kwallet`.
+- **Dados** em `~/.config/iris/data`. Remover o pacote **não** apaga essa pasta; para começar do zero,
+  `rm -rf ~/.config/iris` (faça um backup antes em Ajustes › Backup e restauração).
+- **Bandeja**: no GNOME o ícone da bandeja só aparece com a extensão AppIndicator. O Ubuntu já traz; no Fedora e no
+  Arch, instale `gnome-shell-extension-appindicator` e ligue em Extensões. KDE, Cinnamon e XFCE mostram sem nada extra.
 
 ## Armadilhas
 
@@ -1101,7 +1189,7 @@ Quando a configuração muda na UI, chamar `reaplicarAgendamentos()` em vez de e
 - **Imports do renderer terminam em `.js`** (`./modules/x/x.state.js`), porque é ESM nativo no
   browser. Os imports do main, não.
 - **Ícone do app**: a fonte é [marca/icone.svg](marca/icone.svg) (e `icone-pequeno.svg`, usado até 24 px — bandeja).
-  `npm run icones` (roda no Electron, sem dependência) gera `icon.ico` com 10 tamanhos, `icon.png` 512 (Linux) e o
+  `npm run icones` (roda no Electron, sem dependência) gera `icon.ico` com 10 tamanhos, `icon.png` 512 e `assets/linux/` (8 tamanhos, Linux) e o
   favicon `icon-64.png`. Nunca editar os PNG/ICO à mão. A marca da sidebar é outro desenho: `MARCA_SVG` em sidebar.ts,
   só o olho, nas cores do destaque.
 - Arquivo estático novo (CSS, fonte, asset) precisa entrar em

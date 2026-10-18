@@ -1,4 +1,11 @@
-import type { EstadoAtualizacao, InstaladorLocal, RelacaoVersao, VersaoPublicada } from '../../shared/types/atualizacao.types.js';
+import {
+  NOME_DO_PACOTE,
+  seAtualizaSozinho,
+  type EstadoAtualizacao,
+  type InstaladorLocal,
+  type RelacaoVersao,
+  type VersaoPublicada,
+} from '../../shared/types/atualizacao.types.js';
 import { openAvisoModal, openConfirmModal, openCustomModal } from '../ui/modal.js';
 import { buildAviso, buildBotao, buildSelo, svg, type Tom } from '../ui/pagina.js';
 import { abrirAjustes } from './navegacao.js';
@@ -51,6 +58,15 @@ export async function abrirPaginaDaRelease(): Promise<void> {
   if (!r.ok) throw new Error(r.error);
 }
 
+/** O que acontece depois do download, em cada forma de instalação. */
+function comoInstala(alvo: string): string {
+  if (estado?.modo === 'appimage') return `trocar o AppImage atual por ${alvo}, no mesmo lugar, e abrir de novo`;
+  if (estado?.modo === 'pacote' && estado.pacote) {
+    return `instalar ${alvo} pelo ${NOME_DO_PACOTE[estado.pacote]} — o sistema pede a senha de administrador, como na central de programas — e abrir de novo`;
+  }
+  return `fechar sozinho para instalar ${alvo} e abrir de novo`;
+}
+
 /** Confirma, baixa e instala. O app fecha e volta aberto na versão nova. */
 export async function atualizarAgora(): Promise<void> {
   const nova = estado?.nova;
@@ -58,7 +74,7 @@ export async function atualizarAgora(): Promise<void> {
   const ok = await openConfirmModal({
     title: `Atualizar para a versão ${nova.versao}`,
     message:
-      'O Iris vai baixar a versão nova e, quando terminar, fechar sozinho para instalar e abrir de novo. ' +
+      `O Iris vai baixar a versão nova, conferir o arquivo e, quando terminar, ${comoInstala('ela')}. ` +
       'Seus dados não são tocados — ficam na pasta de dados, fora da instalação.',
     confirmText: 'Baixar e instalar',
     danger: false,
@@ -77,7 +93,7 @@ function confirmarInstalacao(versao: string | undefined, relacao: RelacaoVersao 
   const titulo =
     relacao === 'anterior' ? `Voltar para a versão ${versao}` : relacao === 'atual' ? `Reinstalar a versão ${versao}` : `Instalar ${alvo}`;
   const texto =
-    `O Iris vai ${origem} e, quando terminar, fechar sozinho para instalar ${alvo} e abrir de novo. ` +
+    `O Iris vai ${origem} e, quando terminar, ${comoInstala(alvo)}. ` +
     'Seus dados ficam na pasta de dados, fora da instalação.' +
     (relacao === 'anterior' ? `\n\n${AVISO_DE_VOLTAR}` : '');
   return openConfirmModal({
@@ -96,7 +112,7 @@ export async function listarVersoes(): Promise<VersaoPublicada[]> {
 
 /** Instala uma versão publicada (mais nova, a mesma ou anterior), depois de confirmar. */
 export async function instalarVersao(v: VersaoPublicada): Promise<boolean> {
-  if (!(await confirmarInstalacao(v.versao, v.relacao, 'baixar o instalador do GitHub, conferir o arquivo'))) return false;
+  if (!(await confirmarInstalacao(v.versao, v.relacao, 'baixar a versão do GitHub, conferir o arquivo'))) return false;
   const r = await window.irisAPI.atualizacao.instalarVersao(v.versao);
   if (!r.ok) {
     await openAvisoModal('Não deu para instalar', r.error, { erro: true });
@@ -154,11 +170,11 @@ export function abrirEscolhaDeVersao(): void {
       listarVersoes()
         .then((versoes) => {
           corpo.replaceChildren();
-          if (modo !== 'instalado') {
+          if (!seAtualizaSozinho(modo)) {
             corpo.appendChild(
               buildAviso(
                 modo === 'linux'
-                  ? 'No Linux o Iris não se troca sozinho: abra a página da versão e baixe o AppImage ou o .deb.'
+                  ? 'Esta cópia não veio de um pacote (.deb, .rpm, pacman) nem de um AppImage: ela não se troca sozinha. Baixe pela página da release.'
                   : 'Esta cópia não foi instalada pelo instalador (portátil ou npm run dev): ela não se troca sozinha. Use a página da release para baixar.',
                 'neutro',
               ),
@@ -186,7 +202,7 @@ export function abrirEscolhaDeVersao(): void {
             const detalhe = [
               v.publicadaEm ? new Date(v.publicadaEm).toLocaleDateString('pt-BR') : '',
               v.tamanho ? formatarMb(v.tamanho) : '',
-              v.instalavel ? '' : 'sem instalador na release',
+              v.instalavel ? '' : 'sem o arquivo desta forma de instalação',
             ]
               .filter(Boolean)
               .join(' · ');
@@ -202,8 +218,8 @@ export function abrirEscolhaDeVersao(): void {
 
             const rotulo = v.relacao === 'anterior' ? 'Voltar para esta' : v.relacao === 'atual' ? 'Reinstalar' : 'Instalar';
             const acao = buildBotao(rotulo, { variante: v.relacao === 'mais-nova' ? 'primario' : 'secundario', icone: ICONE_ATUALIZACAO });
-            acao.disabled = !v.instalavel || modo !== 'instalado';
-            if (acao.disabled) acao.title = v.instalavel ? 'Só a versão instalada se troca sozinha' : 'A release não tem o instalador e o latest.yml';
+            acao.disabled = !v.instalavel || !seAtualizaSozinho(modo);
+            if (acao.disabled) acao.title = v.instalavel ? 'Só a versão instalada se troca sozinha' : 'A release não tem o arquivo desta forma de instalação';
             acao.addEventListener('click', () => {
               void instalarVersao(v).then((ok) => {
                 if (ok) fechar();

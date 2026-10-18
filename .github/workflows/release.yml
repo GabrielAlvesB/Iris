@@ -58,7 +58,12 @@ jobs:
 
       - run: npm ci
 
-      - name: Montar (AppImage e .deb)
+      # O fpm do electron-builder chama o rpmbuild para o .rpm e o bsdtar para o
+      # pacote do pacman (Arch); o runner não traz nenhum dos dois.
+      - name: Ferramentas de empacotamento
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq rpm libarchive-tools xvfb
+
+      - name: Montar (AppImage, .deb, .rpm e pacman)
         run: npm run dist:linux
 
       # Teste de fumaça antes de publicar: o app empacotado precisa chegar à
@@ -68,10 +73,21 @@ jobs:
       # não é SUID (o .deb instalado acerta isso na instalação).
       - name: Conferir que abre
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb
           export IRIS_MEDIR_ABERTURA=1 IRIS_SAIR_APOS_ABRIR=1
           timeout 60 xvfb-run -a release/linux-unpacked/iris --no-sandbox --user-data-dir="$RUNNER_TEMP/iris-teste" 2>&1 | tee abertura.log || true
           grep -q "primeira tela" abertura.log
+
+      # Cada pacote instalado na sua distribuição, pelo gerenciador dela (é o
+      # que confere as dependências declaradas), abrindo em X11 e em Wayland.
+      - name: Conferir os pacotes nas distribuições
+        run: |
+          for alvo in ubuntu:24.04:ubuntu fedora:41:fedora archlinux:latest:arch; do
+            imagem="${alvo%:*}"; distro="${alvo##*:}"
+            echo "::group::$distro"
+            docker run --rm --security-opt seccomp=unconfined \
+              -v "$PWD/release:/r:ro" -v "$PWD/scripts/linux:/s:ro" "$imagem" bash /s/testar-pacote.sh "$distro"
+            echo "::endgroup::"
+          done
 
       # Empacota de novo com publicação (o dist/ já está pronto).
       - name: Publicar

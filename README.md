@@ -87,19 +87,35 @@ O Iris roda no **Windows 10 e 11** e no **Linux** (64 bits).
 
 ### No Linux
 
-Na mesma página da versão:
+Na mesma página da versão, baixe o pacote da família da sua distribuição:
 
-| Arquivo | Para quem |
-| --- | --- |
-| `iris_<versão>_amd64.deb` | **Ubuntu, Debian, Linux Mint e derivados.** Instale com `sudo apt install ./iris_<versão>_amd64.deb`; o Iris aparece no menu de aplicativos. |
-| `Iris-<versão>.AppImage` | **Outras distribuições.** Dê permissão de execução (`chmod +x Iris-*.AppImage`) e abra. |
+| Arquivo | Para quem | Instalar |
+| --- | --- | --- |
+| `iris_<versão>_amd64.deb` | **Ubuntu, Debian, Linux Mint, Pop!_OS, Zorin, elementary** | `sudo apt install ./iris_<versão>_amd64.deb` |
+| `iris-<versão>.x86_64.rpm` | **Fedora, openSUSE, RHEL, Rocky, AlmaLinux, Nobara** | Fedora/RHEL: `sudo dnf install ./iris-<versão>.x86_64.rpm` · openSUSE: `sudo zypper install --allow-unsigned-rpm ./iris-<versão>.x86_64.rpm` |
+| `iris-<versão>-x86_64.pkg.tar.xz` | **Arch, Manjaro, EndeavourOS, CachyOS, Garuda** | `sudo pacman -U ./iris-<versão>-x86_64.pkg.tar.xz` |
+| `Iris-<versão>.AppImage` | **Qualquer outra**, ou sem instalar nada | `chmod +x Iris-*.AppImage` e abrir |
 
-No Ubuntu 24.04 e mais novos, a proteção do sistema (AppArmor) pode impedir o AppImage de
-abrir — isso vale para qualquer app Electron em AppImage. Nesses sistemas, use o `.deb`.
+Os pacotes puxam as dependências pelo gerenciador do sistema e põem o Iris no menu de
+aplicativos, com ícone em todos os tamanhos.
 
-No Linux o Iris avisa quando há versão nova, mas não se troca sozinho: baixe o `.deb` ou o
-AppImage novo. Senhas e chaves ficam no chaveiro do sistema (GNOME Keyring ou KWallet); sem
-um chaveiro, o Iris avisa em **Ajustes › Segurança** que não há onde cifrá-las.
+- **Wayland**: aberto pelo menu de aplicativos numa sessão Wayland (o padrão do GNOME e do KDE
+  no Fedora, no Ubuntu, no Arch e na maioria das distribuições atuais), o Iris roda nativo em
+  Wayland — texto nítido em telas com escala fracionada (125%, 150%). Numa sessão X11, abre em
+  X11. Se algo se comportar estranho no Wayland, abra pelo terminal com `iris` (sem argumentos
+  ele usa o modo de compatibilidade, XWayland).
+- **AppImage**: no Ubuntu 24.04 e mais novos, a proteção do sistema (AppArmor) pode impedir o
+  AppImage de abrir — vale para qualquer app Electron em AppImage; use o `.deb`. No Fedora e no
+  Arch o AppImage precisa do FUSE 2 (`sudo dnf install fuse-libs` / `sudo pacman -S fuse2`).
+
+**Atualizações no Linux**: o Iris avisa quando há versão nova e se atualiza do jeito que foi
+instalado. O AppImage troca o próprio arquivo e reabre; os pacotes (.deb, .rpm, Arch) baixam
+o pacote novo, conferem o arquivo e instalam com a **senha de administrador** (a mesma janela
+que a central de programas usa). Se a janela de senha não aparecer, o pacote fica na pasta de
+downloads e o Iris mostra o comando para o terminal.
+
+Senhas e chaves ficam no chaveiro do sistema (GNOME Keyring ou KWallet); sem um chaveiro, o
+Iris avisa em **Ajustes › Segurança** que não há onde cifrá-las.
 
 Na primeira abertura, o **Tutorial** (no fim da barra lateral) mostra o passo a passo de cada
 módulo.

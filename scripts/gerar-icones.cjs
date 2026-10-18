@@ -5,13 +5,16 @@
 // tamanho: o Windows escolhe o mais próximo para a bandeja (16/20/24), a barra
 // de tarefas (32/40/48) e o Iniciar (256), em vez de reduzir o de 256 e borrar.
 const { app, BrowserWindow } = require('electron');
-const { readFileSync, writeFileSync } = require('node:fs');
+const { mkdirSync, readFileSync, writeFileSync } = require('node:fs');
 const path = require('node:path');
 
 const raiz = path.join(__dirname, '..');
 const svg = readFileSync(path.join(raiz, 'marca', 'icone.svg'), 'utf8');
 const svgPequeno = readFileSync(path.join(raiz, 'marca', 'icone-pequeno.svg'), 'utf8');
 const TAMANHOS_ICO = [16, 20, 24, 32, 40, 48, 64, 96, 128, 256];
+// O tema de ícones do Linux (hicolor) guarda um PNG por tamanho: o painel do
+// GNOME/KDE e o menu pegam o 16, 24 ou 48 direto, sem reduzir o de 512 e borrar.
+const TAMANHOS_LINUX = [16, 24, 32, 48, 64, 128, 256, 512];
 
 async function rasterizar(janela, tamanho) {
   const fonte = tamanho <= 24 ? svgPequeno : svg;
@@ -57,12 +60,16 @@ app.whenReady().then(async () => {
   const pngs = [];
   for (const tamanho of TAMANHOS_ICO) pngs.push({ tamanho, dados: await rasterizar(janela, tamanho) });
   writeFileSync(path.join(raiz, 'src', 'main', 'assets', 'icon.ico'), montarIco(pngs));
-  // Linux (janela, notificações, .deb e AppImage): o electron-builder pede 512 para o tema de ícones.
+  // Linux: o da janela e das notificações.
   writeFileSync(path.join(raiz, 'src', 'main', 'assets', 'icon.png'), await rasterizar(janela, 512));
+  // Pacotes do Linux (.deb, .rpm, pacman, AppImage): o electron-builder lê a pasta pelo nome "NxN.png".
+  const pastaLinux = path.join(raiz, 'src', 'main', 'assets', 'linux');
+  mkdirSync(pastaLinux, { recursive: true });
+  for (const t of TAMANHOS_LINUX) writeFileSync(path.join(pastaLinux, `${t}x${t}.png`), await rasterizar(janela, t));
   writeFileSync(path.join(raiz, 'src', 'renderer', 'assets', 'icon-64.png'), await rasterizar(janela, 64));
   // Só para conferir de olho; não entra no app.
   writeFileSync(path.join(raiz, 'marca', 'previa-1024.png'), await rasterizar(janela, 1024));
 
-  console.log('Ícones gerados:', TAMANHOS_ICO.join(', '), '+ 512 (Linux) + 64 (favicon)');
+  console.log('Ícones gerados:', TAMANHOS_ICO.join(', '), '+ Linux', TAMANHOS_LINUX.join(', '), '+ 64 (favicon)');
   app.quit();
 });
