@@ -26,6 +26,9 @@ export const ICONE_DO_MODULO: Record<ModuloId, string> = {
     '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 18v-3"/><path d="M12 18v-6"/><path d="M16 18v-4"/>',
   'api-leads': '<path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/>',
   whatsapp: '<path d="M3 21l1.7-5A8.5 8.5 0 1 1 8 19.3z"/><path d="M9 10c.5 2 2.5 4 5 5l1.5-1.5 2 1-1 2c-3.5 0-8.5-5-8.5-8.5l2-1 1 2z"/>',
+  // Quatro janelas de app, uma delas saindo do lugar: o ecossistema que cresce.
+  workspace:
+    '<rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/><path d="M17.25 2.5v8"/><path d="M13.25 6.5h8"/>',
   todo: '<path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="m3 6 1 1 2-2"/><path d="m3 12 1 1 2-2"/><path d="m3 18 1 1 2-2"/>',
   ia: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
   postagens:
@@ -132,10 +135,18 @@ function itemDeModulo(id: ModuloId, rotulo: string): HTMLButtonElement {
   return btn;
 }
 
+/** O que o número do selo conta, por módulo; categoria ou "Mais" somam coisas diferentes e dizem só "novidades". */
+const O_QUE_CONTA: Partial<Record<ModuloId, [string, string]>> = {
+  leads: ['lead novo', 'leads novos'],
+  whatsapp: ['mensagem não lida', 'mensagens não lidas'],
+  workspace: ['atualização', 'atualizações'],
+};
+
 /** O número vai num span (o ::before marca o ativo e o ::after é a dica) e também no nome acessível. */
-function aplicarContagem(btn: HTMLElement, n: number, rotulo: string): void {
+function aplicarContagem(btn: HTMLElement, n: number, rotulo: string, modulo?: ModuloId): void {
   btn.querySelector('.trilho-contagem')?.remove();
-  const texto = n > 0 ? `${rotulo} — ${n} ${n === 1 ? 'lead novo' : 'leads novos'}` : rotulo;
+  const [um, varios] = (modulo && O_QUE_CONTA[modulo]) || ['novidade', 'novidades'];
+  const texto = n > 0 ? `${rotulo} — ${n} ${n === 1 ? um : varios}` : rotulo;
   if (n > 0) {
     btn.dataset.contagem = String(n);
     const selo = document.createElement('span');
@@ -164,7 +175,7 @@ function desenharTeclas(): void {
 function desenharContagens(): void {
   if (!sidebarEl) return;
   MODULOS.forEach((m) => {
-    sidebarEl!.querySelectorAll<HTMLElement>(`[data-module="${m.id}"]`).forEach((b) => aplicarContagem(b, contagens.get(m.id) ?? 0, m.rotulo));
+    sidebarEl!.querySelectorAll<HTMLElement>(`[data-module="${m.id}"]`).forEach((b) => aplicarContagem(b, contagens.get(m.id) ?? 0, m.rotulo, m.id));
   });
   CATEGORIAS.forEach((c) => {
     const total = modulosDa(c.id).reduce((s, m) => s + (contagens.get(m.id) ?? 0), 0);

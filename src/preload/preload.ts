@@ -33,6 +33,7 @@ import {
   SHEETS_CHANNELS,
   VIDEOS_CHANNELS,
   WHATSAPP_CHANNELS,
+  WORKSPACE_CHANNELS,
 } from '../shared/ipcChannels';
 import type {
   IrisEvent,
@@ -472,6 +473,17 @@ const irisAPI: IrisApi = {
     instalarVersao: (versao) => ipcRenderer.invoke(ATUALIZACAO_CHANNELS.instalarVersao, versao),
     escolherInstalador: () => ipcRenderer.invoke(ATUALIZACAO_CHANNELS.escolherInstalador),
     instalarArquivo: () => ipcRenderer.invoke(ATUALIZACAO_CHANNELS.instalarArquivo),
+  },
+  workspace: {
+    getEstado: () => ipcRenderer.invoke(WORKSPACE_CHANNELS.getEstado),
+    verificar: (appId) => ipcRenderer.invoke(WORKSPACE_CHANNELS.verificar, appId),
+    instalar: (pedido) => ipcRenderer.invoke(WORKSPACE_CHANNELS.instalar, pedido),
+    cancelar: (appId) => ipcRenderer.invoke(WORKSPACE_CHANNELS.cancelar, appId),
+    abrir: (appId) => ipcRenderer.invoke(WORKSPACE_CHANNELS.abrir, appId),
+    mostrarNaPasta: (appId) => ipcRenderer.invoke(WORKSPACE_CHANNELS.mostrarNaPasta, appId),
+    abrirPagina: (appId, versao) => ipcRenderer.invoke(WORKSPACE_CHANNELS.abrirPagina, appId, versao),
+    listarVersoes: (appId) => ipcRenderer.invoke(WORKSPACE_CHANNELS.listarVersoes, appId),
+    desinstalar: (appId) => ipcRenderer.invoke(WORKSPACE_CHANNELS.desinstalar, appId),
   },
   events: {
     on: subscribe,

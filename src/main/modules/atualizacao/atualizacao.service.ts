@@ -6,6 +6,7 @@ import path from 'node:path';
 import { broadcast } from '../../core/broadcast';
 import { isFalha, request } from '../../core/httpClient';
 import { aguardarEscritas } from '../../storage/jsonStore';
+import { COMANDO_DO_PACOTE, comandoParaTerminal, rodarPkexec } from '../../core/pacotesLinux';
 import {
   relacaoCom,
   seAtualizaSozinho,
@@ -355,44 +356,6 @@ async function trocarAppImage(baixado: string): Promise<EstadoAtualizacao> {
   await fs.promises.rm(baixado, { force: true }).catch(() => undefined);
   reabrir(atual);
   return estado;
-}
-
-/**
- * O comando de baixo nível de cada família — existe em toda distribuição dela
- * e aceita subir, repetir ou voltar de versão (as dependências vieram na
- * primeira instalação): dpkg (Debian, Ubuntu, Mint, Pop!_OS), rpm (Fedora,
- * openSUSE, RHEL e derivados) e pacman (Arch, Manjaro, EndeavourOS).
- */
-const COMANDO_DO_PACOTE: Record<PacoteLinux, (arquivo: string) => string[]> = {
-  deb: (arquivo) => ['dpkg', '-i', arquivo],
-  rpm: (arquivo) => ['rpm', '-U', '--oldpackage', '--replacepkgs', arquivo],
-  pacman: (arquivo) => ['pacman', '-U', '--noconfirm', arquivo],
-};
-
-/** O mesmo comando para colar no terminal, quando a janela de senha não deu certo. */
-function comandoParaTerminal(pacote: PacoteLinux, arquivo: string): string {
-  return ['sudo', ...COMANDO_DO_PACOTE[pacote](arquivo)].map((p) => (/\s/.test(p) ? `"${p}"` : p)).join(' ');
-}
-
-interface ResultadoPkexec {
-  codigo: number | null;
-  erro?: NodeJS.ErrnoException;
-  saida: string;
-}
-
-function rodarPkexec(args: string[]): Promise<ResultadoPkexec> {
-  return new Promise((resolve) => {
-    let saida = '';
-    try {
-      const filho = spawn('pkexec', args, { stdio: ['ignore', 'pipe', 'pipe'] });
-      filho.stdout.on('data', (d: Buffer) => (saida += d.toString()));
-      filho.stderr.on('data', (d: Buffer) => (saida += d.toString()));
-      filho.once('error', (erro: NodeJS.ErrnoException) => resolve({ codigo: null, erro, saida }));
-      filho.once('close', (codigo) => resolve({ codigo, saida }));
-    } catch (erro) {
-      resolve({ codigo: null, erro: erro as NodeJS.ErrnoException, saida });
-    }
-  });
 }
 
 /**

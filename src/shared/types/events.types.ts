@@ -9,6 +9,7 @@ import type { TarefaIa } from './ia.types';
 import type { N8nSnapshot } from './n8n.types';
 import type { TipoPostagem } from './postagens.types';
 import type { ServidoresFile, SshSaidaChunk } from './servidores.types';
+import type { EstadoWorkspace } from './workspace.types';
 
 /**
  * Eventos empurrados do processo principal para o renderer.
@@ -45,6 +46,10 @@ export type IrisEvent =
   | { topic: 'whatsapp:mudou'; payload: { naoLidas: number; contato?: RefContato } }
   /** Clique na notificação de mensagem: abrir a conversa (sem ref, o número em "Sem cadastro"). */
   | { topic: 'whatsapp:abrir'; payload: { ref?: RefContato; numero?: string } }
+  /** Download, conferência, instalação ou verificação de um app do Workspace. */
+  | { topic: 'workspace:estado'; payload: EstadoWorkspace }
+  /** Clique na notificação de versão nova: abrir o Workspace na página do app. */
+  | { topic: 'workspace:abrir'; payload: { appId: string } }
   | { topic: 'app:erro'; payload: { escopo: string; mensagem: string } };
 
 export type IrisEventTopic = IrisEvent['topic'];

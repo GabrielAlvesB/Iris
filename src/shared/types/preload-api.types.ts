@@ -18,6 +18,7 @@ import type { OrigemEventoWa } from './whatsapp.eventos';
 import type { TipoFluxoWa } from './whatsapp.n8n';
 import type { AnexoPostagem, EscolhaDeAnexos, InfoAnexo } from './postagens.types';
 import type { EstadoAtualizacao, InstaladorLocal, VersaoPublicada } from './atualizacao.types';
+import type { EstadoWorkspace, PedidoInstalar, VersaoAnterior } from './workspace.types';
 import type { BackupNaPasta, EstadoBackupAuto, MudancaBackupAuto } from './backup.types';
 import type { EntradaHistorico } from './historico.types';
 import type { ItemBusca } from './busca.types';
@@ -719,6 +720,21 @@ export interface RelatoriosApi {
   exportarPdf(input: ExportarPdfInput): Promise<IpcResult<FileOpResult>>;
 }
 
+/** Iris Workspace: a tela pede por id de app; caminho e URL ficam no main. */
+export interface WorkspaceApi {
+  getEstado(): Promise<IpcResult<EstadoWorkspace>>;
+  /** Sem appId, todos. */
+  verificar(appId?: string): Promise<IpcResult<EstadoWorkspace>>;
+  /** Baixa, confere e instala; o progresso chega por 'workspace:estado'. */
+  instalar(pedido: PedidoInstalar): Promise<IpcResult<EstadoWorkspace>>;
+  cancelar(appId: string): Promise<IpcResult<EstadoWorkspace>>;
+  abrir(appId: string): Promise<IpcResult<void>>;
+  mostrarNaPasta(appId: string): Promise<IpcResult<void>>;
+  abrirPagina(appId: string, versao?: string): Promise<IpcResult<void>>;
+  listarVersoes(appId: string): Promise<IpcResult<VersaoAnterior[]>>;
+  desinstalar(appId: string): Promise<IpcResult<EstadoWorkspace>>;
+}
+
 export interface IrisApi {
   kanban: KanbanApi;
   quadro: QuadroApi;
@@ -752,6 +768,7 @@ export interface IrisApi {
   anexos: AnexosApi;
   relatorios: RelatoriosApi;
   atualizacao: AtualizacaoApi;
+  workspace: WorkspaceApi;
   events: EventsApi;
 }
 

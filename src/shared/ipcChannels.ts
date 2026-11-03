@@ -419,3 +419,16 @@ export const ATUALIZACAO_CHANNELS = {
   escolherInstalador: 'atualizacao:escolherInstalador',
   instalarArquivo: 'atualizacao:instalarArquivo',
 } as const;
+
+/** Iris Workspace: os outros apps do ecossistema (releases públicas do GitHub). */
+export const WORKSPACE_CHANNELS = {
+  getEstado: 'workspace:getEstado',
+  verificar: 'workspace:verificar',
+  instalar: 'workspace:instalar',
+  cancelar: 'workspace:cancelar',
+  abrir: 'workspace:abrir',
+  mostrarNaPasta: 'workspace:mostrarNaPasta',
+  abrirPagina: 'workspace:abrirPagina',
+  listarVersoes: 'workspace:listarVersoes',
+  desinstalar: 'workspace:desinstalar',
+} as const;

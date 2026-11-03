@@ -1036,6 +1036,54 @@ const GUIA_LINKS: Guia = {
   ],
 };
 
+const GUIA_WORKSPACE: Guia = {
+  id: 'workspace',
+  titulo: 'Iris Workspace',
+  chamada: 'Os outros apps do ecossistema Iris, instalados daqui.',
+  grupo: 'dia',
+  modulo: 'workspace',
+  resumo:
+    'O Workspace reúne os apps irmãos do Iris — o primeiro é o IrisWord, de texto e documentos. Ele lê as versões publicadas no GitHub de cada app, baixa o arquivo certo para o seu computador, confere o arquivo e instala. Depois, abre o app e avisa quando sai versão nova.',
+  passos: [
+    {
+      id: 'workspace.instalar',
+      titulo: 'Instale um app',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            'Clique em Instalar. O Iris baixa o arquivo, confere o SHA-256 publicado na versão e só então instala — se o arquivo não bater, ele é apagado e nada é instalado.',
+        },
+        {
+          tipo: 'lista',
+          itens: [
+            'No Windows, o instalador vai só para a sua conta e não pede administrador.',
+            'No Linux, escolha entre AppImage (guardado em ~/Aplicativos) e os pacotes .deb ou .rpm, que pedem a senha de administrador.',
+            'Portátil e .tar.gz só são baixados: o Iris mostra o arquivo na pasta.',
+          ],
+        },
+        { tipo: 'abrir', rotulo: 'Abrir o Workspace', modulo: 'workspace' },
+      ],
+    },
+    {
+      id: 'workspace.atualizar',
+      titulo: 'Abrir e atualizar',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            'Com o app instalado, o botão vira Abrir. O Iris confere as versões ao abrir e a cada 6 horas; quando sai uma nova, aparece um número no ícone do Workspace e uma notificação.',
+        },
+        {
+          tipo: 'aviso',
+          nivel: 'info',
+          texto: 'Em "Versões" na página de cada app dá para instalar uma versão anterior. App ainda sem versão pública aparece como "Em breve"; os que ainda estão sendo feitos (como o Iris Photo, de edição de imagens) aparecem como "Em criação".',
+        },
+      ],
+    },
+  ],
+};
+
 const GUIA_TRAFEGO: Guia = {
   id: 'trafego',
   titulo: 'Tráfego pago',
@@ -1406,6 +1454,7 @@ export const GUIAS_DAS_AREAS: Guia[] = [
   GUIA_PENSAMENTOS,
   GUIA_LINKS,
   GUIA_TRAFEGO,
+  GUIA_WORKSPACE,
   GUIA_ATALHOS,
   GUIA_AJUSTES,
 ];

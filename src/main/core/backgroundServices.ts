@@ -15,6 +15,7 @@ import * as whatsappFila from '../modules/whatsapp/whatsapp.fila';
 import * as whatsappReceber from '../modules/whatsapp/whatsapp.receber';
 import * as backupService from '../modules/backup/backup.service';
 import * as lembretesService from '../modules/lembretes/lembretes.service';
+import * as workspaceService from '../modules/workspace/workspace.service';
 
 /**
  * Raiz de composição das tarefas de fundo — mantém o main.ts sem precisar
@@ -27,6 +28,7 @@ export const TAREFA_GITHUB = 'github:poll';
 export const TAREFA_AGENDA_POSTAGENS = 'postagens:agenda';
 export const TAREFA_ATUALIZACAO = 'atualizacao:verificar';
 export const TAREFA_LEADS = 'contatos:leads';
+export const TAREFA_WORKSPACE = 'workspace:verificar';
 
 /**
  * Leads por API: o servidor local liga/desliga e a busca na caixa da nuvem
@@ -74,6 +76,12 @@ export async function startBackgroundServices(): Promise<void> {
     await atualizacaoService.verificar(signal);
   });
   startTask(TAREFA_ATUALIZACAO, 12_000);
+
+  // Apps do Workspace: uma consulta por app, com a mesma folga da atualização do Iris.
+  registerTask(TAREFA_WORKSPACE, 6 * 60 * 60_000, async (signal) => {
+    await workspaceService.verificar(undefined, signal);
+  });
+  startTask(TAREFA_WORKSPACE, 30_000);
 
   // Cópias de anexos que nenhuma postagem usa mais. Tipo de postagem novo
   // precisa entrar aqui, senão os anexos dele seriam apagados na abertura.

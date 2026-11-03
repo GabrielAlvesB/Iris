@@ -34,6 +34,7 @@ export const MODULOS = [
   { id: 'hoje', rotulo: 'Home', posicao: 'topo', descricao: 'Seu dia: prazos, postagens e rotinas de todos os módulos' },
   { id: 'kanban', rotulo: 'Kanban', posicao: 'topo', descricao: 'Cards em colunas, do a fazer ao feito' },
   { id: 'todo', rotulo: 'To-do', posicao: 'topo', descricao: 'Checklists rápidas do dia a dia' },
+  { id: 'workspace', rotulo: 'Workspace', posicao: 'topo', descricao: 'Os outros apps do ecossistema Iris: instalar, abrir e atualizar' },
   { id: 'contatos', rotulo: 'Contatos', posicao: 'relacionamento', descricao: 'Pessoas, empresas, funil e contratos' },
   { id: 'leads', rotulo: 'Leads', posicao: 'relacionamento', descricao: 'Formulários do site: caixa de entrada e painel' },
   { id: 'relatorios-leads', rotulo: 'Relatórios de leads', posicao: 'relacionamento', descricao: 'PDFs de leads por período' },

@@ -35,6 +35,8 @@ const IR_PARA: Record<ModuloId, Combo> = {
   hoje: 'G D',
   kanban: 'G K',
   todo: 'G T',
+  // X de "eXplorar" o ecossistema: W é do WhatsApp.
+  workspace: 'G X',
   contatos: 'G C',
   leads: 'G L',
   'relatorios-leads': 'G E',

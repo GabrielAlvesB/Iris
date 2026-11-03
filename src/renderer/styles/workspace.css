@@ -1,0 +1,898 @@
+/* Iris Workspace (modules/workspace): os apps do ecossistema. Prefixo ws-.
+   A cor de cada app chega como --ws-h (matiz); superfície, texto e acento vêm dos tokens. */
+
+.ws-pagina {
+  container-type: inline-size;
+  container-name: workspace;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 4px 4px 48px;
+}
+
+.ws-rotulo {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: color-mix(in oklch, var(--accent) 60%, var(--text-muted));
+}
+
+.ws-meta {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.ws-icone {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: var(--ws-tam);
+  height: var(--ws-tam);
+  filter: drop-shadow(0 8px 18px rgb(0 0 0 / calc(0.35 * var(--sombra-k))));
+}
+
+/* ---------- O céu: textos e a constelação ---------- */
+
+.ws-ceu {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 300px;
+  padding: 30px 30px 26px;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-soft);
+  background:
+    radial-gradient(ellipse 60% 80% at 76% 50%, color-mix(in oklch, var(--accent) 20%, transparent), transparent 70%),
+    radial-gradient(ellipse 40% 60% at 95% 0%, color-mix(in oklch, var(--acento-2) 14%, transparent), transparent 70%),
+    var(--bg-elevated);
+}
+
+.ws-ceu.is-carregando {
+  animation: ws-pulsar 1.4s ease-in-out infinite;
+}
+
+.ws-ceu-textos {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ws-titulo {
+  margin: 0;
+  font-size: clamp(28px, 3.4vw, 40px);
+  font-weight: 700;
+  line-height: 1.06;
+  letter-spacing: -0.035em;
+  color: var(--text);
+}
+
+.ws-ceu-sub {
+  margin: 0;
+  max-width: 44ch;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.ws-ceu-fato {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.ws-ceu-acoes {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.ws-ceu-quando {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.ws-ceu-arte {
+  position: relative;
+  margin: -20px -20px -20px 0;
+}
+
+.ws-ceu-arte svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.ws-estrela {
+  fill: var(--text);
+  opacity: 0.25;
+  animation: ws-brilhar 4.5s ease-in-out infinite;
+  animation-delay: var(--d);
+}
+
+.ws-orbita {
+  fill: none;
+  stroke: color-mix(in oklch, var(--accent) 40%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 2 7;
+  opacity: calc(0.9 - var(--i) * 0.22);
+  animation: ws-girar-traco 40s linear infinite;
+}
+
+.ws-sol {
+  filter: drop-shadow(0 0 18px color-mix(in oklch, var(--accent) 55%, transparent));
+}
+
+.ws-pupila {
+  /* Como no trilho: a pupila é quase preta nos dois temas, puxada para o destaque. */
+  fill: color-mix(in oklch, var(--accent) 18%, black);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ws-olhar 7s ease-in-out infinite;
+}
+
+.ws-vaga {
+  fill: rgb(var(--realce) / 0.03);
+  stroke: var(--text-faint);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.55;
+}
+
+.ws-planeta {
+  cursor: pointer;
+  outline: none;
+}
+
+.ws-planeta-corpo {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ws-flutuar 6s ease-in-out infinite;
+  transition: transform 0.2s ease;
+}
+
+.ws-planeta:hover .ws-planeta-corpo,
+.ws-planeta:focus-visible .ws-planeta-corpo {
+  animation-play-state: paused;
+  transform: scale(1.12);
+}
+
+.ws-planeta-aura {
+  fill: color-mix(in oklch, var(--accent) 22%, transparent);
+  stroke: color-mix(in oklch, var(--accent) 50%, transparent);
+  stroke-width: 1;
+}
+
+.ws-planeta:focus-visible .ws-planeta-aura {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.ws-planeta.is-nao-publicado svg {
+  opacity: 0.75;
+}
+
+/* Em criação: a aura tracejada, como as órbitas vazias — já tem nome e cor, ainda não chegou. */
+.ws-planeta.is-em-criacao .ws-planeta-aura {
+  fill: rgb(var(--realce) / 0.04);
+  stroke: var(--text-faint);
+  stroke-dasharray: 3 3;
+}
+
+.ws-planeta-ponto {
+  fill: var(--warning);
+  stroke: var(--bg-elevated);
+  stroke-width: 2;
+}
+
+.ws-planeta-nome {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  fill: var(--text-muted);
+}
+
+/* ---------- Destaque ---------- */
+
+.ws-destaque {
+  --ws-cor: oklch(0.62 0.15 var(--ws-h));
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+  padding: 26px 28px;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  border: 1px solid color-mix(in oklch, var(--ws-cor) 30%, var(--border-soft));
+  background: linear-gradient(115deg, color-mix(in oklch, var(--ws-cor) 13%, var(--bg-elevated)), var(--bg-elevated) 60%);
+}
+
+.ws-destaque-brilho {
+  position: absolute;
+  inset: -40% auto auto -10%;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--ws-cor) 30%, transparent), transparent 65%);
+  pointer-events: none;
+}
+
+.ws-destaque > :not(.ws-destaque-brilho) {
+  position: relative;
+}
+
+.ws-destaque-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ws-destaque-linha {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ws-destaque-nome,
+.ws-app-nome {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+.ws-destaque-frase {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.ws-destaque-rodape {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.ws-pilulas {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ws-pilulas li {
+  padding: 5px 11px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: color-mix(in oklch, var(--ws-cor) var(--tinta-texto), var(--tinta-forte));
+  /* Opacas sobre a superfície: com transparência, a borda arredondada saía amarelada no tema claro. */
+  background: color-mix(in oklch, var(--ws-cor) 12%, var(--bg-elevated));
+  border: 1px solid color-mix(in oklch, var(--ws-cor) 30%, var(--bg-elevated));
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* ---------- O botão que muda de forma ---------- */
+
+.ws-acao {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ws-acao.is-andamento {
+  gap: 12px;
+  padding: 6px 8px 6px 6px;
+  border-radius: 14px;
+  background: rgb(var(--realce) / 0.04);
+  border: 1px solid var(--border-soft);
+}
+
+.ws-acao-textos {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ws-acao-textos strong {
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.ws-acao-textos span {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Anel de progresso: um conic-gradient no --p (0–100), vazado no meio por máscara. */
+.ws-anel {
+  --p: 0;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+}
+
+.ws-anel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) calc(var(--p) * 1%), var(--bg-elevated-3) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px));
+  transition: background 0.2s linear;
+}
+
+.ws-anel.is-indeterminado::before {
+  background: conic-gradient(var(--accent) 0 28%, var(--bg-elevated-3) 0);
+  animation: ws-girar 0.9s linear infinite;
+}
+
+.ws-anel-num {
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ---------- Seções da vitrine ---------- */
+
+.ws-secao {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ws-secao-cab {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.ws-secao-titulo {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+
+.ws-secao-sub {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+.ws-fila {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ws-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px 10px 12px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+}
+
+.ws-chip-textos {
+  display: flex;
+  flex-direction: column;
+  margin-right: 6px;
+}
+
+.ws-chip-textos strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.ws-chip-textos span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.ws-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.ws-cartao {
+  --ws-cor: oklch(0.62 0.15 var(--ws-h, var(--acento-h)));
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  cursor: pointer;
+  transition: border-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.ws-cartao:not(.is-vaga):hover,
+.ws-cartao:not(.is-vaga):focus-visible {
+  outline: none;
+  transform: translateY(-2px);
+  border-color: color-mix(in oklch, var(--ws-cor) 45%, var(--border));
+  box-shadow: 0 14px 30px -16px color-mix(in srgb, var(--ws-cor) 60%, transparent);
+}
+
+.ws-cartao-topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.ws-cartao-nome {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.ws-cartao-frase {
+  margin: 0;
+  flex: 1;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.ws-cartao .ws-acao {
+  margin-top: 6px;
+}
+
+/* Em criação: cartão baixo, ícone ao lado do texto. */
+.ws-grade.is-futuros {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.ws-cartao.is-futuro {
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+}
+
+.ws-futuro-textos {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ws-cartao.is-vaga {
+  align-items: flex-start;
+  justify-content: center;
+  cursor: default;
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text-faint);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.ws-cartao.is-vaga strong {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.ws-vaga-icone {
+  width: 52px;
+  height: 52px;
+  margin-bottom: 4px;
+  border-radius: 15px;
+  border: 1.5px dashed var(--border);
+}
+
+/* ---------- Página do app ---------- */
+
+.ws-voltar {
+  align-self: flex-start;
+  margin: 0 0 -12px -6px;
+}
+
+.ws-app-topo {
+  --ws-cor: oklch(0.62 0.15 var(--ws-h));
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  padding: 30px;
+  border-radius: var(--radius-xl);
+  border: 1px solid color-mix(in oklch, var(--ws-cor) 30%, var(--border-soft));
+  background:
+    radial-gradient(ellipse 50% 90% at 0% 50%, color-mix(in srgb, var(--ws-cor) 26%, transparent), transparent 70%),
+    radial-gradient(ellipse 40% 70% at 100% 0%, color-mix(in oklch, oklch(0.6 0.21 calc(var(--ws-h) + 42)) 16%, transparent), transparent 70%),
+    var(--bg-elevated);
+}
+
+.ws-app-textos {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ws-app-textos .ws-acao {
+  margin-top: 6px;
+}
+
+.ws-app-nome {
+  font-size: 32px;
+}
+
+.ws-app-colunas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  align-items: start;
+  gap: 18px;
+}
+
+.ws-app-colunas.is-uma {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ws-app-principal,
+.ws-app-lado {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.ws-bloco {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+}
+
+.ws-bloco-titulo {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--text);
+}
+
+.ws-texto {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.ws-forte {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.ws-fraco {
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+.ws-recursos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.ws-recurso {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: rgb(var(--realce) / 0.03);
+  border: 1px solid var(--border-soft);
+}
+
+.ws-recurso strong {
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.ws-recurso span {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.ws-novidades {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.ws-formatos {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ws-formato {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  text-align: left;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+
+.ws-formato:hover:not(:disabled) {
+  background: rgb(var(--realce) / 0.04);
+}
+
+.ws-formato.is-ativo {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.ws-formato:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.ws-formato-cab {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+.ws-formato-tam {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.ws-formato-texto {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.ws-nota {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.ws-nota svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--success);
+}
+
+.ws-dados {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 12px;
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.ws-dados dt {
+  color: var(--text-faint);
+}
+
+.ws-dados dd {
+  margin: 0;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.ws-bloco-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ws-versoes {
+  display: flex;
+  flex-direction: column;
+  max-height: 320px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.ws-versao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.ws-versao:last-child {
+  border-bottom: none;
+}
+
+.ws-versao-textos {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: 12.5px;
+}
+
+.ws-versao-textos strong {
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+
+.ws-versao-data,
+.ws-versao-pre {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.ws-versao-pre {
+  color: var(--warning-texto);
+}
+
+.ws-versao-atual {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--success);
+}
+
+/* ---------- Janela estreita ---------- */
+
+@container workspace (max-width: 820px) {
+  .ws-ceu {
+    grid-template-columns: 1fr;
+  }
+
+  .ws-ceu-arte {
+    margin: 0 -10px -16px;
+  }
+
+  .ws-destaque {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .ws-pilulas {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .ws-app-colunas {
+    grid-template-columns: 1fr;
+  }
+}
+
+@container workspace (max-width: 520px) {
+  .ws-destaque,
+  .ws-app-topo {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 20px;
+  }
+}
+
+/* ---------- Movimento ---------- */
+
+@keyframes ws-girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ws-girar-traco {
+  to {
+    stroke-dashoffset: -180;
+  }
+}
+
+@keyframes ws-flutuar {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes ws-brilhar {
+  0%,
+  100% {
+    opacity: 0.18;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes ws-olhar {
+  0%,
+  40%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50%,
+  62% {
+    transform: translate(2.5px, -1px);
+  }
+  72%,
+  84% {
+    transform: translate(-2.5px, 0.5px);
+  }
+}
+
+@keyframes ws-pulsar {
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ws-estrela,
+  .ws-orbita,
+  .ws-pupila,
+  .ws-planeta-corpo,
+  .ws-ceu.is-carregando {
+    animation: none;
+  }
+}

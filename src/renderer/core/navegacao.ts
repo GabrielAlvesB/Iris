@@ -38,6 +38,7 @@ export type GuiaId =
   | 'pensamentos'
   | 'links'
   | 'trafego'
+  | 'workspace'
   | 'atalhos'
   | 'ajustes';
 
@@ -360,6 +361,31 @@ export function onLeadSolicitado(cb: (ref: RefContato) => void): () => void {
 }
 
 // ---------- API e n8n: abrir já numa seção ----------
+
+// ---------- Iris Workspace ----------
+
+let workspacePendente: string | null = null;
+const ouvintesWorkspace = new Set<(appId: string) => void>();
+
+/** Abre o Workspace já na página de um app (clique na notificação de versão nova). */
+export function abrirWorkspace(appId?: string): void {
+  if (appId) {
+    workspacePendente = appId;
+    ouvintesWorkspace.forEach((cb) => cb(appId));
+  }
+  abrirModulo('workspace');
+}
+
+export function consumirWorkspacePendente(): string | null {
+  const id = workspacePendente;
+  workspacePendente = null;
+  return id;
+}
+
+export function onWorkspaceSolicitado(cb: (appId: string) => void): () => void {
+  ouvintesWorkspace.add(cb);
+  return () => ouvintesWorkspace.delete(cb);
+}
 
 export type SecaoApiLeads = 'geral' | 'nuvem' | 'local' | 'n8n' | 'site' | 'chaves' | 'pontuacao' | 'avisos';
 

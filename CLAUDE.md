@@ -11,9 +11,9 @@ TypeScript puro, **sem framework de UI e sem bundler**. O DOM é construído à 
 `document.createElement`. As únicas dependências de runtime são `sortablejs` (drag-and-drop),
 `ssh2` (comandos remotos) e `xlsx` (import/export de planilhas).
 
-Vinte e quatro módulos, organizados na sidebar por categoria:
+Vinte e cinco módulos, organizados na sidebar por categoria:
 
-- **soltos no topo**: Home (id `hoje` — o rótulo era "Hoje"; o id ficou para não migrar nada —, o primeiro e o módulo inicial de instalação nova), Kanban, To-do (id `todo`)
+- **soltos no topo**: Home (id `hoje` — o rótulo era "Hoje"; o id ficou para não migrar nada —, o primeiro e o módulo inicial de instalação nova), Kanban, To-do (id `todo`), Workspace (id `workspace`: os outros apps do ecossistema)
 - **Relacionamento**: Contatos (CRM: pessoas, empresas, funil, contratos), Leads (id `leads`: caixa de entrada e painel),
   Relatórios de leads (id `relatorios-leads`), API e n8n (id `api-leads`) — a área da 0.2.0 —, WhatsApp (id `whatsapp`)
 - **Conteúdo**: Postagens (pipeline de conteúdo: vídeos, imagens), Estúdio IA (id `ia`), Relatórios (análises com PDF),
@@ -520,6 +520,55 @@ não seria decifrável em outra máquina.
   `abrirConversaWa`). CSS em [whatsapp.css](src/renderer/styles/whatsapp.css), prefixo `wa-` (reusa o layout `la-` de API e n8n).
 - Testar sem conta: uma Evolution falsa em Node (responde `sendText` com `key.id` e devolve `messages.update`/`upsert` ao webhook
   configurado) e o Worker importado em Node com KV em memória, como nos leads.
+
+## Iris Workspace (id `workspace`)
+
+- Os outros apps do ecossistema, baixados e instalados de dentro do Iris (estilo Creative Cloud). **Catálogo em código**:
+  `APPS_WORKSPACE` em [workspace.types.ts](src/shared/types/workspace.types.ts) (puro) — repo, textos, ícone SVG desenhado no
+  código (a CSP não deixa imagem externa), matiz, como o sistema conhece o app instalado e a regex de cada arquivo por
+  sistema/arquitetura. App novo = uma entrada ali. Publicados: IrisWord (`GabrielAlvesB/Irisword`, binário `wordcraft`, roxo,
+  matiz 285) e IrisGrid (`GabrielAlvesB/IrisGrid`, binário `gridcraft`, verde, matiz 152 — o ícone do próprio app é o mesmo
+  desenho, em `assets/app-icon/gridcraft.svg` de lá), IrisDeck (`GabrielAlvesB/IrisDeck`, binário `deckcraft`, laranja, 48) e
+  IrisVector (`GabrielAlvesB/IrisVector`, binário `vectorcraft`, dourado → laranja: `luz` 0,82 e `deriva` −38 — com o +42 padrão
+  o degradê ia para o verde-limão). Deck e Vector ainda sem release = "Em breve" até a primeira sair; nada a mudar quando sair.
+  Os quatro saem do mesmo molde (WiX com `Software\<Nome> › InstallDir`, nfpm,
+  arquivos `<bin>-<versão>-windows-<arch>.msi` etc.), por isso dividem `IRISWORD_WIN`/`IRISWORD_LINUX`. O `.msi` do IrisGrid
+  **não é assinado** (o do IrisWord é): com o Controle Inteligente de Aplicativos ligado, o Windows pode barrá-lo.
+  MultiDesk (`GabrielAlvesB/MultiDesk`, Python, azul, matiz 262) é de outro molde: instalador **Inno Setup** `.exe`
+  (formato `exe`, `argsInstaladorExe` silenciosos + `argsReabrir` = `/RELAUNCH=1` só se ele estava aberto), `.deb` "all" e
+  pacote do Arch "any" (formato `pacman`), **sem `SHA256SUMS.txt`** (confere pelo `digest` do GitHub) e sem chave própria no
+  registro. A logo dele é a do repositório (`tools/make_icon.py`), redesenhada em SVG com as cores fixas de lá.
+  **Sem `repo` = em criação** (`emCriacao`, situação `em-criacao`): só vitrine, órbita (aura tracejada), seção "Em criação"
+  (cartão compacto, sem botão) e página de uma coluna; o main não consulta nem instala (`exigirRepo`). Hoje, com logo e cor
+  próprias: Iris Photo (Photoshop, azul-ciano, 205), Iris Fig (Figma, magenta, 325) e Iris PDF (Acrobat, vermelho, 22). Quando ganhar repositório: `repo`, `instalado` (nomes no sistema) e `arquivos`.
+  Ícone com `<text>` (o "PDF") põe a fonte por `style`: o atributo `font-family` perde para o CSS da página.
+- **Só releases públicas, sem token** (escolha do usuário): repositório privado ou sem release = 404 = "Em breve".
+  Main em [workspace.service.ts](src/main/modules/workspace/workspace.service.ts): a tela pede por id de app/formato/versão;
+  URL e caminho só vêm do GitHub nesta sessão (`releasesAtuais`, `versoesListadas`) ou da detecção. Baixa para
+  `userData/workspace/downloads`, **confere o SHA-256** — o `digest` que o GitHub publica de cada asset (`sha256:<hex>`), senão
+  o `SHA256SUMS.txt` da release (sem nenhum dos dois, não instala; não bateu, apaga) — e instala: `.exe` com os argumentos do
+  catálogo (código `null` do execFile = Windows barrou o instalador sem assinatura), `.msi` por `msiexec /passive` só para a conta (`ALLUSERS=2 MSIINSTALLPERUSER=1`; se a cópia instalada é a
+  de Program Files, `ALLUSERS=1`), `.deb`/`.rpm` pelo pkexec ([core/pacotesLinux.ts](src/main/core/pacotesLinux.ts), dividido
+  com a atualização do Iris; o do Arch também), AppImage guardado em `~/Aplicativos`; `.zip`/`.tar.gz` só baixam e mostram na pasta.
+- **Detecção** a cada `getEstado`: Windows pela chave própria `HKCU|HKLM\Software\<Nome> › InstallDir` (o MSI grava; opcional) e
+  pela chave de desinstalação achada pelo DisplayName — igual ao nome (MSI) ou nome + espaço + versão ("MultiDesk 0.5.3", Inno) —
+  de onde vêm `DisplayVersion` e `InstallLocation`; reserva `Programs\Iris\<Nome>` e `Programs\<Nome>`. Linux por
+  `dpkg-query`/`rpm -q`/`pacman -Q` ou o AppImage gravado em `workspace.json`.
+- `workspace.json` (v1) guarda formato preferido, último download, AppImage instalado e a cópia da última release (abre
+  offline). **Fora do backup** (é deste computador) — e por isso fora do histórico.
+- Tarefa `workspace:verificar` (30 s após abrir, depois 6 h); versão nova de app instalado = notificação uma vez por versão
+  (`avisadaVersao`) → push `workspace:abrir` → `abrirWorkspace(appId)`. Selo do trilho com o número de atualizações
+  ([core/workspace.ts](src/renderer/core/workspace.ts); o texto da contagem por módulo está em `O_QUE_CONTA` de sidebar.ts).
+- Tela (`modules/workspace/`, CSS `ws-`): céu com o olho do Iris e os apps num anel só, na órbita de fora, a cada 45°
+  (`lugarDoApp`; planeta de 36 px — espalhados pelas três órbitas, dois se sobrepunham e um caía no olho), com as vagas nas
+  órbitas de dentro (espaço para o próximo, nunca app inventado). O rótulo do planeta se acha por `.ws-planeta-nome`, nunca
+  pelo primeiro `<text>` (o do ícone). Destaque, "Todos os apps", "Em criação" e a página de cada app (formatos, novidades em Markdown, neste computador, versões).
+  O botão vira anel de progresso; durante o download só o anel e os textos `[data-anel]`/`[data-selo]`/`[data-andamento]`
+  mudam no lugar. Cor do app = `--ws-h`; tinta de borda/fundo **opaca** sobre a superfície (com alfa, a borda arredondada
+  saía amarelada no tema claro).
+- Testar sem release pública: no `npm run dev`, `IRIS_WORKSPACE_API=http://127.0.0.1:<porta>` troca a base da API do GitHub
+  por um servidor Node falso (releases, assets e `SHA256SUMS.txt`). Não testar o `.msi` com arquivo falso: o msiexec abre um
+  aviso modal.
 
 ## Roteiros
 
