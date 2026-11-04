@@ -273,10 +273,19 @@ export const APPS_WORKSPACE: AppWorkspace[] = [
   {
     id: 'irisphoto',
     nome: 'Iris Photo',
+    repo: 'GabrielAlvesB/IrisPhoto',
     frase: 'Fotos e imagens: retoque, camadas e ajustes.',
     descricao:
-      'O app de edição de imagens do ecossistema Iris, no papel do Photoshop: camadas, seleções, retoque e ajustes de cor.',
-    recursos: [],
+      'O app de edição de imagens do ecossistema Iris, no papel do Photoshop: camadas, seleções, retoque e ajustes de cor. ' +
+      'Abre e salva PSD de verdade, além de PNG, JPEG, TIFF, WebP e arquivos RAW de câmera.',
+    recursos: [
+      { titulo: 'Seus arquivos', texto: 'Abre e salva PSD e PSB com camadas; lê RAW de câmera, XCF, Krita e OpenRaster; exporta PNG, JPEG, TIFF, WebP e AVIF.' },
+      { titulo: 'Camadas', texto: 'Máscaras, camadas de ajuste, estilos de camada, objetos inteligentes e modos de mesclagem.' },
+      { titulo: 'Retoque', texto: 'Pincéis, carimbo, pincel de recuperação, Liquify e filtros acelerados pela GPU.' },
+      { titulo: 'Cor', texto: 'Curvas, Níveis, Matiz/Saturação e perfis ICC, em RGB, CMYK e Lab.' },
+      { titulo: 'Texto e vetores', texto: 'Camadas de texto editáveis, formas e caminhos com a caneta.' },
+      { titulo: 'Para agentes', texto: 'Cada ação é um comando com id: menus, ferramentas e painéis respondem à linha de comando e a um servidor MCP.' },
+    ],
     // Uma foto (montanhas e sol) entre as marcas de corte.
     icone:
       '<rect x="4" y="4" width="56" height="56" rx="15" fill="url(#ws-g-irisphoto)"/>' +
@@ -285,6 +294,19 @@ export const APPS_WORKSPACE: AppWorkspace[] = [
       '<path d="M15.5 44.5 25.5 31l6.8 8.2 4.9-5.3 11.3 10.6z" fill="url(#ws-g-irisphoto)" fill-opacity=".85"/>' +
       '<path d="M9 20v-8h8M55 44v8h-8" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>',
     matiz: 205,
+    instalado: {
+      nomeWindows: 'Iris Photo',
+      chaveWindows: 'Software\\IrisPhoto',
+      exeWindows: 'photocraft.exe',
+      pacoteLinux: 'photocraft',
+      exeLinux: 'photocraft',
+    },
+    // Mesmos sufixos do IrisWord (photocraft-<versão>-windows-x64.msi etc.).
+    arquivos: {
+      win32: { x64: IRISWORD_WIN('x64'), arm64: IRISWORD_WIN('arm64'), ia32: IRISWORD_WIN('x86') },
+      linux: { x64: IRISWORD_LINUX('x86_64'), arm64: IRISWORD_LINUX('aarch64') },
+    },
+    somas: /^SHA256SUMS\.txt$/i,
   },
   {
     id: 'irisvector',
@@ -334,11 +356,19 @@ export const APPS_WORKSPACE: AppWorkspace[] = [
   {
     id: 'irisfig',
     nome: 'Iris Fig',
+    repo: 'GabrielAlvesB/IrisFig',
     frase: 'Design de telas, componentes e protótipos.',
     descricao:
       'O app de design de interfaces do ecossistema Iris, no papel do Figma: desenhar telas, montar componentes e ' +
-      'ligar tudo num protótipo clicável.',
-    recursos: [],
+      'ligar tudo num protótipo clicável. Abre arquivos .fig, Sketch e Penpot e exporta PNG, SVG e PDF.',
+    recursos: [
+      { titulo: 'Seus arquivos', texto: 'Salva .figcraft; abre .fig, .sketch, Penpot e SVG; exporta PNG, JPEG, SVG e PDF.' },
+      { titulo: 'Layout', texto: 'Quadros, auto layout, restrições, grades e redes vetoriais com a caneta.' },
+      { titulo: 'Componentes', texto: 'Componentes, variantes e propriedades, com estilos e variáveis em modos claro e escuro.' },
+      { titulo: 'Protótipos', texto: 'Conexões, transições, sobreposições e Smart Animate, com o modo de apresentação.' },
+      { titulo: 'Colaboração', texto: 'Sessões ao vivo na rede local ou por um servidor seu, com comentários e links para editar ou ver.' },
+      { titulo: 'Para agentes', texto: 'Cada ação é um comando com id: menus, ferramentas e painéis respondem à linha de comando e a um servidor MCP.' },
+    ],
     // Um quadro (frame) com formas dentro e o cursor de seleção em cima.
     icone:
       '<rect x="4" y="4" width="56" height="56" rx="15" fill="url(#ws-g-irisfig)"/>' +
@@ -349,6 +379,19 @@ export const APPS_WORKSPACE: AppWorkspace[] = [
       '<path d="M17 36h7" stroke="url(#ws-g-irisfig)" stroke-width="2.4" stroke-linecap="round" stroke-opacity=".6"/>' +
       '<path d="M38 33v16.5l4.3-4.2 3.2 7 3.2-1.4-3.2-6.9h6z" fill="#fff" stroke="url(#ws-g-irisfig)" stroke-width="1.8" stroke-linejoin="round"/>',
     matiz: 325,
+    instalado: {
+      nomeWindows: 'Iris Fig',
+      chaveWindows: 'Software\\IrisFig',
+      exeWindows: 'figcraft.exe',
+      pacoteLinux: 'figcraft',
+      exeLinux: 'figcraft',
+    },
+    // Mesmos sufixos do IrisWord (figcraft-<versão>-windows-x64.msi etc.).
+    arquivos: {
+      win32: { x64: IRISWORD_WIN('x64'), arm64: IRISWORD_WIN('arm64'), ia32: IRISWORD_WIN('x86') },
+      linux: { x64: IRISWORD_LINUX('x86_64'), arm64: IRISWORD_LINUX('aarch64') },
+    },
+    somas: /^SHA256SUMS\.txt$/i,
   },
   {
     id: 'irispdf',

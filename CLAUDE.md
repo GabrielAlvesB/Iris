@@ -530,8 +530,10 @@ não seria decifrável em outra máquina.
   matiz 285) e IrisGrid (`GabrielAlvesB/IrisGrid`, binário `gridcraft`, verde, matiz 152 — o ícone do próprio app é o mesmo
   desenho, em `assets/app-icon/gridcraft.svg` de lá), IrisDeck (`GabrielAlvesB/IrisDeck`, binário `deckcraft`, laranja, 48) e
   IrisVector (`GabrielAlvesB/IrisVector`, binário `vectorcraft`, dourado → laranja: `luz` 0,82 e `deriva` −38 — com o +42 padrão
-  o degradê ia para o verde-limão). Deck e Vector ainda sem release = "Em breve" até a primeira sair; nada a mudar quando sair.
-  Os quatro saem do mesmo molde (WiX com `Software\<Nome> › InstallDir`, nfpm,
+  o degradê ia para o verde-limão), Iris Photo (`GabrielAlvesB/IrisPhoto`, binário `photocraft`, azul-ciano, 205) e Iris Fig
+  (`GabrielAlvesB/IrisFig`, binário `figcraft`, magenta, 325) — os dois com espaço no nome do MSI e da pasta ("Iris Photo"),
+  mas a chave é `Software\IrisPhoto`/`Software\IrisFig`. App sem release = "Em breve" até a primeira sair; nada a mudar quando sair.
+  Os seis saem do mesmo molde (WiX com `Software\<Nome> › InstallDir`, nfpm,
   arquivos `<bin>-<versão>-windows-<arch>.msi` etc.), por isso dividem `IRISWORD_WIN`/`IRISWORD_LINUX`. O `.msi` do IrisGrid
   **não é assinado** (o do IrisWord é): com o Controle Inteligente de Aplicativos ligado, o Windows pode barrá-lo.
   MultiDesk (`GabrielAlvesB/MultiDesk`, Python, azul, matiz 262) é de outro molde: instalador **Inno Setup** `.exe`
@@ -540,7 +542,7 @@ não seria decifrável em outra máquina.
   registro. A logo dele é a do repositório (`tools/make_icon.py`), redesenhada em SVG com as cores fixas de lá.
   **Sem `repo` = em criação** (`emCriacao`, situação `em-criacao`): só vitrine, órbita (aura tracejada), seção "Em criação"
   (cartão compacto, sem botão) e página de uma coluna; o main não consulta nem instala (`exigirRepo`). Hoje, com logo e cor
-  próprias: Iris Photo (Photoshop, azul-ciano, 205), Iris Fig (Figma, magenta, 325) e Iris PDF (Acrobat, vermelho, 22). Quando ganhar repositório: `repo`, `instalado` (nomes no sistema) e `arquivos`.
+  própria: Iris PDF (Acrobat, vermelho, 22). Quando ganhar repositório: `repo`, `instalado` (nomes no sistema) e `arquivos`.
   Ícone com `<text>` (o "PDF") põe a fonte por `style`: o atributo `font-family` perde para o CSS da página.
 - **Só releases públicas, sem token** (escolha do usuário): repositório privado ou sem release = 404 = "Em breve".
   Main em [workspace.service.ts](src/main/modules/workspace/workspace.service.ts): a tela pede por id de app/formato/versão;

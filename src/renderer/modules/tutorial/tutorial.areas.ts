@@ -1077,7 +1077,7 @@ const GUIA_WORKSPACE: Guia = {
         {
           tipo: 'aviso',
           nivel: 'info',
-          texto: 'Em "Versões" na página de cada app dá para instalar uma versão anterior. App ainda sem versão pública aparece como "Em breve"; os que ainda estão sendo feitos (como o Iris Photo, de edição de imagens) aparecem como "Em criação".',
+          texto: 'Em "Versões" na página de cada app dá para instalar uma versão anterior. App ainda sem versão pública aparece como "Em breve"; os que ainda estão sendo feitos (como o Iris PDF) aparecem como "Em criação".',
         },
       ],
     },
