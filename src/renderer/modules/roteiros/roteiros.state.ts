@@ -7,6 +7,7 @@ import type {
   MudarStatusRoteiroInput,
   RestaurarVersaoInput,
   RoteirosFile,
+  SalvarPastaInput,
   SalvarVersaoInput,
 } from '../../../shared/types/roteiros.types';
 
@@ -15,7 +16,7 @@ type Listener = (state: RoteirosFile) => void;
 let state: RoteirosFile | null = null;
 let listener: Listener | null = null;
 
-function unwrap(result: IpcResult<RoteirosFile>): RoteirosFile {
+function unwrap<T = RoteirosFile>(result: IpcResult<T>): T {
   if (!result.ok) {
     throw new Error(result.error);
   }
@@ -100,4 +101,19 @@ export async function criarAdaptacao(input: CriarAdaptacaoInput): Promise<string
   if (!r.ok) throw new Error(r.error);
   applyAndNotify(r.data.file);
   return r.data.roteiroId;
+}
+
+/** Cria (sem id) ou renomeia/recolore. Devolve o id da pasta. */
+export async function salvarPasta(input: SalvarPastaInput): Promise<string> {
+  const r = unwrap(await window.irisAPI.roteiros.salvarPasta(input));
+  applyAndNotify(r.file);
+  return r.id;
+}
+
+export async function excluirPasta(pastaId: string): Promise<void> {
+  applyAndNotify(unwrap(await window.irisAPI.roteiros.excluirPasta(pastaId)));
+}
+
+export async function moverRoteiros(roteiroIds: string[], pastaId: string | null): Promise<void> {
+  applyAndNotify(unwrap(await window.irisAPI.roteiros.moverRoteiros({ roteiroIds, pastaId })));
 }

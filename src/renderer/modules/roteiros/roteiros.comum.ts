@@ -21,7 +21,7 @@ import * as videosState from '../postagens/videos/videos.state.js';
  */
 
 export type ModoEscrita = 'cartoes' | 'av' | 'livre';
-export type AbaEsquerda = 'estrutura' | 'briefing' | 'pesquisa';
+export type AbaEsquerda = 'estrutura' | 'briefing' | 'pesquisa' | 'arquivos';
 export type AbaDireita = 'previa' | 'ia' | 'revisao' | 'verificacao';
 
 /** O que cada parte do Estúdio recebe para ler e mexer no roteiro aberto. */

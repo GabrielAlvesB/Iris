@@ -90,7 +90,7 @@ function tamanhoLegivel(bytes: number): string {
 /** Diálogo do sistema → cópia de cada arquivo escolhido. */
 export async function escolherArquivos(janela: BrowserWindow | null): Promise<EscolhaDeAnexos> {
   const opcoes: OpenDialogOptions = {
-    title: 'Anexar arquivos à postagem',
+    title: 'Anexar arquivos',
     buttonLabel: 'Anexar',
     properties: ['openFile', 'multiSelections'],
     filters: [

@@ -31,6 +31,7 @@ export type GuiaId =
   | 'estudio'
   | 'relatorios'
   | 'roteiros'
+  | 'gravacao'
   | 'sheets'
   | 'biblioteca'
   | 'quadro'
@@ -154,7 +155,7 @@ export function onGuiaSolicitado(cb: (guia: GuiaId) => void): () => void {
 // ---------- Abrir um item dentro de um módulo (busca global) ----------
 
 /** Módulos que sabem ir até um item: a view lê o pedido depois de carregar. */
-export type ModuloComItem = 'kanban' | 'todo' | 'quadro' | 'pensamentos' | 'explorador' | 'sheets' | 'roteiros' | 'copy';
+export type ModuloComItem = 'kanban' | 'todo' | 'quadro' | 'pensamentos' | 'explorador' | 'sheets' | 'roteiros' | 'copy' | 'gravacao';
 
 export interface PedidoItem {
   modulo: ModuloComItem;
@@ -234,6 +235,27 @@ export function abrirAlvo(alvo: AlvoBusca): void {
     default:
       abrirItem({ modulo: alvo.modulo, id: alvo.id });
   }
+}
+
+// ---------- Gravar: abrir já com um roteiro escolhido ----------
+
+let roteiroParaGravar: string | null = null;
+
+/** Do estúdio de roteiro: abre Gravar com o roteiro já escolhido (a gravação nasce só no clique de gravar). */
+export function abrirGravacao(roteiroId?: string): void {
+  roteiroParaGravar = roteiroId ?? null;
+  if (atual === 'gravacao' && remontagem) {
+    remontagem.fechar();
+    remontagem.reabrir();
+  } else {
+    atendente?.('gravacao');
+  }
+}
+
+export function consumirRoteiroParaGravar(): string | null {
+  const id = roteiroParaGravar;
+  roteiroParaGravar = null;
+  return id;
 }
 
 // ---------- Postagens: abrir já num tipo (e numa postagem) ----------

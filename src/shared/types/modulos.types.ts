@@ -9,6 +9,8 @@
 export const CATEGORIAS = [
   { id: 'relacionamento', rotulo: 'Relacionamento' },
   { id: 'conteudo', rotulo: 'Conteúdo' },
+  // Id "estudio" (não "gravacao") para não confundir com o módulo de mesmo nome.
+  { id: 'estudio', rotulo: 'Gravação' },
   { id: 'arquivos', rotulo: 'Arquivos' },
   { id: 'sistema', rotulo: 'Sistema' },
   { id: 'trafego', rotulo: 'Tráfego' },
@@ -43,8 +45,9 @@ export const MODULOS = [
   { id: 'postagens', rotulo: 'Postagens', posicao: 'conteudo', descricao: 'Vídeos e imagens, da ideia à publicação' },
   { id: 'ia', rotulo: 'Estúdio IA', posicao: 'conteudo', descricao: 'Imagens e thumbnails com IA' },
   { id: 'relatorios', rotulo: 'Relatórios', posicao: 'conteudo', descricao: 'PDFs de resultado para clientes' },
-  { id: 'roteiros', rotulo: 'Roteiros', posicao: 'conteudo', descricao: 'Roteiros de vídeo, cena por cena' },
   { id: 'sheets', rotulo: 'Sheets', posicao: 'conteudo', descricao: 'Tabelas importadas de planilhas' },
+  { id: 'gravacao', rotulo: 'Gravar', posicao: 'estudio', descricao: 'Contagem, bipe de sincronia e takes — sozinho ou com outro Iris' },
+  { id: 'roteiros', rotulo: 'Roteiros', posicao: 'estudio', descricao: 'Roteiros de vídeo, cena por cena' },
   { id: 'explorador', rotulo: 'Biblioteca', posicao: 'arquivos', descricao: 'Seus arquivos organizados em coleções' },
   { id: 'quadro', rotulo: 'Quadro', posicao: 'arquivos', descricao: 'Tela livre de notas, tarefas e rotinas' },
   { id: 'copy', rotulo: 'Copy', posicao: 'arquivos', descricao: 'Textos prontos para copiar' },
@@ -53,6 +56,7 @@ export const MODULOS = [
   { id: 'servidores', rotulo: 'Servidores', posicao: 'sistema', descricao: 'Sites no ar e comandos por SSH' },
   { id: 'n8n', rotulo: 'n8n', posicao: 'sistema', descricao: 'Fluxos de automação' },
   { id: 'github', rotulo: 'GitHub', posicao: 'sistema', descricao: 'Repositórios e o que falta enviar' },
+  { id: 'nuvem', rotulo: 'Nuvem', posicao: 'sistema', descricao: 'Seus dados num banco de dados, iguais em todos os computadores' },
   { id: 'trafego', rotulo: 'Tráfego pago', posicao: 'trafego', descricao: 'Campanhas pagas e retorno' },
   { id: 'tutorial', rotulo: 'Tutorial', posicao: 'rodape', descricao: 'Um guia para cada área' },
   { id: 'ajustes', rotulo: 'Ajustes', posicao: 'rodape', descricao: 'Conexões, preferências e backup' },

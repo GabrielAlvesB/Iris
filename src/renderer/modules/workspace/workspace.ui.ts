@@ -183,11 +183,14 @@ export function buildAcao(app: AppWorkspace, e: EstadoApp, acoes: AcoesDoBotao, 
   return box;
 }
 
-/** "v1.2 · 3 dias atrás · 24,5 MB" — só o que a release diz. */
-export function linhaDaVersao(e: EstadoApp, formato?: FormatoApp): string {
+/**
+ * "v1.2 · 3 de nov. de 2026 · 24,5 MB" — só o que a release diz. No cartão da vitrine vai sem a
+ * versão (`semVersao`): o selo ao lado já a mostra, e com ela a linha quebrava em duas.
+ */
+export function linhaDaVersao(e: EstadoApp, formato?: FormatoApp, semVersao = false): string {
   const r = e.release;
   if (!r) return '';
-  const partes = [`v${r.versao}`];
+  const partes = semVersao ? [] : [`v${r.versao}`];
   if (r.publicadaEm) partes.push(new Date(r.publicadaEm).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }));
   const f = formatoSugerido(e, formato);
   const arquivo = r.arquivos.find((a) => a.formato === f);
@@ -232,8 +235,13 @@ const VAGAS = [
  * olho; aqui cabem oito sem encostar, com o nome embaixo. Do nono em diante, o anel fica mais cheio.
  */
 function lugarDoApp(i: number, total: number): [number, number] {
-  const passo = 360 / Math.max(8, total);
-  return ponto(2, 337.5 + i * passo);
+  const n = Math.max(8, total);
+  const passo = 360 / n;
+  // Simétrico em torno do topo (número par: dois ladeando o topo; ímpar: um no topo), com o primeiro
+  // app o mais perto possível de 337,5° — com 9 a partir de 337,5° o anel ficava torto.
+  const fase = (270 + (n % 2 === 0 ? passo / 2 : 0)) % passo;
+  const inicio = fase + passo * Math.round((337.5 - fase) / passo);
+  return ponto(2, inicio + i * passo);
 }
 
 /** Planeta menor que o ícone dos cartões: com oito no anel, 44 px encostavam. */

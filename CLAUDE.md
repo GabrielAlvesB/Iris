@@ -11,15 +11,16 @@ TypeScript puro, **sem framework de UI e sem bundler**. O DOM é construído à 
 `document.createElement`. As únicas dependências de runtime são `sortablejs` (drag-and-drop),
 `ssh2` (comandos remotos) e `xlsx` (import/export de planilhas).
 
-Vinte e cinco módulos, organizados na sidebar por categoria:
+Vinte e sete módulos, organizados na sidebar por categoria:
 
 - **soltos no topo**: Home (id `hoje` — o rótulo era "Hoje"; o id ficou para não migrar nada —, o primeiro e o módulo inicial de instalação nova), Kanban, To-do (id `todo`), Workspace (id `workspace`: os outros apps do ecossistema)
 - **Relacionamento**: Contatos (CRM: pessoas, empresas, funil, contratos), Leads (id `leads`: caixa de entrada e painel),
   Relatórios de leads (id `relatorios-leads`), API e n8n (id `api-leads`) — a área da 0.2.0 —, WhatsApp (id `whatsapp`)
 - **Conteúdo**: Postagens (pipeline de conteúdo: vídeos, imagens), Estúdio IA (id `ia`), Relatórios (análises com PDF),
-  Roteiros (escrever → revisar → aprovar; aprovado vira card no Kanban), Sheets
+  Sheets
+- **Gravação** (categoria `estudio`): Gravar (id `gravacao`), Roteiros (escrever → revisar → aprovar; aprovado vira card no Kanban)
 - **Arquivos**: Biblioteca (id interno `explorador`), Quadro, Copy, Pensamentos, Links rápidos
-- **Sistema**: Servidores, n8n, GitHub
+- **Sistema**: Servidores, n8n, GitHub, Nuvem (id `nuvem`: os dados num banco de dados, iguais em todos os computadores)
 - **Tráfego**: Tráfego pago (id `trafego`)
 - **soltos no rodapé**: Tutorial, Ajustes
 
@@ -166,7 +167,10 @@ aberto (`onSecaoAjustesSolicitada`).
 - **Visual "Vibrante + imersivo" (0.4)** — a cor vira o tema, não um detalhe:
   - Tokens: `--accent` (L `--acento-l`: 0,70 no escuro; no claro uma **curva por matiz**
     `0,515 + 0,045·cos(h − 340°)` — verde/ciano precisam de L menor para o texto branco passar de 4,5:1), croma
-    `--acento-cc = min(c × --int-k, 0,24)`; `--acento-2` (matiz + 42) e **`--grad-acento`** (os dois em 135°); **`--glow-acento`**
+    `--acento-cc = min(c × --int-k, 0,24)`; `--acento-2` (o mesmo matiz + `--acento-desvio` = 12°, um pouco mais claro no escuro e
+    mais escuro no claro) e **`--grad-acento`** (os dois em 135°). **O degradê fica dentro da cor escolhida**: eram 42° e o botão
+    de quem escolhia âmbar terminava em verde-limão, o de vermelho em amarelo — o usuário estranhou. Não voltar a desviar o matiz;
+    amostra ou prévia que imite o botão usa `var(--acento-desvio)`; **`--glow-acento`**
     (sombra colorida); `--accent-soft` com opacidade `--int-soft`. `--accent-text` = `--texto-sobre-acento` (escuro no escuro,
     branco no claro) — um token só. Contraste medido para as 9 cores × 3 intensidades × 2 temas (≥ 4,5).
   - **Superfícies tingidas**: `--bg`, `--bg-elevated*`, `--border*` e `--text*` são `oklch(L fixo, croma pequeno, --acento-h)`;
@@ -532,8 +536,11 @@ não seria decifrável em outra máquina.
   IrisVector (`GabrielAlvesB/IrisVector`, binário `vectorcraft`, dourado → laranja: `luz` 0,82 e `deriva` −38 — com o +42 padrão
   o degradê ia para o verde-limão), Iris Photo (`GabrielAlvesB/IrisPhoto`, binário `photocraft`, azul-ciano, 205) e Iris Fig
   (`GabrielAlvesB/IrisFig`, binário `figcraft`, magenta, 325) — os dois com espaço no nome do MSI e da pasta ("Iris Photo"),
-  mas a chave é `Software\IrisPhoto`/`Software\IrisFig`. App sem release = "Em breve" até a primeira sair; nada a mudar quando sair.
-  Os seis saem do mesmo molde (WiX com `Software\<Nome> › InstallDir`, nfpm,
+  mas a chave é `Software\IrisPhoto`/`Software\IrisFig`. IrisCine (`GabrielAlvesB/IrisCine`, editor de vídeo, binário
+  `filmcraft`, matiz 3): a logo é a do repositório (`assets/app-icon/filmcraft.svg`, claquete com play) com as cores fixas de lá
+  (coral `#ff6a5c` → magenta `#bd44c0`), o desenho de 512 escalado por `<g transform>` e gradientes/clipPaths com id
+  `ws-cine-*`; hoje só sai x64. App sem release = "Em breve" até a primeira sair; nada a mudar quando sair.
+  Os sete saem do mesmo molde (WiX com `Software\<Nome> › InstallDir`, nfpm,
   arquivos `<bin>-<versão>-windows-<arch>.msi` etc.), por isso dividem `IRISWORD_WIN`/`IRISWORD_LINUX`. O `.msi` do IrisGrid
   **não é assinado** (o do IrisWord é): com o Controle Inteligente de Aplicativos ligado, o Windows pode barrá-lo.
   MultiDesk (`GabrielAlvesB/MultiDesk`, Python, azul, matiz 262) é de outro molde: instalador **Inno Setup** `.exe`
@@ -561,19 +568,103 @@ não seria decifrável em outra máquina.
 - Tarefa `workspace:verificar` (30 s após abrir, depois 6 h); versão nova de app instalado = notificação uma vez por versão
   (`avisadaVersao`) → push `workspace:abrir` → `abrirWorkspace(appId)`. Selo do trilho com o número de atualizações
   ([core/workspace.ts](src/renderer/core/workspace.ts); o texto da contagem por módulo está em `O_QUE_CONTA` de sidebar.ts).
-- Tela (`modules/workspace/`, CSS `ws-`): céu com o olho do Iris e os apps num anel só, na órbita de fora, a cada 45°
-  (`lugarDoApp`; planeta de 36 px — espalhados pelas três órbitas, dois se sobrepunham e um caía no olho), com as vagas nas
+- **Sem "destaque"** (um app fixo na frente dos outros — o usuário pediu para tirar): no lugar, logo abaixo do céu, a **linha do
+  tempo do ecossistema** ([workspace.linha.ts](src/renderer/modules/workspace/workspace.linha.ts)): cada versão de cada app, da
+  mais nova à mais antiga, por mês, na cor do app, com filtro por app, selos "Nova" (7 dias), "Mais recente" e "A sua" (a instalada)
+  e até duas novidades tiradas das notas (itens de lista primeiro, cada uma cortada em duas linhas). 5 de início, "Ver mais". Selos "Nova" e "A sua" pelo `buildSelo` (o "Mais recente" saiu: quase todo item do topo o levava). Os dados vêm de
+  `EstadoApp.historico` / `RegistroApp.historico` (12 por app): `verificarUm` agora pede `releases?per_page=12` e tira dali a última
+  versão (primeira publicada que não é prévia — a regra do `/releases/latest`) — **nenhuma chamada a mais** ao GitHub (60/h sem
+  token). Lista vazia = "Em breve", como o 404.
+- **Abaixo do céu, duas colunas** (`.ws-corpo`; uma só abaixo de 820px do container): **Apps** — uma lista e **um desenho só de cartão**
+  (`cartao` em workspace.view.ts) para todo app, com filtro Todos · Instalados · Em criação (`buildSegmentado`, localStorage
+  `iris.workspace.filtro`; ordem: instalados, disponíveis, em breve, em criação — atualização não muda a posição, o cartão pularia no
+  meio do download) — e **Novidades**, a linha do tempo compacta, com um `<select>` por app. Antes eram quatro seções empilhadas
+  (linha do tempo, Seus apps, Todos os apps, Em criação) e o mesmo app aparecia em três: o usuário achou bagunçado. Não voltar a
+  listar o mesmo app em duas seções nem a criar um segundo desenho de cartão.
+- Tela (`modules/workspace/`, CSS `ws-`): céu com o olho do Iris e os apps num anel só, na órbita de fora, a cada
+  360°/máx(8, n) e simétricos em torno do topo (`lugarDoApp`: par = dois ladeando o topo, ímpar = um no topo; planeta de 36 px — espalhados pelas três órbitas, dois se sobrepunham e um caía no olho), com as vagas nas
   órbitas de dentro (espaço para o próximo, nunca app inventado). O rótulo do planeta se acha por `.ws-planeta-nome`, nunca
-  pelo primeiro `<text>` (o do ícone). Destaque, "Todos os apps", "Em criação" e a página de cada app (formatos, novidades em Markdown, neste computador, versões).
+  pelo primeiro `<text>` (o do ícone). Depois, as duas colunas (acima) e a página de cada app (formatos, novidades em Markdown, neste computador, versões).
   O botão vira anel de progresso; durante o download só o anel e os textos `[data-anel]`/`[data-selo]`/`[data-andamento]`
   mudam no lugar. Cor do app = `--ws-h`; tinta de borda/fundo **opaca** sobre a superfície (com alfa, a borda arredondada
   saía amarelada no tema claro).
 - Testar sem release pública: no `npm run dev`, `IRIS_WORKSPACE_API=http://127.0.0.1:<porta>` troca a base da API do GitHub
-  por um servidor Node falso (releases, assets e `SHA256SUMS.txt`). Não testar o `.msi` com arquivo falso: o msiexec abre um
+  por um servidor Node falso (a **lista** `releases?per_page=…`, assets e `SHA256SUMS.txt`). Não testar o `.msi` com arquivo falso: o msiexec abre um
   aviso modal.
+
+## Nuvem (id `nuvem`): banco de dados e sincronização
+
+- **O Iris continua local.** Cada computador tem os arquivos JSON inteiros e funciona sem internet; a nuvem (um banco **do
+  usuário**: hoje Supabase) guarda uma cópia **por registro** e cada computador envia o que mudou e busca o que os outros
+  mudaram. Sem servidor do Iris no meio. Desligada até o usuário conectar.
+- **Nenhum service mudou.** [nuvem.sync.ts](src/shared/types/nuvem.sync.ts) (puro, dos dois lados) parte cada arquivo do
+  `ExportBundle` em registros: toda lista de itens com `id` vira coleção sozinha (`ehColecao`), mais um `_ordem` por lista (os
+  ids na sequência) e o `_resto` (preferências, listas sem id). Fora: `schemaVersion`, `updatedAt` e o que a regra marca como
+  local. `recompor` monta o arquivo de volta e o resultado **passa pela `migrate`** (`exportService.restaurarChave`).
+- **A base** (`nuvem-base.json`: hash de cada registro na última sincronização) é o terceiro lado da comparação: nem todo
+  registro tem `updatedAt` e excluir tira o item do array, então é base × aqui × nuvem que diz quem mudou e o que sumiu
+  (`diferencas`, `mesclar`). Os dois mudaram = conflito: vale o `updatedAt` mais recente (sem carimbo, a edição daqui);
+  **editar ganha de excluir**; `_ordem` nunca é conflito (as duas ordens se juntam).
+- **Regras por arquivo** em `REGRAS_NUVEM` ([nuvem.types.ts](src/shared/types/nuvem.types.ts), `Record<ChaveBundle, …>` — o
+  compilador cobra arquivo novo): `aninhadas` (cards dentro do quadro, linhas dentro da tabela: sem isso o quadro seria um
+  registro só e dois computadores em cards diferentes entrariam em conflito), `locais`/`camposLocais` (ficam neste computador:
+  `anexos`, o servidor local de leads, `ultimoSnapshot`, a bandeja; **e o `updatedAt` do pai de uma lista aninhada** —
+  mexer num card carimba o quadro, e foi um falso conflito achado no teste) e `contadores` (`seqAtual`, `cardSeq`: nunca
+  enviados; depois de juntar vale o maior). `sincroniza: false`: Biblioteca e GitHub (caminhos deste computador). WhatsApp só
+  os modelos. **Campo novo que é da máquina ou muda sozinho = entrada aqui**, senão sincroniza sem parar ou apaga no outro.
+- **Main** em `modules/nuvem/`: `nuvem.arquivo.ts` (`nuvem.json` — identidade do dispositivo, espaço, conexão — e a base;
+  os dois **fora do backup**, como backup-auto.json), `nuvem.motor.ts` (uma rodada = buscar → juntar → enviar; uma de cada
+  vez; a rede vem antes de ler os arquivos), `nuvem.auto.ts` (tarefa `nuvem:sync` de 60 s + 5 s depois de qualquer gravação,
+  pelo gancho `aoGravarQualquer` do jsonStore — o `aoGravar` continua só do Histórico), `nuvem.service.ts` (configuração,
+  estado, extração) e `provedores/` (interface `AdaptadorNuvem` em comum.ts: `versaoDoEsquema`, `contar`, `enviar`, `buscar`,
+  `marcarPresenca`, `dispositivos`). **Serviço novo = um adaptador + entrada em `PROVEDORES_NUVEM`**; o motor não conhece SQL.
+- **Banco** ([nuvem.sql.ts](src/shared/types/nuvem.sql.ts), puro, Postgres e SQLite): `iris_registros` (espaco, arquivo,
+  colecao, id, dados, esquema, **rev**, atualizado_em, excluido_em, dispositivo), `iris_dispositivos`, `iris_meta`. `rev` só
+  cresce e é dado pelo banco: cada computador pede `rev > último lido`. Excluir marca `excluido_em`, não apaga. No Postgres o
+  envio é a função `iris_enviar`, com `pg_advisory_xact_lock` — sem a trava, dois envios juntos poderiam confirmar o rev 11
+  antes do 10 e quem lesse no meio pularia o 10 para sempre. RLS ligado sem política: a chave pública do Supabase não lê nada.
+  Mudou a estrutura: subir `VERSAO_ESQUEMA_NUVEM`. **Ao montar texto com `$iris$` por `String.replace`, o `$` é interpretado**
+  (um arquivo já foi corrompido assim): use `split/join`.
+- **Supabase** (`provedores/supabase.ts`): PostgREST em HTTP direto pelo `httpClient`, com a chave **secreta** do projeto
+  no cofre (`nuvem.supabase.chave`; a tela recebe `temChave` + 4 últimos). Tabelas: o usuário cola o SQL no SQL Editor, ou o
+  Iris cria pela API de gerenciamento com um token de acesso usado uma vez e descartado (`criarTabelasNoSupabase`).
+- **Entrar no espaço** (`entrar(modo)`) é a única hora que pede escolha: `enviar` (nuvem vazia; este vira o principal),
+  `trazer` (substitui o daqui, com a cópia `antes-de-importar` — "Desfazer última importação" volta) ou `juntar` (soma; itens
+  que toda instalação cria — o quadro do Kanban, etapas, redes — podem ficar em dobro: para computador novo o certo é trazer).
+  Trocar de banco ou de espaço sai do espaço e zera a base.
+- **Conflito que sobrescreve uma edição daqui** é gravado dentro de `contextoIpc.run({ canal: 'sincronizacao:juntar' })`: entra
+  no Histórico como "Substituído pela nuvem" e desfazer traz a versão deste computador (que é reenviada). Os canais `nuvem:`
+  estão em `CANAIS_IGNORADOS`.
+- **Versões diferentes do Iris**: cada registro leva o `schemaVersion` do arquivo. Veio de um mais novo → aquele arquivo
+  fica pausado (`pausados`, aviso na tela) e o `rev` não anda — a versão antiga descartaria campos e os apagaria da nuvem.
+- **Computador principal** (`NuvemFile.principal`, `ehPrincipal()`): só ele roda a busca de leads na caixa da nuvem e a
+  fila do WhatsApp (backgroundServices) — dois buscando o mesmo lead criariam o mesmo contato duas vezes. Tarefa nova que
+  não pode rodar em dobro entra na mesma checagem.
+- **Tela aberta** ([core/nuvem.ts](src/renderer/core/nuvem.ts)): no push `nuvem:chegou`, o módulo aberto é remontado por
+  `comModuloFechado` — mas espera enquanto há foco num campo ou modal aberto (remontar tiraria o cursor de quem digita).
+- Tela (`modules/nuvem/`, CSS `nv-`, casca `la-` de API e n8n): Visão geral · Conexão (`nuvem.conexao.ts`: projeto, tabelas,
+  entrar) · O que vai para a nuvem · **Arquivo para o banco** (`.sql` com tabelas + dados, Postgres ou SQLite/D1; funciona
+  sem conexão; o caminho vem só do diálogo do main).
+- **Ainda não feito**: adaptadores Cloudflare D1 e Postgres próprio (`pg`), anexos na nuvem, login e permissão por pessoa
+  (hoje "mais de uma pessoa" = todos com a mesma chave veem tudo) e um indicador no trilho.
+- Testar sem conta: um PostgREST falso em Node (`iris_meta`, `rpc/iris_enviar`, `rpc/iris_contar`, `iris_registros`,
+  `iris_dispositivos`, em memória) e **dois Electron** com `--user-data-dir` e `--remote-debugging-port` diferentes, chamando
+  `window.irisAPI.nuvem.*` pelo CDP; `http://127.0.0.1` é aceito como endereço só para isso. O SQL do Postgres (funções
+  incluídas) se testa com o PGlite (`@electric-sql/pglite`, Postgres em WASM) fora do projeto; o do SQLite, com `node:sqlite`.
 
 ## Roteiros
 
+- **A tela inicial é uma biblioteca, não um quadro** (o usuário não queria cara de Kanban):
+  [roteiros.biblioteca.ts](src/renderer/modules/roteiros/roteiros.biblioteca.ts), CSS `rb-` no fim de roteiros.css. Lateral com
+  **Ideias** (o mesmo banco de Postagens › Ideias — `ideias.json`; "Virar roteiro" = `ideias:virarRoteiro` → `criarDeIdeia` no
+  roteiros.service, marca `Ideia.virouRoteiro`; pendente = `ideiaPendente`, use-a em todo filtro de ideias), Todos, Sem pasta e as
+  **pastas** do usuário (`roteiros.json` v3 › `pastas`, cor de `CORES_PASTA`; `Roteiro.pastaId`; excluir a pasta devolve os
+  roteiros para "Sem pasta"; pasta inexistente na leitura é limpa). Os roteiros são documentos (a "folha" mostra o começo da fala;
+  a situação é selo + filtro). Arrastar o documento até uma pasta (`application/x-iris-roteiro`) ou "⋯ › Mover para…"
+  (`moverRoteiros`). Vista e ordem em localStorage `iris.roteiros.biblioteca`.
+- **Arquivos do roteiro** (v3): `Roteiro.anexos` (cópias em `userData/anexos`, o mesmo guarda das postagens — `limparOrfaos` em
+  backgroundServices lê os roteiros também) e `recursoIds` (Biblioteca). No estúdio, aba **Arquivos** da coluna esquerda
+  (`buildMateriais` das postagens); `atualizarRoteiro` só aceita anexo cuja cópia existe (`anexosValidosParaSalvar`).
 - `roteiros.json`: status `rascunho` → `revisao` → `aprovado`/`reprovado` (reprovar exige
   motivo; editar um reprovado volta a rascunho), checklist de verificação (a padrão do arquivo
   entra em todo roteiro novo) e histórico. Tags = catálogo único de Postagens.
@@ -607,6 +698,59 @@ não seria decifrável em outra máquina.
   pela IA mostra antes × depois e, ao aplicar, guarda **versão automática antes** (`versaoAntes`).
 - Teleprompter (`roteiros.teleprompter.ts`, rola pelo ppm) e Versões com diff de linhas lado a lado
   (`roteiros.versoes.ts`; restaurar guarda a atual como "Antes de restaurar").
+
+## Gravar (id `gravacao`, categoria Gravação)
+
+- **O Iris não grava vídeo**: a câmera grava. Ele conta 3-2-1, bate a claquete (flash branco + bipe de 1 kHz no mesmo
+  instante, `gravacao.som.ts`) e mostra o roteiro. **E não guarda nada do que foi gravado** — nem take, nem marca, nem duração
+  (o usuário pediu: "só quero gravar e ler"). Os botões Bom/Erro/Repetir/Nota, a lista "Gravações" e a tela de takes saíram.
+  Não voltar a registrar o que acontece no palco. "Gravar sozinho" usa `montarGravacao` (monta a gravação **sem tocar no
+  arquivo**); só a gravação a dois é guardada (`criarGravacao`), porque o convite depende da chave e do horário, e aparece
+  em "Combinado" enquanto o horário não chega. `salvarSessao` zera `takes`. Gravações de versões anteriores continuam no
+  arquivo até o usuário clicar em "Apagar" na tela (`limparSessoes`); `gravacao.detalhe.ts` e `exportarMarcadores` ficaram
+  sem uso. A categoria `estudio` ("Gravação") tem Gravar
+  e Roteiros; o id não é `gravacao` para não colidir com o módulo.
+- Tela simples ([gravacao.view.ts](src/renderer/modules/gravacao/gravacao.view.ts), CSS `gv-`): roteiro opcional, escolhido numa
+  **lista de linhas clicáveis** (`buildEscolhaDoRoteiro`, CSS `gv-rot-`: título, selo "Aprovado", cenas e tempo de fala à vista,
+  a escolhida com a bolinha marcada; "Sem roteiro" é a primeira linha; busca acima de 6 roteiros; a lista rola sozinha e guarda
+  a rolagem no redesenho). Era um `<select>` do sistema e o usuário achou feio: não voltar a ele.
+  O estúdio de roteiro abre aqui com o roteiro escolhido por `abrirGravacao(roteiroId)`. Abaixo, "Gravar sozinho" e "Gravar com outra
+  pessoa", e ao lado "Antes de gravar" (lista única em `gravacao.json`; o marcado é **do dia**, em localStorage) e, se houver, "Combinado".
+- `gravacao.json` v2 ([gravacao.types.ts](src/shared/types/gravacao.types.ts), puro): `sessoes` (roteiro **copiado** em
+  `roteiro.cenas`, `conjunta?`, `pessoas` sempre A e B, `takes` com marcas) e `checklist`. A v1 (modos, itens) migra: itens viram
+  cenas. A tela manda a gravação inteira (`salvarSessao` → `migrarSessao`).
+- **Palco** ([gravacao.palco.ts](src/renderer/modules/gravacao/gravacao.palco.ts)): camada modal sempre escura (literais
+  permitidos), teclas em `ATALHOS_FIXOS`. A contagem vai até um **instante** (`agendar(epoch)`) medido por `agoraCerto()`, nunca
+  por setTimeout. Falas "A:"/"B:"/"Nome:" no começo da linha (`falasPorPessoa`; as cenas dos Roteiros continuam texto livre); a
+  dois, a fala do outro fica apagada.
+- **O texto anda de dois jeitos, à escolha do usuário** (botões no palco e tecla A; localStorage `iris.gravacao.modo`):
+  **Automático** — palavra por palavra no ritmo, com **+ e −** (teclas e botões) mudando as palavras por minuto de 10 em 10
+  (`mudarRitmo`, 0,4× a 2,5× do ppm do roteiro) — e **Nas setas** — frase por frase, nada anda sozinho (`passarFrase`): ↓/→
+  passam, ↑/← voltam, e passar da última frase vai para a próxima cena. Frase = até . ! ? … ou o fim do parágrafo (dois-pontos
+  não cortam: picavam demais). No manual a frase inteira é a da vez (sublinhada, sem bloco colorido) e o texto fica aceso mesmo
+  sem gravar; começar a gravar não o leva de volta ao topo. ↑/↓ passam frase também no automático; ←/→ ali trocam de cena, e
+  PageUp/PageDown trocam de cena nos dois. O usuário pediu essa liberdade: não tirar um dos modos.
+- **Palavra por palavra** (o automático): cada palavra é um `<span>` com um início em segundos (`tempoDasPalavras` em gravacao.types: o ppm do
+  roteiro — `RoteiroGravacao.ppm`, copiado por `ppmDe` ao criar — com palavra longa um pouco mais lenta e pausa depois de vírgula
+  e ponto, normalizado para o total bater com o tempo dos Roteiros). Depois do bipe, um cursor anda no ritmo (+/− ajustam,
+  localStorage `iris.gravacao.ritmo`): a palavra da vez ganha `is-agora` (fundo `--accent`; na fala de A/B, a cor da pessoa), as
+  ditas `is-dita`, e a rolagem leva a da vez até 38% da altura, suave. Clicar numa palavra leva o cursor até ela. No fim da cena,
+  1,2 s depois, passa para a próxima. `acender` só mexe nas palavras entre o índice antigo e o novo (roda a cada quadro).
+- **Com outra pessoa = Iris com Iris, sem servidor no meio** (escolha do usuário: nada de serviço de mensagens de fora). Quem
+  chama escolhe "começar em 30 s/1/2/5 min"; o main monta o convite ([gravacao.service.ts](src/main/modules/gravacao/gravacao.service.ts)
+  `criarConvite`): texto para gente + `IRIS-GRAVAR:<deflate-raw base64url>` com chave da dupla, horário, nomes, quem o convidado
+  é (A/B) e o roteiro. Copiado pelo `system.copyToClipboard` (o `navigator.clipboard` falha sem foco) e "Mandar pelo WhatsApp"
+  (`wa.me/?text=`). Link `iris://` não serve: o WhatsApp não deixa clicável.
+- Quem recebe só **copia** a mensagem: no foco da janela, `gravacao:conviteCopiado` lê a área de transferência **no main** e
+  devolve só o convite reconhecido (`codigo` = a linha IRIS-GRAVAR), nunca o resto. Faixa "X te chamou → Entrar"; com o palco
+  daquela dupla aberto, o convite de um take novo já agenda a contagem. Convite próprio, usado, já começado ou cortado é recusado
+  com mensagem clara. Só quem convidou combina "Próximo take junto"; a dois o Espaço só para (começar/cancelar é do horário).
+- **Hora certa** ([gravacao.relogio.ts](src/main/modules/gravacao/gravacao.relogio.ts)): SNTP (UDP 123, `node:dgram`) em
+  a.st1.ntp.br → time.windows.com → pool.ntp.org, menor RTT de 4 amostras, validade 10 min. Medido: o relógio do PC de teste
+  estava 0,86 s atrasado — sem a correção, dois PCs bipariam quase 1 s fora. Sem resposta, vale o relógio do PC (a tela avisa).
+- Testar: dois Electron com `--user-data-dir` diferentes e `--remote-debugging-port` (9333/9334) na mesma máquina — a área de
+  transferência é a mesma, então o convite passa sozinho. Mediu-se o instante do flash nos dois: 0–1 ms de diferença. Precisa de
+  `--disable-backgrounding-occluded-windows` (senão a captura de tela trava) e fechar os modais antes de usar os atalhos G+letra.
 
 ## Home (id `hoje`)
 
@@ -720,7 +864,8 @@ não seria decifrável em outra máquina.
   "Todas" (misturava tudo; o usuário pediu para tirar). Concluir uma checklist (último item,
   "marcar todos", remover o último pendente) a tira das Abertas com um aviso
   (`acompanharConclusao` → `mostrarToast` de [ui/toast.ts](src/renderer/ui/toast.ts), com "Ver" e,
-  quando dá, "Desfazer"). Concluídas tem "Arquivar todas".
+  quando dá, "Desfazer"). Concluídas tem "Arquivar todas". O aviso (`.toasts` em base.css) fica no **canto superior
+  direito**, o mais novo em cima: embaixo ele cobria o que se estava fazendo e o usuário pediu para subir.
 
 ## Inteligência artificial
 

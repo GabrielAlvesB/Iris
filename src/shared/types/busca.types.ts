@@ -16,6 +16,7 @@ export type TipoItemBusca =
   | 'Postagem'
   | 'Linha'
   | 'Roteiro'
+  | 'Gravação'
   | 'Link'
   | 'Texto'
   | 'Contato';
@@ -28,6 +29,7 @@ export type AlvoBusca =
   | { modulo: 'pensamentos'; id: string }
   | { modulo: 'explorador'; id: string }
   | { modulo: 'roteiros'; id: string }
+  | { modulo: 'gravacao'; id: string }
   | { modulo: 'copy'; id: string }
   | { modulo: 'sheets'; id: string; tabelaId: string }
   | { modulo: 'postagens'; id: string; tipo: TipoPostagem }

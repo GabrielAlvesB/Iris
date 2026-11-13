@@ -11,6 +11,8 @@ import type {
   RestaurarVersaoInput,
   RoteirosFile,
   SalvarVersaoInput,
+  MoverRoteirosInput,
+  SalvarPastaInput,
 } from '../../shared/types/roteiros.types';
 import * as roteirosService from '../modules/roteiros/roteiros.service';
 
@@ -65,4 +67,7 @@ export function registerRoteirosIpc(): void {
   ipcMain.handle(ROTEIROS_CHANNELS.criarAdaptacao, (_event, input: CriarAdaptacaoInput) =>
     toResult<CriarAdaptacaoResult>(roteirosService.criarAdaptacao(input)),
   );
+  ipcMain.handle(ROTEIROS_CHANNELS.salvarPasta, (_event, input: SalvarPastaInput) => toResult(roteirosService.salvarPasta(input)));
+  ipcMain.handle(ROTEIROS_CHANNELS.excluirPasta, (_event, pastaId: string) => toResult<RoteirosFile>(roteirosService.excluirPasta(String(pastaId))));
+  ipcMain.handle(ROTEIROS_CHANNELS.moverRoteiros, (_event, input: MoverRoteirosInput) => toResult<RoteirosFile>(roteirosService.moverRoteiros(input)));
 }

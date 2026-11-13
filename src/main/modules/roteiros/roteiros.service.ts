@@ -3,7 +3,9 @@ import { readStore, writeStore } from '../../storage/jsonStore';
 import * as kanbanService from '../kanban/kanban.service';
 import * as videosService from '../videos/videos.service';
 import { garantirSeq, listaDeStrings, naoNulo, nowIso, texto } from '../postagens/postagens.comum';
+import { anexosValidosParaSalvar, migrarAnexos } from '../anexos/anexos.service';
 import {
+  CORES_PASTA,
   MAX_VERSOES,
   isFormatoRoteiro,
   isStatusRoteiro,
@@ -20,7 +22,10 @@ import {
   type EventoRoteiro,
   type FonteRoteiro,
   type ItemChecklist,
+  type MoverRoteirosInput,
   type MudarStatusRoteiroInput,
+  type PastaRoteiro,
+  type SalvarPastaInput,
   type PesquisaRoteiro,
   type RestaurarVersaoInput,
   type RevisaoIaRoteiro,
@@ -35,7 +40,9 @@ import { cenasDoMarkdown, cenasIniciais, lerDuracaoTexto, markdownDasCenas } fro
 const FILE_NAME = 'roteiros.json';
 // v2: o roteiro vira uma lista de cenas (antes: um texto markdown livre),
 // com briefing, pesquisa/fontes, versões e a última revisão da IA.
-const SCHEMA_VERSION = 2;
+// v3: pastas do usuário e arquivos de referência (anexos e Biblioteca) em cada roteiro.
+const SCHEMA_VERSION = 3;
+const MAX_PASTAS = 100;
 const MAX_CHECKLIST = 30;
 const MAX_HISTORICO = 100;
 const MAX_CENAS = 200;
@@ -44,7 +51,7 @@ const MAX_FONTES = 100;
 const CHECKLIST_PADRAO = ['Gancho prende nos 3 primeiros segundos', 'CTA claro no fim', 'Duração dentro do formato', 'Ortografia revisada'];
 
 function createDefaultFile(): RoteirosFile {
-  return { schemaVersion: SCHEMA_VERSION, updatedAt: nowIso(), seqAtual: 0, roteiros: [], checklistPadrao: [...CHECKLIST_PADRAO] };
+  return { schemaVersion: SCHEMA_VERSION, updatedAt: nowIso(), seqAtual: 0, roteiros: [], checklistPadrao: [...CHECKLIST_PADRAO], pastas: [] };
 }
 
 // ---------- Migração defensiva ----------
@@ -236,6 +243,9 @@ function migrateRoteiro(raw: unknown): Roteiro | null {
     ...(typeof c.adaptadoDe === 'string' && c.adaptadoDe ? { adaptadoDe: c.adaptadoDe } : {}),
     kanbanCardId: typeof c.kanbanCardId === 'string' && c.kanbanCardId ? c.kanbanCardId : undefined,
     ...(legado.trim() ? { textoLegado: legado } : {}),
+    ...(typeof c.pastaId === 'string' && c.pastaId ? { pastaId: c.pastaId } : {}),
+    anexos: migrarAnexos(c.anexos),
+    recursoIds: [...new Set(listaDeStrings(c.recursoIds))],
     createdAt: timestamp,
     updatedAt: texto(c.updatedAt) || timestamp,
   };
@@ -248,15 +258,33 @@ function migrateRoteiro(raw: unknown): Roteiro | null {
  */
 let gravarMigracao = false;
 
+function migratePasta(raw: unknown): PastaRoteiro | null {
+  const c = (raw ?? {}) as Partial<PastaRoteiro>;
+  const nome = texto(c.nome).trim().slice(0, 80);
+  if (!nome) return null;
+  return {
+    id: id(c.id),
+    nome,
+    cor: typeof c.cor === 'string' && (CORES_PASTA as readonly string[]).includes(c.cor) ? c.cor : CORES_PASTA[0],
+    criadaEm: texto(c.criadaEm) || nowIso(),
+  };
+}
+
 function migrateFile(raw: unknown): RoteirosFile {
   const c = (raw ?? {}) as Partial<RoteirosFile>;
   if (c.schemaVersion !== SCHEMA_VERSION) gravarMigracao = true;
+  const pastas = (Array.isArray(c.pastas) ? c.pastas.map(migratePasta).filter(naoNulo) : []).slice(0, MAX_PASTAS);
+  const idsPastas = new Set(pastas.map((p) => p.id));
   const roteiros = Array.isArray(c.roteiros) ? c.roteiros.map(migrateRoteiro).filter(naoNulo) : [];
+  // Pasta apagada (ou backup sem ela): o roteiro volta para "Sem pasta", nunca some.
+  roteiros.forEach((r) => {
+    if (r.pastaId && !idsPastas.has(r.pastaId)) delete r.pastaId;
+  });
   const seqAtual = garantirSeq(roteiros, typeof c.seqAtual === 'number' ? c.seqAtual : 0);
   const padrao = Array.isArray(c.checklistPadrao)
     ? listaDeStrings(c.checklistPadrao).map((t) => t.trim()).filter(Boolean).slice(0, MAX_CHECKLIST)
     : [...CHECKLIST_PADRAO];
-  return { schemaVersion: SCHEMA_VERSION, updatedAt: texto(c.updatedAt) || nowIso(), seqAtual, roteiros, checklistPadrao: padrao };
+  return { schemaVersion: SCHEMA_VERSION, updatedAt: texto(c.updatedAt) || nowIso(), seqAtual, roteiros, checklistPadrao: padrao, pastas };
 }
 
 function loadFile(): RoteirosFile {
@@ -348,6 +376,8 @@ function novoRoteiro(file: RoteirosFile, input: CriarRoteiroInput, extra: Partia
     status: 'rascunho',
     historico: [{ em: timestamp, status: 'rascunho', comentario: 'Roteiro criado' }],
     versoes: [],
+    observacoes: texto(input.observacoes),
+    ...(input.pastaId && file.pastas.some((p) => p.id === input.pastaId) ? { pastaId: input.pastaId } : {}),
     createdAt: timestamp,
     updatedAt: timestamp,
     ...extra,
@@ -370,6 +400,8 @@ export async function atualizarRoteiro(input: AtualizarRoteiroInput): Promise<Ro
   const { roteiroId: _id, ...campos } = input;
   const validado = migrateRoteiro({ ...atual, ...campos, id: atual.id, seq: atual.seq, createdAt: atual.createdAt, updatedAt: nowIso() });
   if (!validado) throw new Error('O roteiro precisa de um título.');
+  // Da tela só entra anexo cuja cópia existe de verdade (o id vem do main, na escolha do arquivo).
+  if ('anexos' in campos) validado.anexos = anexosValidosParaSalvar(campos.anexos);
   // Mexer no conteúdo de um reprovado é começar a nova versão: volta a rascunho.
   const mudouConteudo = ['cenas', 'titulo'].some((k) => k in campos);
   if (validado.status === 'reprovado' && mudouConteudo) registrar(validado, 'rascunho', 'Editado depois da reprovação');
@@ -514,4 +546,61 @@ export async function criarAdaptacao(input: CriarAdaptacaoInput): Promise<CriarA
   novo.historico = [{ em: novo.createdAt, status: 'rascunho', comentario: `Adaptado de "${original.titulo}"` }];
   await saveFile(file);
   return { file, roteiroId: novo.id };
+}
+
+// ---------- Pastas ----------
+
+/** Cria (sem id) ou renomeia/recolore uma pasta. Devolve o arquivo e o id. */
+export async function salvarPasta(input: SalvarPastaInput): Promise<{ file: RoteirosFile; id: string }> {
+  const nome = texto(input?.nome).trim().slice(0, 80);
+  if (!nome) throw new Error('Dê um nome à pasta.');
+  const cor = typeof input.cor === 'string' && (CORES_PASTA as readonly string[]).includes(input.cor) ? input.cor : undefined;
+  const file = loadFile();
+  if (input.id) {
+    const pasta = file.pastas.find((p) => p.id === input.id);
+    if (!pasta) throw new Error('Pasta não encontrada.');
+    pasta.nome = nome;
+    if (cor) pasta.cor = cor;
+    await saveFile(file);
+    return { file, id: pasta.id };
+  }
+  if (file.pastas.length >= MAX_PASTAS) throw new Error(`O limite é de ${MAX_PASTAS} pastas.`);
+  // Cor da próxima da paleta: pastas novas seguidas não nascem iguais.
+  const pasta: PastaRoteiro = { id: randomUUID(), nome, cor: cor ?? CORES_PASTA[file.pastas.length % CORES_PASTA.length]!, criadaEm: nowIso() };
+  file.pastas.push(pasta);
+  await saveFile(file);
+  return { file, id: pasta.id };
+}
+
+/** Apaga só a pasta: os roteiros dela voltam para "Sem pasta". */
+export async function excluirPasta(pastaId: string): Promise<RoteirosFile> {
+  const file = loadFile();
+  file.pastas = file.pastas.filter((p) => p.id !== pastaId);
+  file.roteiros.forEach((r) => {
+    if (r.pastaId === pastaId) delete r.pastaId;
+  });
+  await saveFile(file);
+  return file;
+}
+
+export async function moverRoteiros(input: MoverRoteirosInput): Promise<RoteirosFile> {
+  const file = loadFile();
+  const pastaId = input.pastaId;
+  if (pastaId !== null && !file.pastas.some((p) => p.id === pastaId)) throw new Error('Pasta não encontrada.');
+  const ids = new Set(Array.isArray(input.roteiroIds) ? input.roteiroIds : []);
+  file.roteiros.forEach((r) => {
+    if (!ids.has(r.id)) return;
+    if (pastaId) r.pastaId = pastaId;
+    else delete r.pastaId;
+  });
+  await saveFile(file);
+  return file;
+}
+
+/** Ideia → roteiro: criado com o título da ideia (e as notas nas observações), já na pasta escolhida. */
+export async function criarDeIdeia(titulo: string, notas: string, pastaId?: string): Promise<{ file: RoteirosFile; id: string }> {
+  const file = loadFile();
+  const novo = novoRoteiro(file, { titulo, briefing: { tema: titulo }, observacoes: notas, pastaId });
+  await saveFile(file);
+  return { file, id: novo.id };
 }

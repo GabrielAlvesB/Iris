@@ -1,7 +1,7 @@
 import { falaCompleta, formatarTempo, lerDuracaoTexto, lerTempo, markdownDasCenas, ppmDe } from '../../../shared/types/roteiros.conversao.js';
 import { FORMATOS_ROTEIRO, type FormatoRoteiro, type Roteiro, type RoteirosFile } from '../../../shared/types/roteiros.types.js';
 import { ligarAtalhos } from '../../core/atalhos.js';
-import { abrirModulo } from '../../core/navegacao.js';
+import { abrirGravacao, abrirModulo } from '../../core/navegacao.js';
 import { campo, input, pilulas, textarea } from '../../ui/campos.js';
 import { abrirMenuIa } from '../../ui/ia.js';
 import { buildSecaoModal, mensagemDeErro, openAvisoModal, openConfirmModal, promptText } from '../../ui/modal.js';
@@ -26,6 +26,7 @@ import { buildRevisor } from './roteiros.revisor.js';
 import { abrirTeleprompter } from './roteiros.teleprompter.js';
 import { abrirVersoes } from './roteiros.versoes.js';
 import * as roteirosState from './roteiros.state.js';
+import { buildMateriais } from '../postagens/postagens.materiais.js';
 
 /**
  * Estúdio de roteiro: a tela cheia de um roteiro. Topo (título, situação,
@@ -58,7 +59,7 @@ function lerPrefs(): Prefs {
     const p = JSON.parse(localStorage.getItem(CHAVE_PREFS) ?? '{}') as Partial<Prefs>;
     return {
       modo: p.modo === 'av' || p.modo === 'livre' ? p.modo : 'cartoes',
-      esquerda: p.esquerda === 'briefing' || p.esquerda === 'pesquisa' ? p.esquerda : 'estrutura',
+      esquerda: p.esquerda === 'briefing' || p.esquerda === 'pesquisa' || p.esquerda === 'arquivos' ? p.esquerda : 'estrutura',
       direita: p.direita === 'ia' || p.direita === 'revisao' || p.direita === 'verificacao' ? p.direita : 'previa',
       foco: p.foco === true,
     };
@@ -348,6 +349,7 @@ function abasEsquerda(): HTMLElement {
       { value: 'estrutura', label: 'Estrutura' },
       { value: 'briefing', label: 'Briefing' },
       { value: 'pesquisa', label: 'Pesquisa' },
+      { value: 'arquivos', label: `Arquivos${atual && atual.r.anexos.length + atual.r.recursoIds.length ? ` · ${atual.r.anexos.length + atual.r.recursoIds.length}` : ''}` },
     ],
     prefs.esquerda,
     (v) => {
@@ -370,6 +372,7 @@ function desenharEsquerda(): void {
     destruirArraste();
     corpo.appendChild(buildIndice(ctx));
   } else if (prefs.esquerda === 'briefing') corpo.appendChild(buildBriefing(ctx));
+  else if (prefs.esquerda === 'arquivos') corpo.appendChild(buildArquivos(e.r));
   else corpo.appendChild(buildPesquisa(ctx));
   const rolagem = e.els.esquerda.querySelector('.rte-col-corpo')?.scrollTop ?? 0;
   e.els.esquerda.replaceChildren(abasEsquerda(), corpo);
@@ -528,6 +531,29 @@ function buildBriefing(ctx: CtxEstudio): HTMLElement {
     wrap.appendChild(campo('Tags / empresa', tagsWrap));
   }
   wrap.appendChild(ligado('Observações para a produção', r.observacoes, 'Referências, trilha, legenda, combinados…', (v) => (r.observacoes = v), 3, 'Saem no fim da prévia e no card do Kanban.'));
+  return wrap;
+}
+
+/**
+ * Arquivos de referência do roteiro: do computador (o Iris guarda uma cópia,
+ * como nas postagens) ou da Biblioteca (por id, sem cópia). Mudança de
+ * estrutura: grava e o listener redesenha o estúdio com o arquivo novo.
+ */
+function buildArquivos(r: Roteiro): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'rte-form';
+  wrap.appendChild(
+    buildMateriais(
+      r,
+      (input) => {
+        void descarregar(true)
+          .then(() => roteirosState.atualizarRoteiro({ roteiroId: r.id, ...input }))
+          .catch(falhou);
+      },
+      undefined,
+      { titulo: 'Arquivos', vazio: 'Referências, trilha, imagens, a gravação bruta, um PDF de pesquisa… anexe do computador ou da Biblioteca.' },
+    ),
+  );
   return wrap;
 }
 
@@ -728,6 +754,17 @@ function montar(e: Estudio): void {
     descarregarLivre();
     abrirTeleprompter(e.r);
   });
+  const gravar = buildBotao('Gravar', {
+    icone: '<path d="m16 13 5.2 3.5a.5.5 0 0 0 .8-.4V7.9a.5.5 0 0 0-.8-.4L16 11"/><rect x="2" y="6" width="14" height="12" rx="2"/>',
+    variante: 'fantasma',
+    titulo: 'Abre o Gravar com este roteiro: sozinho ou com outra pessoa, as falas aparecem no palco',
+  });
+  gravar.addEventListener('click', () => {
+    descarregarLivre();
+    void descarregar(true)
+      .then(() => abrirGravacao(r.id))
+      .catch(falhou);
+  });
   const versoes = buildBotao('Versões', { icone: ICONES.versoes, variante: 'fantasma', titulo: 'Versões guardadas: comparar e voltar' });
   versoes.addEventListener('click', () => {
     descarregarLivre();
@@ -773,7 +810,7 @@ function montar(e: Estudio): void {
       {},
     ),
   );
-  ferramentas.append(teleprompter, versoes, exportar, mais);
+  ferramentas.append(teleprompter, gravar, versoes, exportar, mais);
   const direitaTopo = document.createElement('div');
   direitaTopo.className = 'rte-topo-direita';
   direitaTopo.append(e.els.salvo, e.els.status, e.els.acoesStatus);

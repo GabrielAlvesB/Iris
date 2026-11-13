@@ -30,6 +30,7 @@ const SUBSTANTIVOS: ReadonlyArray<[RegExp, string, Genero]> = [
   [/link/i, 'Link', 'm'],
   [/relatorio/i, 'Relatório', 'm'],
   [/roteiro/i, 'Roteiro', 'm'],
+  [/gravacao|sessao/i, 'Gravação', 'f'],
   [/campanha/i, 'Campanha', 'f'],
   [/registro/i, 'Registro diário', 'm'],
   [/conta/i, 'Conta', 'f'],
@@ -136,6 +137,8 @@ export function diferenca(canal: string, antes: string, depois: string): Diferen
 }
 
 export function rotular(canal: string, tipo: Diferenca['tipo']): string {
+  // A Nuvem gravou por cima de uma edição daqui (nuvem.motor.ts): desfazer traz a versão deste computador.
+  if (canal.startsWith('sincronizacao:')) return 'Substituído pela nuvem';
   const metodo = canal.split(':')[1] ?? canal;
   const achado = SUBSTANTIVOS.find(([re]) => re.test(metodo));
   if (!achado) return tipo === 'exclusao' ? 'Exclusão' : tipo === 'criacao' ? 'Criação' : 'Alteração';

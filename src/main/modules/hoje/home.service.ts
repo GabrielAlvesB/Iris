@@ -20,6 +20,7 @@ import { PROVEDORES } from '../../../shared/types/ia.types';
 import type { RefContato } from '../../../shared/types/contatos.types';
 import type { ItemDia } from '../../../shared/types/hoje.types';
 import { SEMANAS_ATIVIDADE, type AlvoHome, type PulsoHome, type SugestaoHome, type SugestaoItem } from '../../../shared/types/home.types';
+import { ideiaPendente } from '../../../shared/types/ideias.types';
 
 /**
  * O resto da Home: o pulso dos módulos e a sugestão do dia.
@@ -163,7 +164,7 @@ export async function getPulso(semente?: unknown): Promise<PulsoHome> {
     .filter(({ c }) => !c.arquivado && c.proximoContato && c.proximoContato.data <= hoje)
     .sort((a, b) => a.c.proximoContato!.data.localeCompare(b.c.proximoContato!.data));
 
-  const pendentes = ideias.ideias.filter((i) => !i.arquivada && !i.virouPostagem);
+  const pendentes = ideias.ideias.filter(ideiaPendente);
   const ideia = sortear(pendentes, `ideia:${hoje}:${s}`);
   const limite = somarDias(hoje, -7);
   const antigos = pensamentos.pensamentos.filter((p) => p.texto.trim() && diaDe(p.createdAt) <= limite);
@@ -263,7 +264,7 @@ async function montarMaterial(): Promise<{ material: string; alvos: Map<string, 
   }
   if (pulso.whatsappNaoLidas) linhas.push('', `Mensagens de WhatsApp não lidas: ${pulso.whatsappNaoLidas}.`);
 
-  const pendentes = ideias.ideias.filter((i) => !i.arquivada && !i.virouPostagem).sort((a, b) => a.criadaEm.localeCompare(b.criadaEm)).slice(0, 8);
+  const pendentes = ideias.ideias.filter(ideiaPendente).sort((a, b) => a.criadaEm.localeCompare(b.criadaEm)).slice(0, 8);
   if (pendentes.length) {
     alvos.set('ideias', { tipo: 'ideias' });
     linhas.push('', `Banco de ideias, pendentes (${pulso.ideiasPendentes}; chave [ideias] para todas):`, ...pendentes.map((i) => `- ${i.titulo} · guardada em ${diaDe(i.criadaEm)}`));

@@ -1,7 +1,7 @@
-import type { Ideia, IdeiasFile } from '../../../shared/types/ideias.types';
+import { ideiaPendente, type Ideia, type IdeiasFile } from '../../../shared/types/ideias.types.js';
 import type { TipoPostagem } from '../../../shared/types/postagens.types';
 import type {} from '../../../shared/types/preload-api.types';
-import { abrirPostagem } from '../../core/navegacao.js';
+import { abrirItem, abrirPostagem } from '../../core/navegacao.js';
 import { campo, input, textarea } from '../../ui/campos.js';
 import { mensagemDeErro, openAvisoModal, openConfirmModal, openCustomModal } from '../../ui/modal.js';
 import { buildBotao, buildBusca, buildVazio, svg } from '../../ui/pagina.js';
@@ -131,7 +131,7 @@ function botaoIcone(icone: string, titulo: string, aoClicar: () => void, perigo 
 }
 
 function buildCartao(i: Ideia, redesenhar: () => void): HTMLElement {
-  const cartao = el('article', `id-cartao${i.virouPostagem ? ' is-virou' : ''}${i.arquivada ? ' is-arquivada' : ''}`);
+  const cartao = el('article', `id-cartao${i.virouPostagem || i.virouRoteiro ? ' is-virou' : ''}${i.arquivada ? ' is-arquivada' : ''}`);
   cartao.appendChild(el('h3', 'id-titulo', i.titulo));
   if (i.notas.trim()) cartao.appendChild(el('p', 'id-notas', i.notas));
   const tags = nomesDasTags(i.tagIds);
@@ -145,6 +145,11 @@ function buildCartao(i: Ideia, redesenhar: () => void): HTMLElement {
     const v = i.virouPostagem;
     const abrir = buildBotao(`Abrir ${v.tipo === 'video' ? 'vídeo' : 'imagem'}`, { variante: 'fantasma' });
     abrir.addEventListener('click', () => abrirPostagem({ tipo: v.tipo, id: v.id }));
+    acoes.appendChild(abrir);
+  } else if (i.virouRoteiro) {
+    const r = i.virouRoteiro;
+    const abrir = buildBotao('Abrir roteiro', { variante: 'fantasma' });
+    abrir.addEventListener('click', () => abrirItem({ modulo: 'roteiros', id: r.id }));
     acoes.appendChild(abrir);
   } else if (i.arquivada) {
     const restaurar = buildBotao('Restaurar', { variante: 'fantasma' });
@@ -254,7 +259,7 @@ export function buildIdeias(redesenhar: () => void): HTMLElement {
   }
   tela.appendChild(buildNova(redesenhar));
   const todas = arquivo.ideias.filter(casa).sort((a, b) => b.criadaEm.localeCompare(a.criadaEm));
-  const pendentes = todas.filter((i) => !i.virouPostagem && !i.arquivada);
+  const pendentes = todas.filter(ideiaPendente);
   if (arquivo.ideias.length > 6) {
     tela.appendChild(
       buildBusca(busca, 'Buscar nas ideias…', (v) => {
@@ -277,8 +282,8 @@ export function buildIdeias(redesenhar: () => void): HTMLElement {
       ),
     );
   }
-  const viraram = buildGrupoRecolhido('viraram', 'Já viraram postagem', todas.filter((i) => i.virouPostagem), redesenhar);
-  const arquivadas = buildGrupoRecolhido('arquivadas', 'Arquivadas', todas.filter((i) => i.arquivada && !i.virouPostagem), redesenhar);
+  const viraram = buildGrupoRecolhido('viraram', 'Já viraram postagem ou roteiro', todas.filter((i) => i.virouPostagem || i.virouRoteiro), redesenhar);
+  const arquivadas = buildGrupoRecolhido('arquivadas', 'Arquivadas', todas.filter((i) => i.arquivada && !i.virouPostagem && !i.virouRoteiro), redesenhar);
   if (viraram) tela.appendChild(viraram);
   if (arquivadas) tela.appendChild(arquivadas);
   return tela;

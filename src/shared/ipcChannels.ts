@@ -44,6 +44,7 @@ export const IDEIAS_CHANNELS = {
   atualizar: 'ideias:atualizar',
   excluir: 'ideias:excluir',
   virarPostagem: 'ideias:virarPostagem',
+  virarRoteiro: 'ideias:virarRoteiro',
 } as const;
 
 export const QUADRO_CHANNELS = {
@@ -293,6 +294,9 @@ export const ROTEIROS_CHANNELS = {
   salvarVersao: 'roteiros:salvarVersao',
   restaurarVersao: 'roteiros:restaurarVersao',
   criarAdaptacao: 'roteiros:criarAdaptacao',
+  salvarPasta: 'roteiros:salvarPasta',
+  excluirPasta: 'roteiros:excluirPasta',
+  moverRoteiros: 'roteiros:moverRoteiros',
 } as const;
 
 export const TRAFEGO_CHANNELS = {
@@ -431,4 +435,36 @@ export const WORKSPACE_CHANNELS = {
   abrirPagina: 'workspace:abrirPagina',
   listarVersoes: 'workspace:listarVersoes',
   desinstalar: 'workspace:desinstalar',
+} as const;
+
+// Gravar: contagem, claquete e takes; com outra pessoa, convite Iris com Iris por horário marcado.
+export const GRAVACAO_CHANNELS = {
+  getFile: 'gravacao:getFile',
+  criarGravacao: 'gravacao:criarGravacao',
+  montarGravacao: 'gravacao:montarGravacao',
+  limparSessoes: 'gravacao:limparSessoes',
+  salvarSessao: 'gravacao:salvarSessao',
+  excluirSessao: 'gravacao:excluirSessao',
+  salvarChecklist: 'gravacao:salvarChecklist',
+  exportarMarcadores: 'gravacao:exportarMarcadores',
+  relogio: 'gravacao:relogio',
+  criarConvite: 'gravacao:criarConvite',
+  lerConvite: 'gravacao:lerConvite',
+  conviteCopiado: 'gravacao:conviteCopiado',
+  entrarComConvite: 'gravacao:entrarComConvite',
+} as const;
+
+// Nuvem: os dados num banco de dados (Supabase, D1, Postgres). Fora do histórico, como backup: e export:.
+export const NUVEM_CHANNELS = {
+  getEstado: 'nuvem:getEstado',
+  salvarIdentidade: 'nuvem:salvarIdentidade',
+  gerarExtracao: 'nuvem:gerarExtracao',
+  mostrarExtracao: 'nuvem:mostrarExtracao',
+  salvarSupabase: 'nuvem:salvarSupabase',
+  testar: 'nuvem:testar',
+  criarTabelas: 'nuvem:criarTabelas',
+  entrar: 'nuvem:entrar',
+  sincronizar: 'nuvem:sincronizar',
+  desconectar: 'nuvem:desconectar',
+  definirPrincipal: 'nuvem:definirPrincipal',
 } as const;

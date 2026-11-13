@@ -1,0 +1,155 @@
+/* Nuvem (modules/nuvem): os dados num banco de dados. Prefixo nv-.
+   A casca (índice + seção, cartões, passos, código) é a la- de API e n8n (leads.css). */
+
+.nv-lista {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nv-linha {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.nv-linha:first-child {
+  padding-top: 0;
+}
+
+.nv-linha:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.nv-linha-textos {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.nv-linha-textos strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.nv-linha-textos span {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.nv-linha-conta {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.nv-texto {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.nv-feito {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: rgb(var(--realce) / 0.04);
+  border: 1px solid var(--border-soft);
+}
+
+.nv-feito-texto {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.nv-situacao {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+}
+
+.nv-situacao-quando {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.nv-subtitulo {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.nv-pilha {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.nv-pilha > .md-campo,
+.nv-pilha > .la-worker {
+  align-self: stretch;
+}
+
+/* Uma escolha de entrada: o que acontece, em palavras, e o botão ao lado. */
+.nv-opcao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: rgb(var(--realce) / 0.03);
+  border: 1px solid var(--border-soft);
+}
+
+.nv-opcao-textos {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.nv-opcao-textos strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.nv-opcao-textos span {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.nv-opcao .pg-botao {
+  flex-shrink: 0;
+}
+
+/* O selo sozinho no cartão não estica: o corpo é uma coluna que alarga os filhos. */
+.la-corpo > .pg-selo {
+  align-self: flex-start;
+}

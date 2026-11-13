@@ -17,6 +17,13 @@ export interface Ideia {
   arquivada: boolean;
   /** Já virou postagem: sai da lista de pendentes e guarda o link para ela. */
   virouPostagem?: { tipo: TipoPostagem; id: string; em: string };
+  /** Já virou roteiro (área Roteiros › Ideias): também sai dos pendentes. */
+  virouRoteiro?: { id: string; em: string };
+}
+
+/** Ideia ainda por usar: nem virou postagem, nem roteiro, nem foi arquivada. */
+export function ideiaPendente(i: Pick<Ideia, 'virouPostagem' | 'virouRoteiro' | 'arquivada'>): boolean {
+  return !i.virouPostagem && !i.virouRoteiro && !i.arquivada;
 }
 
 export interface IdeiasFile {

@@ -328,7 +328,7 @@
   width: 18px;
   height: 6px;
   border-radius: 999px;
-  background: linear-gradient(90deg, oklch(var(--acento-l) var(--acento-cc) var(--trilha-h, var(--acento-h))), oklch(var(--acento-l) var(--acento-cc) calc(var(--trilha-h, var(--acento-h)) + 42)));
+  background: linear-gradient(90deg, oklch(var(--acento-l) var(--acento-cc) var(--trilha-h, var(--acento-h))), oklch(var(--acento-l) var(--acento-cc) calc(var(--trilha-h, var(--acento-h)) + var(--acento-desvio))));
 }
 
 .tut-secao-cab p {
@@ -349,7 +349,7 @@
 
 .tut-cartao {
   --cor-trilha: oklch(var(--acento-l) var(--acento-cc) var(--trilha-h, var(--acento-h)));
-  --cor-trilha-2: oklch(var(--acento-l) var(--acento-cc) calc(var(--trilha-h, var(--acento-h)) + 42));
+  --cor-trilha-2: oklch(var(--acento-l) var(--acento-cc) calc(var(--trilha-h, var(--acento-h)) + var(--acento-desvio)));
   position: relative;
   overflow: hidden;
   display: flex;

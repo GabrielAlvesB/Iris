@@ -10,6 +10,7 @@ import { iniciarAtualizacao } from './core/atualizacao.js';
 import { iniciarLeads } from './core/leads.js';
 import { iniciarWhatsapp } from './core/whatsapp.js';
 import { iniciarWorkspace } from './core/workspace.js';
+import { iniciarNuvem } from './core/nuvem.js';
 import { marcarAtivo, montarSidebar } from './core/sidebar.js';
 import { MODULOS, MODULO_PADRAO, isModuloId, type ModuloId } from '../shared/types/modulos.types.js';
 
@@ -87,8 +88,16 @@ const carregadores: Record<ModuleName, () => Promise<AppModule>> = {
     const view = await import('./modules/roteiros/roteiros.view.js');
     return { mount: (viewRoot) => view.montar(viewRoot), destroy: () => view.destroy() };
   },
+  gravacao: async () => {
+    const view = await import('./modules/gravacao/gravacao.view.js');
+    return { mount: (viewRoot) => view.montar(viewRoot), destroy: () => view.destroy() };
+  },
   workspace: async () => {
     const view = await import('./modules/workspace/workspace.view.js');
+    return { mount: (viewRoot) => view.montar(viewRoot), destroy: () => view.destroy() };
+  },
+  nuvem: async () => {
+    const view = await import('./modules/nuvem/nuvem.view.js');
     return { mount: (viewRoot) => view.montar(viewRoot), destroy: () => view.destroy() };
   },
   trafego: async () => {
@@ -350,6 +359,7 @@ function bootstrap(): void {
   iniciarLeads();
   iniciarWhatsapp();
   iniciarWorkspace();
+  iniciarNuvem();
   iniciarHistorico();
   iniciarLembretes();
   iniciarPomodoro();

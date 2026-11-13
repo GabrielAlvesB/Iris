@@ -25,6 +25,7 @@ import {
   type PedidoInstalar,
   type RegistroApp,
   type ReleaseApp,
+  type MarcoApp,
   type SituacaoApp,
   type VersaoAnterior,
   type WorkspaceFile,
@@ -122,6 +123,22 @@ function migrateRelease(raw: unknown): ReleaseApp | undefined {
   };
 }
 
+/** Quantas versões de cada app a linha do tempo guarda (a lista vem na mesma consulta da última versão). */
+const VERSOES_NA_LINHA = 12;
+const MAX_RESUMO = 1200;
+
+function migrateMarco(raw: unknown): MarcoApp | null {
+  const m = (raw ?? null) as Partial<MarcoApp> | null;
+  if (!m || typeof m.versao !== 'string' || typeof m.publicadaEm !== 'string') return null;
+  return {
+    versao: m.versao,
+    titulo: texto(m.titulo),
+    publicadaEm: m.publicadaEm,
+    resumo: typeof m.resumo === 'string' ? m.resumo.slice(0, MAX_RESUMO) : '',
+    paginaUrl: typeof m.paginaUrl === 'string' ? m.paginaUrl : '',
+  };
+}
+
 function migrateRegistro(raw: unknown): RegistroApp {
   const r = (raw ?? {}) as Record<string, unknown>;
   const inst = (r.instalacao ?? null) as Record<string, unknown> | null;
@@ -137,6 +154,12 @@ function migrateRegistro(raw: unknown): RegistroApp {
         ? { nome: baixado.nome, versao: baixado.versao, caminho: baixado.caminho, formato: baixado.formato }
         : undefined,
     ultimaRelease: migrateRelease(r.ultimaRelease),
+    historico: Array.isArray(r.historico)
+      ? r.historico
+          .map(migrateMarco)
+          .filter((x): x is MarcoApp => x !== null)
+          .slice(0, VERSOES_NA_LINHA)
+      : undefined,
     naoPublicado: r.naoPublicado === true ? true : undefined,
     verificadoEm: texto(r.verificadoEm),
     avisadaVersao: texto(r.avisadaVersao),
@@ -188,6 +211,11 @@ function montarApp(app: AppWorkspace, reg: RegistroApp): EstadoApp {
     id: app.id,
     situacao,
     release,
+    // Sem histórico guardado (arquivo de antes da linha do tempo), a última versão já é um marco.
+    historico: reg.naoPublicado
+      ? undefined
+      : (reg.historico ??
+        (release ? [{ versao: release.versao, titulo: release.titulo, publicadaEm: release.publicadaEm, resumo: release.notas.slice(0, MAX_RESUMO), paginaUrl: release.paginaUrl }] : undefined)),
     instalacao,
     progresso: t.progresso,
     formatoEmUso: t.formatoEmUso,
@@ -300,32 +328,52 @@ export async function verificar(appId?: string, signal?: AbortSignal): Promise<E
   return publicar();
 }
 
+/**
+ * Uma consulta por app traz a lista das últimas releases: dela sai a última
+ * versão (a primeira publicada que não é prévia — a mesma regra do
+ * /releases/latest) e a linha do tempo. Nenhuma chamada a mais ao GitHub, que
+ * sem token só deixa 60 por hora.
+ */
 async function verificarUm(a: AppComRepo, signal?: AbortSignal): Promise<string | undefined> {
-  const resposta = await request(`${API}/repos/${a.repo}/releases/latest`, { headers: CABECALHOS_GITHUB, timeoutMs: 15_000, signal });
+  const resposta = await request(`${API}/repos/${a.repo}/releases?per_page=${VERSOES_NA_LINHA}`, { headers: CABECALHOS_GITHUB, timeoutMs: 15_000, signal });
   if (isFalha(resposta)) return `Sem conexão com o GitHub (${resposta.motivo}).`;
   const verificadoEm = nowIso();
-  // 404: repositório sem release pública — ou ainda privado, que para a API sem token é a mesma coisa.
-  if (resposta.status === 404) {
+  const semRelease = async (): Promise<undefined> => {
     releasesAtuais.delete(a.id);
     await alterar(a.id, (reg) => {
       reg.naoPublicado = true;
       reg.ultimaRelease = undefined;
+      reg.historico = undefined;
       reg.verificadoEm = verificadoEm;
     });
     return undefined;
-  }
+  };
+  // 404: repositório ainda privado (para a API sem token é a mesma coisa que não existir).
+  if (resposta.status === 404) return semRelease();
   if (resposta.status === 403 || resposta.status === 429) return 'O GitHub limitou as consultas por agora. Tente de novo mais tarde.';
   if (!resposta.ok) return `O GitHub respondeu HTTP ${resposta.status}.`;
-  let release: ReleaseGithub;
+  let lista: ReleaseGithub[];
   try {
-    release = JSON.parse(resposta.body) as ReleaseGithub;
+    const bruto = JSON.parse(resposta.body) as unknown;
+    lista = Array.isArray(bruto) ? (bruto as ReleaseGithub[]) : [];
   } catch {
     return 'Resposta inesperada do GitHub.';
   }
+  const publicadas = lista.filter((r) => r && !r.draft && !r.prerelease && typeof r.tag_name === 'string' && r.published_at);
+  const release = publicadas[0];
+  // Repositório público sem nenhuma release publicada: "Em breve", como o 404.
+  if (!release) return semRelease();
   releasesAtuais.set(a.id, release);
   await alterar(a.id, (reg) => {
     reg.naoPublicado = undefined;
     reg.ultimaRelease = releaseParaTela(a, release);
+    reg.historico = publicadas.slice(0, VERSOES_NA_LINHA).map((r) => ({
+      versao: r.tag_name.replace(/^v/i, ''),
+      titulo: r.name || undefined,
+      publicadaEm: r.published_at,
+      resumo: (r.body ?? '').slice(0, MAX_RESUMO),
+      paginaUrl: r.html_url,
+    }));
     reg.verificadoEm = verificadoEm;
   });
   return undefined;

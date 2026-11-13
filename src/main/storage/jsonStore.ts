@@ -23,6 +23,17 @@ export function aoGravar(fn: (g: GravacaoObservada) => void): void {
   observador = fn;
 }
 
+const ouvintesDeGravacao: Array<(arquivo: string) => void> = [];
+
+/**
+ * Avisado depois de TODA gravação que deu certo, com ou sem ação do usuário por trás
+ * (tarefa de fundo, migração). É por aqui que a Nuvem sabe que há algo para enviar.
+ * Vários ouvintes; o `aoGravar` acima continua sendo só do histórico.
+ */
+export function aoGravarQualquer(fn: (arquivo: string) => void): void {
+  ouvintesDeGravacao.push(fn);
+}
+
 function readJsonIfExists<T>(filePath: string): T | undefined {
   if (!fs.existsSync(filePath)) return undefined;
   const raw = fs.readFileSync(filePath, 'utf-8');
@@ -109,6 +120,15 @@ function writeStoreSync<T>(fileName: string, data: T, contexto?: ContextoIpc): v
   }
   fs.writeFileSync(tmpPath, depois, 'utf-8');
   fs.renameSync(tmpPath, filePath);
+
+  for (const ouvir of ouvintesDeGravacao) {
+    try {
+      ouvir(fileName);
+    } catch (erro) {
+      // Um ouvinte com defeito nunca pode desfazer a gravação nem calar os outros.
+      console.error('[jsonStore] um ouvinte de gravação falhou', erro);
+    }
+  }
 
   if (observar && antes !== null && antes !== depois) {
     try {

@@ -10,6 +10,7 @@ import * as roteirosService from '../roteiros/roteiros.service';
 import * as linksService from '../links/links.service';
 import * as copyService from '../copy/copy.service';
 import * as contatosService from '../contatos/contatos.service';
+import * as gravacaoService from '../gravacao/gravacao.service';
 import type { ItemBusca } from '../../../shared/types/busca.types';
 import { VIDEO_STATUS } from '../../../shared/types/videos.types';
 import { IMAGEM_STATUS } from '../../../shared/types/imagens.types';
@@ -179,6 +180,17 @@ async function dosRoteiros(): Promise<ItemBusca[]> {
   }));
 }
 
+async function dasGravacoes(): Promise<ItemBusca[]> {
+  const file = await gravacaoService.getFile();
+  return file.sessoes.map((s) => ({
+    tipo: 'Gravação',
+    rotulo: s.titulo,
+    detalhe: juntar(s.conjunta ? `com ${s.conjunta.parceiro}` : '', `${s.takes.length} take${s.takes.length === 1 ? '' : 's'}`),
+    termos: juntar(s.notas, s.roteiro?.titulo, s.roteiro?.cenas.map((c) => `${c.titulo} ${c.texto}`).join(' · ')),
+    alvo: { modulo: 'gravacao', id: s.id },
+  }));
+}
+
 async function dosLinks(): Promise<ItemBusca[]> {
   const file = await linksService.getLinks();
   return file.links.map((l) => ({
@@ -228,7 +240,7 @@ async function dosContatos(): Promise<ItemBusca[]> {
 
 export async function montarIndice(): Promise<ItemBusca[]> {
   const partes = await Promise.all(
-    [doKanban, doTodo, doQuadro, dosPensamentos, daBiblioteca, dasPostagens, doSheets, dosRoteiros, dosLinks, doCopy, dosContatos].map(seguro),
+    [doKanban, doTodo, doQuadro, dosPensamentos, daBiblioteca, dasPostagens, doSheets, dosRoteiros, dasGravacoes, dosLinks, doCopy, dosContatos].map(seguro),
   );
   return partes.flat().filter((i) => i.rotulo.trim());
 }

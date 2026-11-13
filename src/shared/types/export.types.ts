@@ -19,6 +19,7 @@ import type { TrafegoFile } from './trafego.types';
 import type { TodoFile } from './todo.types';
 import type { ContatosFile } from './contatos.types';
 import type { WhatsappFile } from './whatsapp.types';
+import type { GravacaoFile } from './gravacao.types';
 import type { ModuloId } from './modulos.types';
 
 /**
@@ -49,6 +50,8 @@ export interface ExportBundle {
   ideias?: IdeiasFile;
   relatorios?: RelatoriosFile;
   roteiros?: RoteirosFile;
+  /** Sessões de gravação: itens, checklist do set e as marcas dos takes. */
+  gravacao?: GravacaoFile;
   trafego?: TrafegoFile;
   todo?: TodoFile;
   contatos?: ContatosFile;
@@ -74,6 +77,7 @@ export type ModuloExportavel =
   | 'ideias'
   | 'relatorios'
   | 'roteiros'
+  | 'gravacao'
   | 'sheets'
   | 'biblioteca'
   | 'quadro'
@@ -133,6 +137,7 @@ export const EXPORTAVEIS: readonly DescritorExportavel[] = [
   { id: 'ideias', rotulo: 'Banco de ideias', modulo: 'postagens', chaves: ['ideias'], planilha: false },
   { id: 'relatorios', rotulo: 'Relatórios', modulo: 'relatorios', chaves: ['relatorios'], planilha: false },
   { id: 'roteiros', rotulo: 'Roteiros', modulo: 'roteiros', chaves: ['roteiros'], planilha: true },
+  { id: 'gravacao', rotulo: 'Gravação', modulo: 'gravacao', chaves: ['gravacao'], planilha: false },
   { id: 'sheets', rotulo: 'Sheets', modulo: 'sheets', chaves: ['sheets'], planilha: false },
   {
     id: 'biblioteca',

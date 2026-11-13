@@ -30,13 +30,14 @@ const ROTULO_DO_GRUPO: Record<GrupoGuia, string> = {
 };
 
 /** Ordem dos grupos no índice e no Início. 'sistema' fica vazio: seus guias são as conexões. */
-const ORDEM_GRUPOS: GrupoGuia[] = ['comecar', 'conectar', 'dia', 'relacionamento', 'conteudo', 'arquivos', 'trafego', 'app'];
+const ORDEM_GRUPOS: GrupoGuia[] = ['comecar', 'conectar', 'dia', 'relacionamento', 'conteudo', 'estudio', 'arquivos', 'trafego', 'app'];
 
 const DESCRICAO_DO_GRUPO: Partial<Record<GrupoGuia, string>> = {
   conectar: 'Passo a passo para ligar o Iris a outros serviços. As marcas de feito vêm da sua configuração real.',
   dia: 'Tarefas e checklists do dia a dia.',
   relacionamento: 'Pessoas e empresas com quem você trabalha: histórico, funil e contratos.',
   conteudo: 'Da pauta à publicação, e do resultado ao relatório.',
+  estudio: 'Do roteiro à gravação: escrever, contar, bater a claquete e anotar os takes.',
   arquivos: 'Materiais, ideias e atalhos à mão.',
   trafego: 'Anúncios e o retorno de cada campanha.',
   app: 'O que vale para o app inteiro.',

@@ -34,6 +34,8 @@ import {
   VIDEOS_CHANNELS,
   WHATSAPP_CHANNELS,
   WORKSPACE_CHANNELS,
+  NUVEM_CHANNELS,
+  GRAVACAO_CHANNELS,
 } from '../shared/ipcChannels';
 import type {
   IrisEvent,
@@ -231,6 +233,7 @@ const irisAPI: IrisApi = {
     atualizar: (input) => ipcRenderer.invoke(IDEIAS_CHANNELS.atualizar, input),
     excluir: (id) => ipcRenderer.invoke(IDEIAS_CHANNELS.excluir, id),
     virarPostagem: (id, tipo) => ipcRenderer.invoke(IDEIAS_CHANNELS.virarPostagem, id, tipo),
+    virarRoteiro: (id, pastaId) => ipcRenderer.invoke(IDEIAS_CHANNELS.virarRoteiro, id, pastaId),
   },
   pomodoro: {
     getEstado: () => ipcRenderer.invoke(POMODORO_CHANNELS.getEstado),
@@ -288,6 +291,9 @@ const irisAPI: IrisApi = {
     salvarVersao: (input) => ipcRenderer.invoke(ROTEIROS_CHANNELS.salvarVersao, input),
     restaurarVersao: (input) => ipcRenderer.invoke(ROTEIROS_CHANNELS.restaurarVersao, input),
     criarAdaptacao: (input) => ipcRenderer.invoke(ROTEIROS_CHANNELS.criarAdaptacao, input),
+    salvarPasta: (input) => ipcRenderer.invoke(ROTEIROS_CHANNELS.salvarPasta, input),
+    excluirPasta: (pastaId) => ipcRenderer.invoke(ROTEIROS_CHANNELS.excluirPasta, pastaId),
+    moverRoteiros: (input) => ipcRenderer.invoke(ROTEIROS_CHANNELS.moverRoteiros, input),
   },
   trafego: {
     getFile: () => ipcRenderer.invoke(TRAFEGO_CHANNELS.getFile),
@@ -340,6 +346,21 @@ const irisAPI: IrisApi = {
     marcarTodos: (input) => ipcRenderer.invoke(TODO_CHANNELS.marcarTodos, input),
     limparConcluidos: (checklistId) => ipcRenderer.invoke(TODO_CHANNELS.limparConcluidos, checklistId),
     enviarAoKanban: (input) => ipcRenderer.invoke(TODO_CHANNELS.enviarAoKanban, input),
+  },
+  gravacao: {
+    getFile: () => ipcRenderer.invoke(GRAVACAO_CHANNELS.getFile),
+    criarGravacao: (input) => ipcRenderer.invoke(GRAVACAO_CHANNELS.criarGravacao, input),
+    montarGravacao: (input) => ipcRenderer.invoke(GRAVACAO_CHANNELS.montarGravacao, input),
+    limparSessoes: () => ipcRenderer.invoke(GRAVACAO_CHANNELS.limparSessoes),
+    salvarSessao: (sessao) => ipcRenderer.invoke(GRAVACAO_CHANNELS.salvarSessao, sessao),
+    excluirSessao: (sessaoId) => ipcRenderer.invoke(GRAVACAO_CHANNELS.excluirSessao, sessaoId),
+    salvarChecklist: (itens) => ipcRenderer.invoke(GRAVACAO_CHANNELS.salvarChecklist, itens),
+    exportarMarcadores: (sessaoId, formato) => ipcRenderer.invoke(GRAVACAO_CHANNELS.exportarMarcadores, sessaoId, formato),
+    relogio: (forcar) => ipcRenderer.invoke(GRAVACAO_CHANNELS.relogio, forcar),
+    criarConvite: (input) => ipcRenderer.invoke(GRAVACAO_CHANNELS.criarConvite, input),
+    lerConvite: (texto) => ipcRenderer.invoke(GRAVACAO_CHANNELS.lerConvite, texto),
+    conviteCopiado: () => ipcRenderer.invoke(GRAVACAO_CHANNELS.conviteCopiado),
+    entrarComConvite: (texto) => ipcRenderer.invoke(GRAVACAO_CHANNELS.entrarComConvite, texto),
   },
   pensamentos: {
     getPensamentos: () => ipcRenderer.invoke(PENSAMENTOS_CHANNELS.getPensamentos),
@@ -484,6 +505,19 @@ const irisAPI: IrisApi = {
     abrirPagina: (appId, versao) => ipcRenderer.invoke(WORKSPACE_CHANNELS.abrirPagina, appId, versao),
     listarVersoes: (appId) => ipcRenderer.invoke(WORKSPACE_CHANNELS.listarVersoes, appId),
     desinstalar: (appId) => ipcRenderer.invoke(WORKSPACE_CHANNELS.desinstalar, appId),
+  },
+  nuvem: {
+    getEstado: () => ipcRenderer.invoke(NUVEM_CHANNELS.getEstado),
+    salvarIdentidade: (entrada) => ipcRenderer.invoke(NUVEM_CHANNELS.salvarIdentidade, entrada),
+    gerarExtracao: (dialeto) => ipcRenderer.invoke(NUVEM_CHANNELS.gerarExtracao, dialeto),
+    mostrarExtracao: () => ipcRenderer.invoke(NUVEM_CHANNELS.mostrarExtracao),
+    salvarSupabase: (entrada) => ipcRenderer.invoke(NUVEM_CHANNELS.salvarSupabase, entrada),
+    testar: () => ipcRenderer.invoke(NUVEM_CHANNELS.testar),
+    criarTabelas: (token) => ipcRenderer.invoke(NUVEM_CHANNELS.criarTabelas, token),
+    entrar: (modo) => ipcRenderer.invoke(NUVEM_CHANNELS.entrar, modo),
+    sincronizar: () => ipcRenderer.invoke(NUVEM_CHANNELS.sincronizar),
+    desconectar: () => ipcRenderer.invoke(NUVEM_CHANNELS.desconectar),
+    definirPrincipal: (valor) => ipcRenderer.invoke(NUVEM_CHANNELS.definirPrincipal, valor),
   },
   events: {
     on: subscribe,

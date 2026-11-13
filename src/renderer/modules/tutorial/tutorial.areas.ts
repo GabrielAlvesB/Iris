@@ -1,6 +1,7 @@
 import type { Guia } from './tutorial.types.js';
 import { descritorDe } from '../../../shared/types/ia.types.js';
 import { COFRE, DO_SISTEMA, NO_LINUX } from '../../ui/plataforma.js';
+import { DICAS_GRAVACAO } from '../../../shared/types/gravacao.types.js';
 
 /**
  * Um guia por área do app: o que ela resolve, o caminho do primeiro uso e os
@@ -780,7 +781,7 @@ const GUIA_ROTEIROS: Guia = {
   id: 'roteiros',
   titulo: 'Roteiros',
   chamada: 'Escreva cena por cena; aprovado vira card no Kanban.',
-  grupo: 'conteudo',
+  grupo: 'estudio',
   modulo: 'roteiros',
   resumo:
     'Roteiros é um estúdio de escrita para vídeo: o texto é dividido em cenas (gancho, abertura, demonstração, CTA…), com o tempo de fala calculado enquanto você escreve. Depois passa por revisão e aprovação.',
@@ -836,6 +837,66 @@ const GUIA_ROTEIROS: Guia = {
             'O roteiro passa de rascunho para revisão e depois aprovado ou reprovado (com motivo). Aprovar cria um card na primeira coluna do Kanban com o roteiro na descrição.',
         },
         { tipo: 'aviso', nivel: 'info', texto: 'Em Versões dá para comparar lado a lado e restaurar qualquer versão anterior.' },
+      ],
+    },
+  ],
+};
+
+const GUIA_GRAVACAO: Guia = {
+  id: 'gravacao',
+  titulo: 'Gravar',
+  chamada: 'Contagem, bipe de sincronia e as marcas de cada take — sozinho ou com outro Iris.',
+  grupo: 'estudio',
+  modulo: 'gravacao',
+  resumo:
+    'O Iris não grava o vídeo — a câmera ou o celular gravam. Ele conta 3-2-1, bate a claquete (flash e bipe no mesmo instante), mostra o roteiro e anota cada take, para a edição.',
+  passos: [
+    {
+      id: 'gravacao.sozinho',
+      titulo: 'Gravar sozinho',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            'Escolha um roteiro (ou nenhum) e clique em "Gravar sozinho". Ligue a câmera e aperte Espaço: a contagem 3-2-1 termina num bipe com flash branco — é o ponto para alinhar imagem e áudio na edição.',
+        },
+        {
+          tipo: 'lista',
+          itens: ['Espaço — começar ou parar o take', 'B, E, R — take bom, erro, repetir (B depois de parar = este é o melhor)', 'N — nota escrita no tempo', '← → — cena anterior ou próxima', 'C — só a claquete · M — espelhar o texto'],
+        },
+      ],
+    },
+    {
+      id: 'gravacao.junto',
+      titulo: 'Gravar com outra pessoa',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            '"Gravar com outra pessoa" cria um convite com o horário de começar (em 30 s, 1, 2 ou 5 min) e já copia. Mande pelo WhatsApp. A outra pessoa só copia a mensagem e abre o Iris dela em Gravação › Gravar: o convite aparece sozinho, ela clica em Entrar e o palco conta até o mesmo instante.',
+        },
+        {
+          tipo: 'texto',
+          texto:
+            'Funciona perto ou longe, sem configurar nada: cada Iris confere a própria hora num servidor de hora (o mesmo tipo que o Windows usa), então os dois bipes saem juntos. Cada um grava o seu vídeo; na edição, alinhe os dois pelo bipe.',
+        },
+        {
+          tipo: 'aviso',
+          nivel: 'dica',
+          texto: 'Com roteiro, escreva as falas com "A:" e "B:" no começo da linha: cada pessoa vê a própria fala em destaque. Para outro take, quem convidou clica em "Próximo take junto" e manda o convite novo.',
+        },
+      ],
+    },
+    {
+      id: 'gravacao.depois',
+      titulo: 'Depois de gravar',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto: 'Em Gravações ficam os takes com as marcas. Marque o melhor take e exporte os marcadores (texto ou planilha CSV) para usar na edição.',
+        },
+        { tipo: 'lista', itens: DICAS_GRAVACAO.map((d) => `${d.titulo}: ${d.texto}`) },
+        { tipo: 'abrir', rotulo: 'Abrir o Gravar', modulo: 'gravacao' },
       ],
     },
   ],
@@ -1447,6 +1508,7 @@ export const GUIAS_DAS_AREAS: Guia[] = [
   GUIA_ESTUDIO,
   GUIA_RELATORIOS,
   GUIA_ROTEIROS,
+  GUIA_GRAVACAO,
   GUIA_SHEETS,
   GUIA_BIBLIOTECA,
   GUIA_QUADRO,

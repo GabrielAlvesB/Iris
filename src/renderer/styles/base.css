@@ -18,7 +18,11 @@
   --acento-cc: min(calc(var(--acento-c) * var(--int-k)), 0.24);
   --accent: oklch(var(--acento-l) var(--acento-cc) var(--acento-h));
   /* A segunda cor dos gradientes: o mesmo tom, o matiz um pouco adiante. */
-  --acento-2: oklch(calc(var(--acento-l) + 0.02) var(--acento-cc) calc(var(--acento-h) + 42));
+  /* O segundo tom do degradê fica NA cor escolhida: um pouco mais claro e `--acento-desvio` graus adiante.
+     Eram 42°, e o botão de quem escolhia âmbar terminava em verde-limão, o de vermelho em amarelo,
+     o de rosa em laranja — o usuário estranhou: a cor do botão tem de ser a que ele escolheu. */
+  --acento-desvio: 12;
+  --acento-2: oklch(calc(var(--acento-l) + 0.05) var(--acento-cc) calc(var(--acento-h) + var(--acento-desvio)));
   --accent-hover: oklch(calc(var(--acento-l) - 0.07) calc(var(--acento-cc) + 0.01) var(--acento-h));
   --accent-soft: oklch(var(--acento-l) var(--acento-cc) var(--acento-h) / var(--int-soft));
   --grad-acento: linear-gradient(135deg, var(--accent), var(--acento-2));
@@ -100,7 +104,8 @@
        0,56 no rosa). Satura um pouco mais; o --accent-soft fica mais leve sobre o branco. */
     --acento-l: calc(0.515 + 0.045 * cos(calc((var(--acento-h) - 340) * 1deg)));
     --acento-cc: min(calc(var(--acento-c) * var(--int-k) * 1.12), 0.24);
-    --acento-2: oklch(var(--acento-l) var(--acento-cc) calc(var(--acento-h) + 42));
+    /* No claro o segundo tom escurece (o texto sobre ele é branco). */
+    --acento-2: oklch(calc(var(--acento-l) - 0.05) var(--acento-cc) calc(var(--acento-h) + var(--acento-desvio)));
     --accent-soft: oklch(var(--acento-l) var(--acento-cc) var(--acento-h) / calc(var(--int-soft) * 0.6));
     --danger: #dc2626;
     --danger-soft: rgba(220, 38, 38, 0.1);
@@ -321,11 +326,13 @@ button {
 
 .toasts {
   position: fixed;
+  /* No alto à direita (o usuário pediu): embaixo, o aviso cobria o que se estava fazendo —
+     o fim das listas, os botões de salvar. O mais novo fica em cima. */
+  top: 20px;
   right: 20px;
-  bottom: 20px;
   z-index: 1200;
   display: flex;
-  flex-direction: column;
+  flex-direction: column-reverse;
   align-items: flex-end;
   gap: 8px;
   pointer-events: none;
@@ -350,7 +357,7 @@ button {
 @keyframes toast-entrar {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(-6px);
   }
 }
 

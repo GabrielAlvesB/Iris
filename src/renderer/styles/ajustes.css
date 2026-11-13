@@ -1291,7 +1291,7 @@ select.aj-input {
   height: 42px;
   padding: 0;
   color: var(--texto-sobre-acento);
-  background: linear-gradient(135deg, oklch(0.7 min(calc(var(--sw-c) * 1.3), 0.24) var(--sw-h)), oklch(0.72 min(calc(var(--sw-c) * 1.3), 0.24) calc(var(--sw-h) + 42)));
+  background: linear-gradient(135deg, oklch(0.7 min(calc(var(--sw-c) * 1.3), 0.24) var(--sw-h)), oklch(0.75 min(calc(var(--sw-c) * 1.3), 0.24) calc(var(--sw-h) + var(--acento-desvio))));
   border: none;
   border-radius: 50%;
   cursor: pointer;
@@ -1304,7 +1304,7 @@ select.aj-input {
     color: #fff;
     /* A mesma curva de luminosidade do base.css (tema claro), com o matiz da amostra. */
     --sw-l: calc(0.515 + 0.045 * cos(calc((var(--sw-h) - 340) * 1deg)));
-    background: linear-gradient(135deg, oklch(var(--sw-l) min(calc(var(--sw-c) * 1.45), 0.24) var(--sw-h)), oklch(var(--sw-l) min(calc(var(--sw-c) * 1.45), 0.24) calc(var(--sw-h) + 42)));
+    background: linear-gradient(135deg, oklch(var(--sw-l) min(calc(var(--sw-c) * 1.45), 0.24) var(--sw-h)), oklch(calc(var(--sw-l) - 0.05) min(calc(var(--sw-c) * 1.45), 0.24) calc(var(--sw-h) + var(--acento-desvio))));
   }
 }
 
@@ -1420,7 +1420,7 @@ select.aj-input {
 
 .aj-intensidade-faixa i:first-child {
   flex: 2;
-  background: linear-gradient(135deg, oklch(0.7 min(calc(var(--acento-c) * var(--k)), 0.24) var(--acento-h)), oklch(0.72 min(calc(var(--acento-c) * var(--k)), 0.24) calc(var(--acento-h) + 42)));
+  background: linear-gradient(135deg, oklch(0.7 min(calc(var(--acento-c) * var(--k)), 0.24) var(--acento-h)), oklch(0.75 min(calc(var(--acento-c) * var(--k)), 0.24) calc(var(--acento-h) + var(--acento-desvio))));
 }
 
 @media (prefers-color-scheme: light) {

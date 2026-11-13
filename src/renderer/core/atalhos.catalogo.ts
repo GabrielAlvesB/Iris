@@ -46,6 +46,8 @@ const IR_PARA: Record<ModuloId, Combo> = {
   ia: 'G I',
   relatorios: 'G R',
   roteiros: 'G O',
+  // Z: as letras de "gravar" já têm dono (G é o prefixo, R Relatórios, A API, V Servidores).
+  gravacao: 'G Z',
   sheets: 'G S',
   explorador: 'G B',
   quadro: 'G Q',
@@ -55,6 +57,8 @@ const IR_PARA: Record<ModuloId, Combo> = {
   servidores: 'G V',
   n8n: 'G N',
   github: 'G H',
+  // J: N é do n8n e as outras letras de "nuvem" já têm dono.
+  nuvem: 'G J',
   trafego: 'G F',
   tutorial: 'F1',
   ajustes: 'Ctrl+,',
@@ -97,6 +101,7 @@ export const CATALOGO_ATALHOS: readonly DefinicaoAtalho[] = [
   { id: 'roteiros.novo', rotulo: 'Novo roteiro', grupo: rotuloDoModulo('roteiros'), padrao: '', escopo: 'roteiros' },
   { id: 'contatos.novaPessoa', rotulo: 'Nova pessoa', grupo: rotuloDoModulo('contatos'), padrao: '', escopo: 'contatos' },
   { id: 'contatos.novaEmpresa', rotulo: 'Nova empresa', grupo: rotuloDoModulo('contatos'), padrao: '', escopo: 'contatos' },
+  { id: 'gravacao.nova', rotulo: 'Gravar sozinho agora (abre o palco)', grupo: rotuloDoModulo('gravacao'), padrao: '', escopo: 'gravacao' },
   { id: 'roteiros.salvar', rotulo: 'Salvar agora (no estúdio)', grupo: rotuloDoModulo('roteiros'), padrao: 'Ctrl+S', escopo: 'roteiros' },
 ];
 
@@ -109,6 +114,14 @@ export const ATALHOS_FIXOS: readonly AtalhoFixo[] = [
   { rotulo: 'Teleprompter: velocidade', grupo: rotuloDoModulo('roteiros'), teclas: ['Up', 'Down'], escopo: 'roteiros' },
   { rotulo: 'Teleprompter: tamanho do texto', grupo: rotuloDoModulo('roteiros'), teclas: ['Left', 'Right'], escopo: 'roteiros' },
   { rotulo: 'Teleprompter: espelhar', grupo: rotuloDoModulo('roteiros'), teclas: ['M'], escopo: 'roteiros' },
+  // O palco de gravação é tela cheia (como o teleprompter): as teclas são dele e não se trocam.
+  { rotulo: 'Palco: começar ou parar', grupo: rotuloDoModulo('gravacao'), teclas: ['Space'], escopo: 'gravacao' },
+  { rotulo: 'Palco: passar ou voltar uma frase do texto', grupo: rotuloDoModulo('gravacao'), teclas: ['Down', 'Up'], escopo: 'gravacao' },
+  { rotulo: 'Palco: texto automático ou nas setas', grupo: rotuloDoModulo('gravacao'), teclas: ['A'], escopo: 'gravacao' },
+  { rotulo: 'Palco: velocidade do texto automático', grupo: rotuloDoModulo('gravacao'), teclas: ['+', '-'], escopo: 'gravacao' },
+  { rotulo: 'Palco: cena anterior ou próxima (no modo nas setas, ← → passam frase)', grupo: rotuloDoModulo('gravacao'), teclas: ['PageUp', 'PageDown'], escopo: 'gravacao' },
+  { rotulo: 'Palco: claquete (flash e bipe)', grupo: rotuloDoModulo('gravacao'), teclas: ['C'], escopo: 'gravacao' },
+  { rotulo: 'Palco: espelhar o texto', grupo: rotuloDoModulo('gravacao'), teclas: ['M'], escopo: 'gravacao' },
 ];
 
 export function definicaoDe(id: string): DefinicaoAtalho | undefined {

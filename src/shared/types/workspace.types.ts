@@ -394,6 +394,58 @@ export const APPS_WORKSPACE: AppWorkspace[] = [
     somas: /^SHA256SUMS\.txt$/i,
   },
   {
+    id: 'iriscine',
+    nome: 'IrisCine',
+    repo: 'GabrielAlvesB/IrisCine',
+    frase: 'Edição de vídeo, cor e som, numa linha do tempo profissional.',
+    descricao:
+      'O editor de vídeo do ecossistema Iris, no papel do Premiere: monitores de origem e programa, linha do tempo com ' +
+      'várias trilhas, correção de cor, efeitos, mixagem de áudio e legendas. Exporta MP4 (H.264), ProRes e GIF, ' +
+      'e troca projetos com outros editores por XML, AAF, EDL e OpenTimelineIO.',
+    recursos: [
+      { titulo: 'Edição', texto: 'Edição em três pontos, ripple, roll, slip, slide, navalha, aninhamento, marcadores e desfazer ilimitado.' },
+      { titulo: 'Cor', texto: 'Correção básica, looks criativos, curvas, rodas de cor, secundária por HSL e vinheta.' },
+      { titulo: 'Efeitos', texto: 'Mais de 90 efeitos e cerca de 30 transições, com quadros-chave Bézier e composição na GPU.' },
+      { titulo: 'Áudio', texto: 'Medidores de loudness (EBU R128), equalizador, DeNoise, mixer de trilhas e automação.' },
+      { titulo: 'Títulos e legendas', texto: 'Texto e formas no monitor; legendas em SRT, WebVTT e SCC, que podem ir gravadas no vídeo.' },
+      { titulo: 'Para agentes', texto: 'Cada ação é um comando com id: menus, ferramentas e painéis respondem à linha de comando e a um servidor MCP.' },
+    ],
+    // A logo do próprio IrisCine (assets/app-icon/filmcraft.svg de lá): claquete aberta com o play, no
+    // degradê coral → magenta. Cores fixas — é a marca dele; o desenho de 512 entra escalado no quadro de 56.
+    icone:
+      '<defs>' +
+      '<linearGradient id="ws-cine-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff6a5c"/><stop offset="1" stop-color="#bd44c0"/></linearGradient>' +
+      '<linearGradient id="ws-cine-tinta" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4b2148"/><stop offset="1" stop-color="#2e1538"/></linearGradient>' +
+      '<clipPath id="ws-cine-braco"><rect width="300" height="56" rx="14"/></clipPath>' +
+      '<clipPath id="ws-cine-faixa"><rect x="106" y="236" width="300" height="56" rx="14"/></clipPath>' +
+      '</defs>' +
+      '<g transform="translate(4 4) scale(.109375)">' +
+      '<rect width="512" height="512" rx="112" fill="url(#ws-cine-g)"/>' +
+      '<rect x="106" y="236" width="300" height="180" rx="28" fill="#fff"/>' +
+      '<g clip-path="url(#ws-cine-faixa)"><path fill="url(#ws-cine-tinta)" d="M106 236h300v56H106z"/>' +
+      '<path fill="#fff" d="M150 236h46l-32 56h-46zM238 236h46l-32 56h-46zM326 236h46l-32 56h-46zM414 236h46l-32 56h-46z"/></g>' +
+      '<g transform="translate(106 228) rotate(-15) translate(0 -56)"><g clip-path="url(#ws-cine-braco)">' +
+      '<path fill="url(#ws-cine-tinta)" d="M0 0h300v56H0z"/>' +
+      '<path fill="#fff" d="M44 0h46l-32 56h-46zM132 0h46l-32 56h-46zM220 0h46l-32 56h-46zM308 0h46l-32 56h-46z"/></g></g>' +
+      '<path fill="url(#ws-cine-g)" d="M228 318v70a10 10 0 0 0 15 8.7l61-35a10 10 0 0 0 0-17.4l-61-35a10 10 0 0 0-15 8.7z"/>' +
+      '</g>',
+    // O meio do degradê (#d9507e, a cor de destaque do atualizador dele): cartão, órbita e página.
+    matiz: 3,
+    instalado: {
+      nomeWindows: 'IrisCine',
+      chaveWindows: 'Software\\IrisCine',
+      exeWindows: 'filmcraft.exe',
+      pacoteLinux: 'filmcraft',
+      exeLinux: 'filmcraft',
+    },
+    // Mesmos sufixos do IrisWord (filmcraft-<versão>-windows-x64.msi etc.). Hoje só sai x64.
+    arquivos: {
+      win32: { x64: IRISWORD_WIN('x64'), arm64: IRISWORD_WIN('arm64') },
+      linux: { x64: IRISWORD_LINUX('x86_64'), arm64: IRISWORD_LINUX('aarch64') },
+    },
+    somas: /^SHA256SUMS\.txt$/i,
+  },
+  {
     id: 'irispdf',
     nome: 'Iris PDF',
     frase: 'Ler, anotar, preencher e assinar PDFs.',
@@ -475,10 +527,22 @@ export interface InstalacaoDetectada {
   via: 'sistema' | 'workspace';
 }
 
+/** Uma versão na linha do tempo do ecossistema: o que saiu, quando, e o começo das novidades. */
+export interface MarcoApp {
+  versao: string;
+  titulo?: string;
+  publicadaEm: string;
+  /** Começo das notas da release (Markdown), cortado: a página do app mostra o resto. */
+  resumo: string;
+  paginaUrl: string;
+}
+
 export interface EstadoApp {
   id: string;
   situacao: SituacaoApp;
   release?: ReleaseApp;
+  /** As últimas versões publicadas, da mais nova à mais antiga (linha do tempo). */
+  historico?: MarcoApp[];
   instalacao?: InstalacaoDetectada;
   /** 0–1 durante o download. */
   progresso?: number;
@@ -526,6 +590,8 @@ export interface RegistroApp {
   baixado?: { nome: string; versao: string; formato: FormatoApp; caminho: string };
   /** Cópia da última release vista: a tela abre sem internet. */
   ultimaRelease?: ReleaseApp;
+  /** Últimas versões publicadas: a linha do tempo abre sem internet. */
+  historico?: MarcoApp[];
   naoPublicado?: boolean;
   verificadoEm?: string;
   /** Versão da última atualização avisada por notificação (não repetir). */

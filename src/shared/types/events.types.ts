@@ -50,6 +50,10 @@ export type IrisEvent =
   | { topic: 'workspace:estado'; payload: EstadoWorkspace }
   /** Clique na notificação de versão nova: abrir o Workspace na página do app. */
   | { topic: 'workspace:abrir'; payload: { appId: string } }
+  /** A sincronização com a nuvem começou, terminou ou a configuração mudou: a tela relê o estado. */
+  | { topic: 'nuvem:mudou'; payload: { sincronizando: boolean } }
+  /** A sincronização trouxe mudanças de outro computador: a tela aberta relê os dados. */
+  | { topic: 'nuvem:chegou'; payload: { recebidos: number } }
   | { topic: 'app:erro'; payload: { escopo: string; mensagem: string } };
 
 export type IrisEventTopic = IrisEvent['topic'];

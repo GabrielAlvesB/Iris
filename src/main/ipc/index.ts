@@ -32,6 +32,8 @@ import { registerDocumentosIpc } from './documentos.ipc';
 import { registerContatosIpc } from './contatos.ipc';
 import { registerWhatsappIpc } from './whatsapp.ipc';
 import { registerWorkspaceIpc } from './workspace.ipc';
+import { registerGravacaoIpc } from './gravacao.ipc';
+import { registerNuvemIpc } from './nuvem.ipc';
 
 /**
  * Além disso, cada handler roda dentro de `contextoIpc` com o nome do canal: é
@@ -91,4 +93,6 @@ function registrarTodos(): void {
   registerContatosIpc();
   registerWhatsappIpc();
   registerWorkspaceIpc();
+  registerGravacaoIpc();
+  registerNuvemIpc();
 }

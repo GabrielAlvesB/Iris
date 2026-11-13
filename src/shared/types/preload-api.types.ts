@@ -19,6 +19,7 @@ import type { TipoFluxoWa } from './whatsapp.n8n';
 import type { AnexoPostagem, EscolhaDeAnexos, InfoAnexo } from './postagens.types';
 import type { EstadoAtualizacao, InstaladorLocal, VersaoPublicada } from './atualizacao.types';
 import type { EstadoWorkspace, PedidoInstalar, VersaoAnterior } from './workspace.types';
+import type { DialetoSql, EstadoNuvem, ExtracaoGerada, ModoDeEntrada, ResultadoSync, TesteNuvem } from './nuvem.types';
 import type { BackupNaPasta, EstadoBackupAuto, MudancaBackupAuto } from './backup.types';
 import type { EntradaHistorico } from './historico.types';
 import type { ItemBusca } from './busca.types';
@@ -116,6 +117,14 @@ import type {
 } from './videos.types';
 import type { IrisEventPayload, IrisEventTopic, Unsubscribe } from './events.types';
 import type {
+  ConviteInput,
+  ConviteLido,
+  CriarGravacaoInput,
+  EstadoRelogio,
+  GravacaoFile,
+  SessaoGravacao,
+} from './gravacao.types';
+import type {
   AddColumnInput,
   CommitImportInput,
   CommitImportResult,
@@ -169,6 +178,8 @@ import type {
   RestaurarVersaoInput,
   RoteirosFile,
   SalvarVersaoInput,
+  MoverRoteirosInput,
+  SalvarPastaInput,
 } from './roteiros.types';
 import type {
   AtualizarCampanhaInput,
@@ -521,6 +532,8 @@ export interface IdeiasApi {
   excluir(id: string): Promise<IpcResult<IdeiasFile>>;
   /** Cria o vídeo ou a imagem na primeira etapa e marca a ideia. */
   virarPostagem(id: string, tipo: TipoPostagem): Promise<IpcResult<ResultadoVirarPostagem>>;
+  /** Cria o roteiro (título e notas da ideia), na pasta escolhida, e marca a ideia. */
+  virarRoteiro(id: string, pastaId?: string): Promise<IpcResult<{ file: IdeiasFile; roteiroId: string }>>;
 }
 
 export interface PomodoroApi {
@@ -594,6 +607,11 @@ export interface RoteirosApi {
   restaurarVersao(input: RestaurarVersaoInput): Promise<IpcResult<RoteirosFile>>;
   /** Roteiro novo em outro formato; o original não muda. */
   criarAdaptacao(input: CriarAdaptacaoInput): Promise<IpcResult<CriarAdaptacaoResult>>;
+  /** Sem id cria; com id renomeia/recolore. */
+  salvarPasta(input: SalvarPastaInput): Promise<IpcResult<{ file: RoteirosFile; id: string }>>;
+  /** Os roteiros da pasta voltam para "Sem pasta". */
+  excluirPasta(pastaId: string): Promise<IpcResult<RoteirosFile>>;
+  moverRoteiros(input: MoverRoteirosInput): Promise<IpcResult<RoteirosFile>>;
 }
 
 export interface TrafegoApi {
@@ -656,6 +674,26 @@ export interface TodoApi {
   marcarTodos(input: MarcarTodosInput): Promise<IpcResult<TodoFile>>;
   limparConcluidos(checklistId: string): Promise<IpcResult<TodoFile>>;
   enviarAoKanban(input: EnviarAoKanbanInput): Promise<IpcResult<TodoFile>>;
+}
+
+export interface GravacaoApi {
+  getFile(): Promise<IpcResult<GravacaoFile>>;
+  criarGravacao(input: CriarGravacaoInput): Promise<IpcResult<{ file: GravacaoFile; id: string }>>;
+  /** A gravação pronta para o palco, sem guardar nada (gravar sozinho). */
+  montarGravacao(input: CriarGravacaoInput): Promise<IpcResult<SessaoGravacao>>;
+  /** Apaga as gravações guardadas por versões anteriores. */
+  limparSessoes(): Promise<IpcResult<GravacaoFile>>;
+  salvarSessao(sessao: SessaoGravacao): Promise<IpcResult<GravacaoFile>>;
+  excluirSessao(sessaoId: string): Promise<IpcResult<GravacaoFile>>;
+  salvarChecklist(itens: string[]): Promise<IpcResult<GravacaoFile>>;
+  exportarMarcadores(sessaoId: string, formato: 'csv' | 'txt'): Promise<IpcResult<FileOpResult>>;
+  /** Diferença entre o relógio do PC e a hora certa (servidor de hora). */
+  relogio(forcar?: boolean): Promise<IpcResult<EstadoRelogio>>;
+  criarConvite(input: ConviteInput): Promise<IpcResult<{ file: GravacaoFile; texto: string }>>;
+  lerConvite(texto: string): Promise<IpcResult<ConviteLido>>;
+  /** Convite de outra pessoa na área de transferência (lida no main), ou null. */
+  conviteCopiado(): Promise<IpcResult<ConviteLido | null>>;
+  entrarComConvite(texto: string): Promise<IpcResult<{ file: GravacaoFile; id: string }>>;
 }
 
 export interface PensamentosApi {
@@ -735,6 +773,24 @@ export interface WorkspaceApi {
   desinstalar(appId: string): Promise<IpcResult<EstadoWorkspace>>;
 }
 
+/** Nuvem: a tela nunca manda caminho nem recebe credencial. */
+export interface NuvemApi {
+  getEstado(): Promise<IpcResult<EstadoNuvem>>;
+  salvarIdentidade(entrada: { nome?: string; espaco?: string }): Promise<IpcResult<EstadoNuvem>>;
+  /** Abre o diálogo de salvar no main; null = cancelado. Volta só o nome do arquivo. */
+  gerarExtracao(dialeto: DialetoSql): Promise<IpcResult<ExtracaoGerada | null>>;
+  mostrarExtracao(): Promise<IpcResult<void>>;
+  /** `chave` vazia mantém a que já está no cofre. */
+  salvarSupabase(entrada: { url: string; chave?: string }): Promise<IpcResult<EstadoNuvem>>;
+  testar(): Promise<IpcResult<TesteNuvem>>;
+  /** O token de acesso da conta é usado uma vez no main e descartado. */
+  criarTabelas(token: string): Promise<IpcResult<TesteNuvem>>;
+  entrar(modo: ModoDeEntrada): Promise<IpcResult<ResultadoSync>>;
+  sincronizar(): Promise<IpcResult<ResultadoSync>>;
+  desconectar(): Promise<IpcResult<EstadoNuvem>>;
+  definirPrincipal(valor: boolean): Promise<IpcResult<EstadoNuvem>>;
+}
+
 export interface IrisApi {
   kanban: KanbanApi;
   quadro: QuadroApi;
@@ -754,6 +810,7 @@ export interface IrisApi {
   links: LinksApi;
   copy: CopyApi;
   pensamentos: PensamentosApi;
+  gravacao: GravacaoApi;
   todo: TodoApi;
   ia: IaApi;
   roteiros: RoteirosApi;
@@ -769,6 +826,7 @@ export interface IrisApi {
   relatorios: RelatoriosApi;
   atualizacao: AtualizacaoApi;
   workspace: WorkspaceApi;
+  nuvem: NuvemApi;
   events: EventsApi;
 }
 

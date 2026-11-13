@@ -7,6 +7,7 @@ import * as postagensAgenda from '../modules/postagens/postagens.agenda';
 import * as atualizacaoService from '../modules/atualizacao/atualizacao.service';
 import * as anexosService from '../modules/anexos/anexos.service';
 import * as imagensService from '../modules/imagens/imagens.service';
+import * as roteirosService from '../modules/roteiros/roteiros.service';
 import * as videosService from '../modules/videos/videos.service';
 import * as contatosArquivo from '../modules/contatos/contatos.arquivo';
 import * as contatosLeads from '../modules/contatos/contatos.leads';
@@ -16,6 +17,8 @@ import * as whatsappReceber from '../modules/whatsapp/whatsapp.receber';
 import * as backupService from '../modules/backup/backup.service';
 import * as lembretesService from '../modules/lembretes/lembretes.service';
 import * as workspaceService from '../modules/workspace/workspace.service';
+import { ehPrincipal } from '../modules/nuvem/nuvem.arquivo';
+import { iniciarNuvemAuto } from '../modules/nuvem/nuvem.auto';
 
 /**
  * Raiz de composição das tarefas de fundo — mantém o main.ts sem precisar
@@ -83,28 +86,32 @@ export async function startBackgroundServices(): Promise<void> {
   });
   startTask(TAREFA_WORKSPACE, 30_000);
 
-  // Cópias de anexos que nenhuma postagem usa mais. Tipo de postagem novo
-  // precisa entrar aqui, senão os anexos dele seriam apagados na abertura.
+  // Cópias de anexos que nenhuma postagem nem roteiro usa mais. Quem mais
+  // guardar anexos precisa entrar aqui, senão os dele seriam apagados na abertura.
   setTimeout(() => {
     void (async () => {
-      const [videos, imagens] = await Promise.all([videosService.getFile(), imagensService.getFile()]);
-      const emUso = new Set([...videos.videos, ...imagens.imagens].flatMap((p) => p.anexos.map((a) => a.id)));
+      const [videos, imagens, roteiros] = await Promise.all([videosService.getFile(), imagensService.getFile(), roteirosService.getFile()]);
+      const emUso = new Set([...videos.videos, ...imagens.imagens, ...roteiros.roteiros].flatMap((p) => p.anexos.map((a) => a.id)));
       await anexosService.limparOrfaos(emUso);
     })().catch(() => undefined);
   }, 20_000);
 
   // A caixa na nuvem guarda leads e WhatsApp: a mesma rodada esvazia os dois.
+  // Com a Nuvem ligada, só o computador principal esvazia a caixa: dois buscando o mesmo lead
+  // criariam o mesmo contato duas vezes (cada um com um id) antes de se verem.
   registerTask(TAREFA_LEADS, 60_000, async (signal) => {
+    if (!ehPrincipal()) return;
     await contatosLeads.buscarNuvem(signal);
     await whatsappReceber.buscarNuvem(signal);
   });
   aplicarLeads(4_000);
 
   // Envio para vários: só roda com lote enviando (o "enviando" de antes já foi resolvido em main.ts).
-  registerTask(whatsappFila.TAREFA_FILA, 15_000, (signal) => whatsappFila.processarFila(signal));
+  registerTask(whatsappFila.TAREFA_FILA, 15_000, (signal) => (ehPrincipal() ? whatsappFila.processarFila(signal) : Promise.resolve()));
   whatsappFila.aplicarFila(6_000);
 
   backupService.iniciarBackupAuto();
+  iniciarNuvemAuto();
   lembretesService.iniciarLembretes();
 
   exploradorService.iniciarWatchers();

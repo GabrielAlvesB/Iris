@@ -18,5 +18,8 @@ export function registerIdeiasIpc(): void {
   ipcMain.handle(IDEIAS_CHANNELS.criar, (_event, entrada: unknown) => toResult<IdeiasFile>(ideiasService.criar(entrada)));
   ipcMain.handle(IDEIAS_CHANNELS.atualizar, (_event, input: AtualizarIdeiaInput) => toResult<IdeiasFile>(ideiasService.atualizar(input)));
   ipcMain.handle(IDEIAS_CHANNELS.excluir, (_event, id: string) => toResult<IdeiasFile>(ideiasService.excluir(id)));
+  ipcMain.handle(IDEIAS_CHANNELS.virarRoteiro, (_event, id: unknown, pastaId: unknown) =>
+    toResult(ideiasService.virarRoteiro(id, typeof pastaId === 'string' ? pastaId : undefined)),
+  );
   ipcMain.handle(IDEIAS_CHANNELS.virarPostagem, (_event, id: unknown, tipo: unknown) => toResult<ResultadoVirarPostagem>(ideiasService.virarPostagem(id, tipo)));
 }

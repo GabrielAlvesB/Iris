@@ -3,6 +3,7 @@ import { readStore, writeStore } from '../../storage/jsonStore';
 import { broadcast } from '../../core/broadcast';
 import * as videosService from '../videos/videos.service';
 import * as imagensService from '../imagens/imagens.service';
+import * as roteirosService from '../roteiros/roteiros.service';
 import type { TipoPostagem } from '../../../shared/types/postagens.types';
 import { TITULO_IDEIA_MAX, type AtualizarIdeiaInput, type Ideia, type IdeiasFile, type ResultadoVirarPostagem } from '../../../shared/types/ideias.types';
 
@@ -44,6 +45,8 @@ function migrateIdeia(raw: unknown): Ideia | null {
     arquivada: r.arquivada === true,
     virouPostagem:
       v && (v.tipo === 'video' || v.tipo === 'imagem') && typeof v.id === 'string' ? { tipo: v.tipo, id: v.id, em: typeof v.em === 'string' ? v.em : criadaEm } : undefined,
+    virouRoteiro:
+      r.virouRoteiro && typeof r.virouRoteiro.id === 'string' ? { id: r.virouRoteiro.id, em: typeof r.virouRoteiro.em === 'string' ? r.virouRoteiro.em : criadaEm } : undefined,
   };
 }
 
@@ -163,4 +166,18 @@ export async function virarPostagem(id: unknown, tipo: unknown): Promise<Resulta
   // A pipeline aberta em outro lugar (ou a contagem do tipo) acompanha.
   broadcast('postagens:mudou', { tipo: tipo as TipoPostagem });
   return { file, postagem: { tipo: tipo as TipoPostagem, id: novoId } };
+}
+
+/** Ideia → roteiro (área Roteiros › Ideias). Como a postagem: a ideia fica, com o link. */
+export async function virarRoteiro(id: unknown, pastaId?: string): Promise<{ file: IdeiasFile; roteiroId: string }> {
+  const ideia = achar(loadFile(), String(id));
+  if (ideia.virouRoteiro) throw new Error('Esta ideia já virou roteiro.');
+  const { id: roteiroId } = await roteirosService.criarDeIdeia(ideia.titulo, ideia.notas, pastaId);
+  // Relê depois do await: a ideia pode ter sido editada no meio.
+  const file = loadFile();
+  const atual = achar(file, String(id));
+  atual.virouRoteiro = { id: roteiroId, em: nowIso() };
+  atual.atualizadaEm = atual.virouRoteiro.em;
+  await saveFile(file);
+  return { file, roteiroId };
 }

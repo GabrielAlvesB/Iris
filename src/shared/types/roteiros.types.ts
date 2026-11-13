@@ -1,4 +1,5 @@
 import type { BaseEntity } from './common.types';
+import type { AnexoPostagem } from './postagens.types';
 
 /**
  * Roteiros: o texto de um conteúdo antes de ele existir. Passa por rascunho →
@@ -169,9 +170,40 @@ export interface Roteiro extends BaseEntity {
    * não foi lido como devia, o original ainda está aqui (Versões › Texto original).
    */
   textoLegado?: string;
+  /** Pasta do usuário; ausente = "Sem pasta". */
+  pastaId?: string;
+  /** Arquivos de referência copiados do computador (o mesmo guarda dos anexos das postagens). */
+  anexos: AnexoPostagem[];
+  /** Arquivos da Biblioteca, por id (sem cópia). */
+  recursoIds: string[];
 }
 
 export const MAX_VERSOES = 30;
+
+/** Uma pasta da lista de roteiros: só nome e cor — o roteiro aponta para ela. */
+export interface PastaRoteiro {
+  id: string;
+  nome: string;
+  /** Uma de CORES_PASTA (hex). */
+  cor: string;
+  criadaEm: string;
+}
+
+/** Cores das pastas: os mesmos tons das tags, que funcionam nos dois temas. */
+export const CORES_PASTA = ['#8b7cf6', '#5b9cf5', '#2fb5a3', '#4fb36b', '#d6a23a', '#e5793b', '#e0567a', '#9a9cab'] as const;
+
+export interface SalvarPastaInput {
+  /** Sem id = pasta nova. */
+  id?: string;
+  nome: string;
+  cor?: string;
+}
+
+export interface MoverRoteirosInput {
+  roteiroIds: string[];
+  /** null = tirar da pasta. */
+  pastaId: string | null;
+}
 
 export interface RoteirosFile {
   schemaVersion: number;
@@ -180,6 +212,7 @@ export interface RoteirosFile {
   roteiros: Roteiro[];
   /** Itens com que todo roteiro novo nasce na verificação. */
   checklistPadrao: string[];
+  pastas: PastaRoteiro[];
 }
 
 export interface CriarRoteiroInput {
@@ -191,11 +224,13 @@ export interface CriarRoteiroInput {
   pesquisa?: PesquisaRoteiro;
   /** Roteiro colado/aberto em markdown: vira cenas no main. */
   texto?: string;
+  pastaId?: string;
+  observacoes?: string;
 }
 
 /** Campos editáveis; status muda só por `mudarStatus`/`aprovar`. */
 export type AtualizarRoteiroInput = { roteiroId: string } & Partial<
-  Pick<Roteiro, 'titulo' | 'tagIds' | 'formato' | 'briefing' | 'cenas' | 'pesquisa' | 'observacoes' | 'checklist' | 'revisaoIa'>
+  Pick<Roteiro, 'titulo' | 'tagIds' | 'formato' | 'briefing' | 'cenas' | 'pesquisa' | 'observacoes' | 'checklist' | 'revisaoIa' | 'anexos' | 'recursoIds'>
 >;
 
 export interface MudarStatusRoteiroInput {

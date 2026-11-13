@@ -23,6 +23,7 @@ import * as contatosService from '../contatos/contatos.service';
 import * as whatsappService from '../whatsapp/whatsapp.service';
 import * as lembretesService from '../lembretes/lembretes.service';
 import * as ideiasService from '../ideias/ideias.service';
+import * as gravacaoService from '../gravacao/gravacao.service';
 import { aguardarEscritas } from '../../storage/jsonStore';
 import { reaplicarAgendamentos } from '../../core/backgroundServices';
 import {
@@ -71,6 +72,7 @@ const LEITORES: Record<ChaveBundle, () => Promise<unknown>> = {
   whatsapp: () => whatsappService.getFullFile(),
   lembretes: () => lembretesService.getFullFile(),
   ideias: () => ideiasService.getFullFile(),
+  gravacao: () => gravacaoService.getFullFile(),
 };
 
 /** Cada `replaceFile` passa pela `migrate` do service: o que vem do arquivo nunca vai cru para o disco. */
@@ -97,6 +99,7 @@ const GRAVADORES: Record<ChaveBundle, (dados: unknown) => Promise<unknown>> = {
   whatsapp: (d) => whatsappService.replaceFile(d),
   lembretes: (d) => lembretesService.replaceFile(d),
   ideias: (d) => ideiasService.replaceFile(d),
+  gravacao: (d) => gravacaoService.replaceFile(d),
 };
 
 const TODOS: ModuloExportavel[] = EXPORTAVEIS.map((e) => e.id);
@@ -181,9 +184,13 @@ function resumir(id: ModuloExportavel, b: ExportBundle): ResumoExportavel {
     case 'ideias': {
       const ideias = lista(campo(b.ideias, 'ideias'));
       return r([
-        [ideias.filter((i) => !campo(i, 'virouPostagem') && !campo(i, 'arquivada')).length, 'ideia pendente', 'ideias pendentes'],
+        [ideias.filter((i) => !campo(i, 'virouPostagem') && !campo(i, 'virouRoteiro') && !campo(i, 'arquivada')).length, 'ideia pendente', 'ideias pendentes'],
         [ideias.filter((i) => campo(i, 'virouPostagem')).length, 'que virou postagem', 'que viraram postagem'],
       ]);
+    }
+    case 'gravacao': {
+      const sessoes = lista(campo(b.gravacao, 'sessoes'));
+      return r([[sessoes.length, 'sessão de gravação', 'sessões de gravação']]);
     }
     case 'relatorios':
       return r([[lista(campo(b.relatorios, 'relatorios')).length, 'relatório', 'relatórios']]);
@@ -312,6 +319,14 @@ async function gravarModulos(bundle: ExportBundle, modulos: ModuloExportavel[]):
     exploradorService.iniciarWatchers();
   }
   reaplicarAgendamentos();
+}
+
+/**
+ * A mesma rede de segurança da importação, para quem vai substituir os dados por outro
+ * caminho (a Nuvem, ao trazer o que está no banco): "Desfazer última importação" volta dela.
+ */
+export function guardarCopiaAntesDeSubstituir(): Promise<string> {
+  return gravarCopia(PREFIXO_COPIA, TODOS);
 }
 
 export async function aplicarImportacao(pedidos: unknown): Promise<ResultadoImportacao> {

@@ -33,7 +33,7 @@ const JUNTAR_MS = 60_000;
  * Fica de fora o que não se desfaz direito: mensagem do WhatsApp já saiu,
  * importação e backup têm o próprio desfazer, e o próprio desfazer não se registra.
  */
-const CANAIS_IGNORADOS = /^(historico|export|backup|atualizacao|whatsapp):/;
+const CANAIS_IGNORADOS = /^(historico|export|backup|atualizacao|whatsapp|nuvem):/;
 /** Leitura que regrava o arquivo (migração no primeiro getFile) não é ação do usuário. */
 const METODOS_DE_LEITURA = /^(get|listar|ler|carregar|buscar|indice|resumo|status|previa|testar|verificar)/i;
 

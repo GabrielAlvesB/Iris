@@ -13,11 +13,11 @@ import {
 import { consumirWorkspacePendente, onWorkspaceSolicitado } from '../../core/navegacao.js';
 import { renderMarkdown } from '../../ui/markdown.js';
 import { openConfirmModal } from '../../ui/modal.js';
-import { buildAviso, buildBotao, ICONES, svg, tempoRelativo } from '../../ui/pagina.js';
+import { buildAviso, buildBotao, buildSegmentado, buildVazio, ICONES, svg, tempoRelativo } from '../../ui/pagina.js';
 import { mostrarToast } from '../../ui/toast.js';
 import * as state from './workspace.state.js';
+import { buildLinhaDoTempo } from './workspace.linha.js';
 import {
-  ICONE_ABRIR,
   buildAcao,
   buildCeu,
   emAndamento,
@@ -30,8 +30,8 @@ import {
 } from './workspace.ui.js';
 
 /**
- * Iris Workspace: a vitrine dos apps do ecossistema (o céu com as órbitas,
- * o destaque, os instalados e a grade) e a página de cada app. O main faz
+ * Iris Workspace: a vitrine dos apps do ecossistema (o céu com as órbitas e, abaixo,
+ * a lista de apps ao lado das novidades) e a página de cada app. O main faz
  * todo o trabalho; aqui só se desenha o EstadoWorkspace e se pede por id.
  */
 
@@ -45,6 +45,19 @@ const formatoEscolhido = new Map<string, FormatoApp>();
 const versoes = new Map<string, VersaoAnterior[] | 'carregando' | string>();
 /** Sem o progresso: se só ele mudou, o anel é atualizado no lugar. */
 let ultimaChave = '';
+
+type FiltroApps = 'todos' | 'instalados' | 'criacao';
+const CHAVE_FILTRO = 'iris.workspace.filtro';
+let filtroApps: FiltroApps = lerFiltro();
+
+function lerFiltro(): FiltroApps {
+  try {
+    const v = localStorage.getItem(CHAVE_FILTRO);
+    return v === 'instalados' || v === 'criacao' ? v : 'todos';
+  } catch {
+    return 'todos';
+  }
+}
 
 function chave(e: EstadoWorkspace): string {
   return JSON.stringify(e.apps.map((a) => ({ ...a, progresso: a.situacao === 'baixando' ? undefined : a.progresso })));
@@ -218,111 +231,70 @@ function vitrine(e: EstadoWorkspace): HTMLElement {
   ceu.append(textos, buildCeu(e.apps, (id) => abrirPagina(id)));
   pagina.appendChild(ceu);
 
-  // Destaque: o primeiro do catálogo (o mais novo do ecossistema fica no topo dele).
-  const destaque = APPS_WORKSPACE[0];
-  if (destaque) pagina.appendChild(cartaoDestaque(destaque, estadoDe(e, destaque)));
-
-  const instalados = APPS_WORKSPACE.filter((a) => estadoDe(e, a).instalacao);
-  // Com um app só, o destaque já é ele: a fileira repetiria o mesmo cartão.
-  if (instalados.some((a) => a !== destaque)) {
-    const sec = secao('Seus apps', 'Instalados neste computador.');
-    const fila = el('div', 'ws-fila');
-    instalados.forEach((a) => fila.appendChild(chipInstalado(a, estadoDe(e, a))));
-    sec.appendChild(fila);
-    pagina.appendChild(sec);
-  }
-
-  // Disponíveis e em criação em seções separadas: misturados, metade da grade era botão desativado.
-  const prontos = APPS_WORKSPACE.filter((a) => !emCriacao(a));
-  const futuros = APPS_WORKSPACE.filter((a) => emCriacao(a));
-  const todos = secao('Todos os apps', 'Cada app tem a página dele, com novidades, formatos e versões anteriores.');
-  const grade = el('div', 'ws-grade');
-  prontos.forEach((a) => grade.appendChild(cartao(a, estadoDe(e, a))));
-  todos.appendChild(grade);
-  pagina.appendChild(todos);
-  if (futuros.length) {
-    const sec = secao('Em criação', 'Os próximos apps do ecossistema. Quando cada um sair, ele passa para cima, pronto para instalar.');
-    const fila = el('div', 'ws-grade is-futuros');
-    futuros.forEach((a) => fila.appendChild(cartaoFuturo(a)));
-    sec.appendChild(fila);
-    pagina.appendChild(sec);
-  }
+  // Abaixo do céu, duas colunas: os apps (uma lista só) e as novidades (a linha do tempo das versões).
+  // Antes eram quatro seções empilhadas e o mesmo app aparecia em três delas.
+  const corpo = el('div', 'ws-corpo');
+  corpo.append(colunaDeApps(e), buildLinhaDoTempo(e, (id) => abrirPagina(id), redesenharTudo));
+  pagina.appendChild(corpo);
   return pagina;
 }
 
-function secao(titulo: string, sub: string): HTMLElement {
-  const s = el('section', 'ws-secao');
-  const cab = el('header', 'ws-secao-cab');
-  cab.append(el('h2', 'ws-secao-titulo', titulo), el('p', 'ws-secao-sub', sub));
-  s.appendChild(cab);
-  return s;
+function redesenharTudo(): void {
+  ultimaChave = '';
+  const atual = state.getEstado();
+  if (atual) redesenhar(atual);
 }
 
-function cartaoDestaque(app: AppWorkspace, e: EstadoApp): HTMLElement {
-  const card = comCorDoApp(el('article', 'ws-destaque'), app);
-  card.classList.toggle('is-andamento', emAndamento(e));
-  const brilho = el('div', 'ws-destaque-brilho');
-  brilho.setAttribute('aria-hidden', 'true');
-  card.appendChild(brilho);
-
-  card.appendChild(iconeDoApp(app, 88));
-  const corpo = el('div', 'ws-destaque-corpo');
-  corpo.appendChild(el('p', 'ws-rotulo', e.situacao === 'atualizacao' ? 'Versão nova' : 'Em destaque'));
-  const linha = el('div', 'ws-destaque-linha');
-  linha.append(el('h2', 'ws-destaque-nome', app.nome), selo(e));
-  corpo.appendChild(linha);
-  corpo.appendChild(el('p', 'ws-destaque-frase', app.frase));
-  const meta = linhaDaVersao(e, formatoEscolhido.get(app.id));
-  if (meta) corpo.appendChild(el('p', 'ws-meta', meta));
-  if (e.erro) corpo.appendChild(buildAviso(e.erro, 'erro'));
-  const rodape = el('div', 'ws-destaque-rodape');
-  rodape.appendChild(buildAcao(app, e, acoesDe(app), formatoEscolhido.get(app.id)));
-  const detalhes = buildBotao('Ver detalhes', { variante: 'fantasma' });
-  detalhes.addEventListener('click', () => abrirPagina(app.id));
-  rodape.appendChild(detalhes);
-  corpo.appendChild(rodape);
-  card.appendChild(corpo);
-
-  // Os recursos em pílulas: o que o app faz, num relance.
-  const pilulas = el('ul', 'ws-pilulas');
-  app.recursos.slice(0, 4).forEach((r) => pilulas.appendChild(el('li', undefined, r.titulo)));
-  card.appendChild(pilulas);
-  return card;
+/**
+ * Instalados primeiro, depois o que dá para instalar, o que ainda não saiu e o que está em criação.
+ * Atualização não muda a posição: o cartão pularia de lugar no meio do download.
+ */
+function ordemDoApp(app: AppWorkspace, e: EstadoApp): number {
+  if (e.instalacao) return 0;
+  if (emCriacao(app)) return 3;
+  return e.situacao === 'nao-publicado' ? 2 : 1;
 }
 
-function chipInstalado(app: AppWorkspace, e: EstadoApp): HTMLElement {
-  const chip = comCorDoApp(el('div', 'ws-chip'), app);
-  chip.appendChild(iconeDoApp(app, 40));
-  const t = el('div', 'ws-chip-textos');
-  t.append(el('strong', undefined, app.nome), el('span', undefined, e.instalacao?.versao ? `v${e.instalacao.versao}` : 'Instalado'));
-  chip.appendChild(t);
-  if (e.situacao === 'atualizacao') chip.appendChild(selo(e));
-  const abrir = buildBotao('Abrir', { icone: ICONE_ABRIR, variante: 'secundario' });
-  abrir.addEventListener('click', acoesDe(app).abrir);
-  chip.appendChild(abrir);
-  return chip;
+function colunaDeApps(e: EstadoWorkspace): HTMLElement {
+  const col = el('section', 'ws-col');
+  const instalados = APPS_WORKSPACE.filter((a) => estadoDe(e, a).instalacao).length;
+  const futuros = APPS_WORKSPACE.filter((a) => emCriacao(a)).length;
+  if (filtroApps === 'criacao' && !futuros) filtroApps = 'todos';
+
+  const cab = el('header', 'ws-col-cab');
+  cab.appendChild(el('h2', 'ws-col-titulo', 'Apps'));
+  const opcoes: Array<{ value: FiltroApps; label: string }> = [
+    { value: 'todos', label: 'Todos' },
+    { value: 'instalados', label: instalados ? `Instalados · ${instalados}` : 'Instalados' },
+  ];
+  if (futuros) opcoes.push({ value: 'criacao', label: 'Em criação' });
+  cab.appendChild(
+    buildSegmentado(opcoes, filtroApps, (valor) => {
+      filtroApps = valor;
+      try {
+        localStorage.setItem(CHAVE_FILTRO, valor);
+      } catch {
+        // Sem localStorage o filtro só não é lembrado.
+      }
+      redesenharTudo();
+    }),
+  );
+  col.appendChild(cab);
+
+  const lista = APPS_WORKSPACE.map((app, i) => ({ app, estado: estadoDe(e, app), i }))
+    .filter(({ app, estado }) => (filtroApps === 'instalados' ? Boolean(estado.instalacao) : filtroApps === 'criacao' ? emCriacao(app) : true))
+    .sort((a, b) => ordemDoApp(a.app, a.estado) - ordemDoApp(b.app, b.estado) || a.i - b.i);
+  if (!lista.length) {
+    col.appendChild(buildVazio(ICONES.backup, 'Nenhum app instalado aqui ainda', 'Em "Todos" estão os apps do ecossistema: cada um instala com um clique.'));
+    return col;
+  }
+  const grade = el('div', 'ws-grade');
+  lista.forEach(({ app, estado }) => grade.appendChild(cartao(app, estado)));
+  col.appendChild(grade);
+  return col;
 }
 
-/** Cartão compacto de um app em criação: logo, nome e para que serve — sem botão que não faz nada. */
-function cartaoFuturo(app: AppWorkspace): HTMLElement {
-  const card = comCorDoApp(el('article', 'ws-cartao is-futuro'), app);
-  card.tabIndex = 0;
-  card.setAttribute('role', 'button');
-  card.setAttribute('aria-label', `${app.nome}, em criação: ${app.frase}`);
-  card.addEventListener('click', () => abrirPagina(app.id));
-  card.addEventListener('keydown', (ev) => {
-    if (ev.target === card && (ev.key === 'Enter' || ev.key === ' ')) {
-      ev.preventDefault();
-      abrirPagina(app.id);
-    }
-  });
-  card.appendChild(iconeDoApp(app, 44));
-  const textos = el('div', 'ws-futuro-textos');
-  textos.append(el('h3', 'ws-cartao-nome', app.nome), el('p', 'ws-cartao-frase', app.frase));
-  card.appendChild(textos);
-  return card;
-}
-
+/** Um desenho só de cartão, para todo app: instalado, disponível, em breve ou em criação. */
 function cartao(app: AppWorkspace, e: EstadoApp): HTMLElement {
   const card = comCorDoApp(el('article', 'ws-cartao'), app);
   card.tabIndex = 0;
@@ -336,12 +308,13 @@ function cartao(app: AppWorkspace, e: EstadoApp): HTMLElement {
     }
   });
   const topo = el('div', 'ws-cartao-topo');
-  topo.append(iconeDoApp(app, 52), selo(e));
+  topo.append(iconeDoApp(app, 44), selo(e));
   card.appendChild(topo);
   card.append(el('h3', 'ws-cartao-nome', app.nome), el('p', 'ws-cartao-frase', app.frase));
-  const meta = linhaDaVersao(e);
+  const meta = linhaDaVersao(e, undefined, true);
   if (meta) card.appendChild(el('p', 'ws-meta', meta));
-  card.appendChild(buildAcao(app, e, acoesDe(app)));
+  // Em criação o selo já diz tudo: um botão desativado só ocuparia o lugar.
+  if (e.situacao !== 'em-criacao') card.appendChild(buildAcao(app, e, acoesDe(app)));
   return card;
 }
 

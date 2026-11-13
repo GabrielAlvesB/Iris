@@ -207,42 +207,7 @@
   fill: var(--text-muted);
 }
 
-/* ---------- Destaque ---------- */
-
-.ws-destaque {
-  --ws-cor: oklch(0.62 0.15 var(--ws-h));
-  position: relative;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 24px;
-  padding: 26px 28px;
-  overflow: hidden;
-  border-radius: var(--radius-xl);
-  border: 1px solid color-mix(in oklch, var(--ws-cor) 30%, var(--border-soft));
-  background: linear-gradient(115deg, color-mix(in oklch, var(--ws-cor) 13%, var(--bg-elevated)), var(--bg-elevated) 60%);
-}
-
-.ws-destaque-brilho {
-  position: absolute;
-  inset: -40% auto auto -10%;
-  width: 360px;
-  height: 360px;
-  border-radius: 50%;
-  background: radial-gradient(circle, color-mix(in srgb, var(--ws-cor) 30%, transparent), transparent 65%);
-  pointer-events: none;
-}
-
-.ws-destaque > :not(.ws-destaque-brilho) {
-  position: relative;
-}
-
-.ws-destaque-corpo {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
-}
+/* ---------- Cabeçalho da página do app (nome, frase) ---------- */
 
 .ws-destaque-linha {
   display: flex;
@@ -251,10 +216,9 @@
   gap: 10px;
 }
 
-.ws-destaque-nome,
 .ws-app-nome {
   margin: 0;
-  font-size: 26px;
+  font-size: 32px;
   font-weight: 700;
   letter-spacing: -0.03em;
   color: var(--text);
@@ -265,36 +229,6 @@
   font-size: 14px;
   line-height: 1.5;
   color: var(--text-muted);
-}
-
-.ws-destaque-rodape {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 6px;
-}
-
-.ws-pilulas {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.ws-pilulas li {
-  padding: 5px 11px;
-  font-size: 11.5px;
-  font-weight: 500;
-  color: color-mix(in oklch, var(--ws-cor) var(--tinta-texto), var(--tinta-forte));
-  /* Opacas sobre a superfície: com transparência, a borda arredondada saía amarelada no tema claro. */
-  background: color-mix(in oklch, var(--ws-cor) 12%, var(--bg-elevated));
-  border: 1px solid color-mix(in oklch, var(--ws-cor) 30%, var(--bg-elevated));
-  border-radius: 999px;
-  white-space: nowrap;
 }
 
 /* ---------- O botão que muda de forma ---------- */
@@ -365,22 +299,33 @@
   color: var(--text);
 }
 
-/* ---------- Seções da vitrine ---------- */
+/* ---------- Abaixo do céu: os apps e, ao lado, as novidades ---------- */
 
-.ws-secao {
+.ws-corpo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  align-items: start;
+  gap: 26px;
+}
+
+.ws-col {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 0;
 }
 
-.ws-secao-cab {
+/* Mesma altura nas duas colunas: os títulos ficam na mesma linha, com ou sem filtro ao lado. */
+.ws-col-cab {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  justify-content: space-between;
   flex-wrap: wrap;
-  gap: 4px 12px;
+  gap: 8px 12px;
+  min-height: 40px;
 }
 
-.ws-secao-titulo {
+.ws-col-titulo {
   margin: 0;
   font-size: 16px;
   font-weight: 700;
@@ -388,48 +333,9 @@
   color: var(--text);
 }
 
-.ws-secao-sub {
-  margin: 0;
-  font-size: 12.5px;
-  color: var(--text-faint);
-}
-
-.ws-fila {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.ws-chip {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 10px 10px 12px;
-  border-radius: var(--radius-lg);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-soft);
-}
-
-.ws-chip-textos {
-  display: flex;
-  flex-direction: column;
-  margin-right: 6px;
-}
-
-.ws-chip-textos strong {
-  font-size: 13px;
-  color: var(--text);
-}
-
-.ws-chip-textos span {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
 .ws-grade {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 12px;
 }
 
@@ -439,18 +345,17 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 18px;
+  padding: 16px;
   border-radius: var(--radius-lg);
   background: var(--bg-elevated);
   border: 1px solid var(--border-soft);
   cursor: pointer;
-  transition: border-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
-.ws-cartao:not(.is-vaga):hover,
-.ws-cartao:not(.is-vaga):focus-visible {
+.ws-cartao:hover,
+.ws-cartao:focus-visible {
   outline: none;
-  transform: translateY(-2px);
   border-color: color-mix(in oklch, var(--ws-cor) 45%, var(--border));
   box-shadow: 0 14px 30px -16px color-mix(in srgb, var(--ws-cor) 60%, transparent);
 }
@@ -480,49 +385,6 @@
 
 .ws-cartao .ws-acao {
   margin-top: 6px;
-}
-
-/* Em criação: cartão baixo, ícone ao lado do texto. */
-.ws-grade.is-futuros {
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-}
-
-.ws-cartao.is-futuro {
-  flex-direction: row;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-}
-
-.ws-futuro-textos {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
-.ws-cartao.is-vaga {
-  align-items: flex-start;
-  justify-content: center;
-  cursor: default;
-  background: transparent;
-  border: 1px dashed var(--border);
-  color: var(--text-faint);
-  font-size: 12.5px;
-  line-height: 1.5;
-}
-
-.ws-cartao.is-vaga strong {
-  font-size: 14px;
-  color: var(--text-muted);
-}
-
-.ws-vaga-icone {
-  width: 52px;
-  height: 52px;
-  margin-bottom: 4px;
-  border-radius: 15px;
-  border: 1.5px dashed var(--border);
 }
 
 /* ---------- Página do app ---------- */
@@ -555,10 +417,6 @@
 
 .ws-app-textos .ws-acao {
   margin-top: 6px;
-}
-
-.ws-app-nome {
-  font-size: 32px;
 }
 
 .ws-app-colunas {
@@ -805,26 +663,15 @@
     margin: 0 -10px -16px;
   }
 
-  .ws-destaque {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .ws-pilulas {
-    grid-column: 1 / -1;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: flex-start;
-  }
-
+  /* Uma coluna: os apps primeiro, as novidades depois. */
+  .ws-corpo,
   .ws-app-colunas {
     grid-template-columns: 1fr;
   }
 }
 
 @container workspace (max-width: 520px) {
-  .ws-destaque,
   .ws-app-topo {
-    grid-template-columns: 1fr;
     flex-direction: column;
     align-items: flex-start;
     padding: 20px;
@@ -894,5 +741,198 @@
   .ws-planeta-corpo,
   .ws-ceu.is-carregando {
     animation: none;
+  }
+}
+
+/* ---------- Novidades: a linha do tempo do ecossistema, na coluna da direita ---------- */
+
+.ws-linha-menu {
+  max-width: 180px;
+}
+
+.ws-linha-vazia {
+  margin: 0;
+  padding: 16px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-faint);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.ws-linha-lista {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* O fio da linha: passa pelo centro dos pontos (12px, encostados à esquerda). */
+.ws-linha-lista::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 5px;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--border), var(--border-soft) 85%, transparent);
+  border-radius: 2px;
+}
+
+.ws-linha-mes {
+  position: relative;
+  margin: 6px 0 -2px 22px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.ws-linha-mes:first-child {
+  margin-top: 0;
+}
+
+.ws-marco {
+  --ws-cor: oklch(0.62 0.15 var(--ws-h));
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: start;
+}
+
+.ws-marco-ponto {
+  width: 12px;
+  height: 12px;
+  margin-top: 16px;
+  background: var(--ws-cor);
+  border: 3px solid var(--bg);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--ws-cor) 55%, transparent);
+}
+
+.ws-marco-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px 14px;
+  font-family: var(--font-sans);
+  text-align: left;
+  color: var(--text);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.ws-marco-card:hover,
+.ws-marco-card:focus-visible {
+  outline: none;
+  border-color: color-mix(in oklch, var(--ws-cor) 45%, var(--border));
+  box-shadow: 0 14px 30px -16px color-mix(in srgb, var(--ws-cor) 60%, transparent);
+}
+
+.ws-marco-cab {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.ws-marco-nome {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 7px;
+  min-width: 0;
+}
+
+.ws-marco-nome strong {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ws-marco-versao {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: color-mix(in oklch, var(--ws-cor) var(--tinta-texto), var(--tinta-forte));
+}
+
+.ws-marco-data {
+  flex-shrink: 0;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.ws-marco-selos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* "Nova" é o único selo com a cor de destaque: é a notícia da coluna. */
+.pg-selo.ws-selo-nova {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.ws-marco-titulo {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ws-marco-notas {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0 0 0 16px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+/* Nota longa fica em duas linhas: a coluna tem de acabar perto da lista de apps; o resto está na página do app. */
+.ws-marco-notas li > span {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.ws-marco-notas li::marker {
+  color: var(--ws-cor);
+}
+
+.ws-linha-mais {
+  align-self: flex-start;
+  margin-left: 22px;
+  padding: 6px 12px;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.ws-linha-mais:hover {
+  border-color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ws-cartao,
+  .ws-marco-card {
+    transition: none;
   }
 }
