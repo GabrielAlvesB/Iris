@@ -52,6 +52,7 @@ export const MODULOS = [
   { id: 'quadro', rotulo: 'Quadro', posicao: 'arquivos', descricao: 'Tela livre de notas, tarefas e rotinas' },
   { id: 'copy', rotulo: 'Copy', posicao: 'arquivos', descricao: 'Textos prontos para copiar' },
   { id: 'pensamentos', rotulo: 'Pensamentos', posicao: 'arquivos', descricao: 'Post-its para ideias soltas' },
+  { id: 'canvas', rotulo: 'Canvas', posicao: 'arquivos', descricao: 'Lousa infinita para desenhar, ligar ideias e rabiscar' },
   { id: 'links', rotulo: 'Links rápidos', posicao: 'arquivos', descricao: 'Atalhos para os sites de sempre' },
   { id: 'servidores', rotulo: 'Servidores', posicao: 'sistema', descricao: 'Sites no ar e comandos por SSH' },
   { id: 'n8n', rotulo: 'n8n', posicao: 'sistema', descricao: 'Fluxos de automação' },

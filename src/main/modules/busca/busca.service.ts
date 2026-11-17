@@ -1,3 +1,5 @@
+import * as canvasService from '../canvas/canvas.service';
+import { textoDaForma } from '../../../shared/types/canvas.types';
 import * as kanbanService from '../kanban/kanban.service';
 import * as todoService from '../todo/todo.service';
 import * as quadroService from '../quadro/quadro.service';
@@ -105,6 +107,24 @@ async function dosPensamentos(): Promise<ItemBusca[]> {
       termos: juntar(p.texto),
       alvo: { modulo: 'pensamentos', id: p.id },
     }));
+}
+
+/** Texto escrito nas formas do Canvas (notas, caixas, textos soltos). */
+async function doCanvas(): Promise<ItemBusca[]> {
+  const file = await canvasService.getFile();
+  return file.quadros.flatMap((q) =>
+    q.formas
+      .filter((f) => textoDaForma(f))
+      .map(
+        (f): ItemBusca => ({
+          tipo: 'Canvas',
+          rotulo: primeiraLinha(textoDaForma(f)),
+          detalhe: q.nome,
+          termos: juntar(textoDaForma(f), q.nome),
+          alvo: { modulo: 'canvas', id: f.id, quadroId: q.id },
+        }),
+      ),
+  );
 }
 
 async function daBiblioteca(): Promise<ItemBusca[]> {
@@ -240,7 +260,7 @@ async function dosContatos(): Promise<ItemBusca[]> {
 
 export async function montarIndice(): Promise<ItemBusca[]> {
   const partes = await Promise.all(
-    [doKanban, doTodo, doQuadro, dosPensamentos, daBiblioteca, dasPostagens, doSheets, dosRoteiros, dasGravacoes, dosLinks, doCopy, dosContatos].map(seguro),
+    [doKanban, doTodo, doQuadro, dosPensamentos, doCanvas, daBiblioteca, dasPostagens, doSheets, dosRoteiros, dasGravacoes, dosLinks, doCopy, dosContatos].map(seguro),
   );
   return partes.flat().filter((i) => i.rotulo.trim());
 }

@@ -1,31 +1,16 @@
-import fs from 'node:fs';
-import type * as Ssh2 from 'ssh2';
 import { broadcast } from '../../core/broadcast';
 import type { ComandoSalvo, ServidorSsh } from '../../../shared/types/servidores.types';
+import { novoCliente, prepararConexao, responderSenha, traduzirErro, type Preparo, type SegredosSsh } from './servidores.conexao';
 
 /**
- * Execução de comandos SSH, só com chave privada.
- *
- * Abre a conexão, roda um comando, fecha. Sem sessão persistente e sem shell
- * interativo: o objetivo é conferir estado (uptime, docker ps, tail), não
- * substituir um terminal.
+ * Comandos salvos: abre a conexão, roda um comando, fecha. Para mexer no servidor
+ * de verdade há o terminal (servidores.terminal.ts); aqui é conferir estado
+ * (uptime, docker ps, tail) com um clique.
  */
 
-const TIMEOUT_CONEXAO_MS = 15_000;
 const TIMEOUT_COMANDO_MS = 60_000;
 /** Teto de saída por execução: um `tail` distraído não pode estourar o IPC. */
 const MAX_SAIDA_BYTES = 200_000;
-
-/**
- * ssh2 só é carregado no primeiro comando: sozinho ele custa ~1 s de require
- * (cripto, cpu-features), e estava pesando na abertura do app para todo mundo,
- * mesmo quem nunca abre Servidores.
- */
-let ssh2: typeof Ssh2 | null = null;
-function carregarSsh2(): typeof Ssh2 {
-  ssh2 ??= require('ssh2') as typeof Ssh2;
-  return ssh2;
-}
 
 function emitir(
   servidorId: string,
@@ -37,32 +22,27 @@ function emitir(
   broadcast('servidores:saida', { servidorId, comandoId, stream, texto, exitCode });
 }
 
+/** Resolve com a impressão digital vista quando a conexão abriu (para o service gravar a primeira). */
 export function rodarComandoSsh(
   servidor: ServidorSsh,
   comando: ComandoSalvo,
-  passphrase?: string,
-): Promise<void> {
+  segredos: SegredosSsh,
+): Promise<string | undefined> {
   return new Promise((resolve) => {
-    let privateKey: Buffer;
+    let preparo: Preparo;
     try {
-      privateKey = fs.readFileSync(servidor.caminhoChave);
+      preparo = prepararConexao(servidor, segredos);
     } catch (error) {
-      emitir(
-        servidor.id,
-        comando.id,
-        'fim',
-        `Não foi possível ler a chave privada em ${servidor.caminhoChave}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-        1,
-      );
-      resolve();
+      emitir(servidor.id, comando.id, 'fim', error instanceof Error ? error.message : String(error), 1);
+      resolve(undefined);
       return;
     }
 
-    const conn = new (carregarSsh2().Client)();
+    const conn = novoCliente();
+    responderSenha(conn, segredos.senha);
     let enviados = 0;
     let encerrado = false;
+    let conectou = false;
     let timerComando: NodeJS.Timeout | null = null;
 
     function finalizar(mensagem: string, exitCode: number): void {
@@ -75,7 +55,7 @@ export function rodarComandoSsh(
       } catch {
         // A conexão já pode ter caído; nada a fazer.
       }
-      resolve();
+      resolve(conectou ? preparo.vista() : undefined);
     }
 
     /** Corta a saída no teto para não estourar o structured clone do IPC. */
@@ -94,6 +74,7 @@ export function rodarComandoSsh(
     }
 
     conn.on('ready', () => {
+      conectou = true;
       conn.exec(comando.comando, (err, stream) => {
         if (err) {
           finalizar(`Falha ao executar: ${err.message}`, 1);
@@ -114,33 +95,70 @@ export function rodarComandoSsh(
       });
     });
 
-    conn.on('error', (error) => {
-      // Mensagens do ssh2 são curtas demais para o usuário agir; traduzimos as
-      // causas comuns de falha por chave.
-      const bruta = error.message || String(error);
-      const amigavel = /passphrase/i.test(bruta)
-        ? 'A chave privada exige passphrase — configure-a no servidor.'
-        : /All configured authentication methods failed/i.test(bruta)
-          ? 'O servidor recusou a chave. Confira o usuário e se a chave pública está em authorized_keys.'
-          : /ENOTFOUND|EAI_AGAIN/i.test(bruta)
-            ? `Host "${servidor.host}" não encontrado.`
-            : /ECONNREFUSED/i.test(bruta)
-              ? `Conexão recusada em ${servidor.host}:${servidor.porta}.`
-              : bruta;
-      finalizar(amigavel, 1);
-    });
+    conn.on('error', (error) => finalizar(traduzirErro(error, servidor, preparo), 1));
 
     try {
-      conn.connect({
-        host: servidor.host,
-        port: servidor.porta,
-        username: servidor.usuario,
-        privateKey,
-        passphrase,
-        readyTimeout: TIMEOUT_CONEXAO_MS,
-      });
+      conn.connect(preparo.config);
     } catch (error) {
-      finalizar(error instanceof Error ? error.message : String(error), 1);
+      finalizar(traduzirErro(error, servidor, preparo), 1);
+    }
+  });
+}
+
+/**
+ * "Testar conexão": conecta, pergunta o sistema (`uname -sr`) e fecha. Nunca grava
+ * nada — quem chama decide o que fazer com a impressão digital.
+ */
+export function testarSsh(
+  alvo: Parameters<typeof prepararConexao>[0],
+  segredos: SegredosSsh,
+): Promise<{ ok: boolean; latenciaMs?: number; impressaoDigital?: string; sistema?: string; chaveMudou?: boolean; erro?: string }> {
+  return new Promise((resolve) => {
+    let preparo: Preparo;
+    try {
+      preparo = prepararConexao(alvo, segredos);
+    } catch (error) {
+      resolve({ ok: false, erro: error instanceof Error ? error.message : String(error) });
+      return;
+    }
+    const inicio = Date.now();
+    const conn = novoCliente();
+    responderSenha(conn, segredos.senha);
+    let pronto = false;
+    const terminar = (r: Awaited<ReturnType<typeof testarSsh>>): void => {
+      if (pronto) return;
+      pronto = true;
+      try {
+        conn.end();
+      } catch {
+        // já fechada
+      }
+      resolve(r);
+    };
+
+    conn.on('ready', () => {
+      const latenciaMs = Date.now() - inicio;
+      conn.exec('uname -sr 2>/dev/null || ver', (err, stream) => {
+        if (err) {
+          terminar({ ok: true, latenciaMs, impressaoDigital: preparo.vista() });
+          return;
+        }
+        let saida = '';
+        stream.on('data', (p: Buffer) => {
+          saida += p.toString('utf-8');
+        });
+        stream.stderr.on('data', () => undefined);
+        stream.on('close', () => terminar({ ok: true, latenciaMs, impressaoDigital: preparo.vista(), sistema: saida.trim().slice(0, 120) || undefined }));
+      });
+      setTimeout(() => terminar({ ok: true, latenciaMs, impressaoDigital: preparo.vista() }), 5000);
+    });
+    conn.on('error', (error) =>
+      terminar({ ok: false, erro: traduzirErro(error, alvo, preparo), chaveMudou: preparo.mudou(), impressaoDigital: preparo.vista() }),
+    );
+    try {
+      conn.connect(preparo.config);
+    } catch (error) {
+      terminar({ ok: false, erro: traduzirErro(error, alvo, preparo) });
     }
   });
 }

@@ -37,6 +37,7 @@ export type GuiaId =
   | 'quadro'
   | 'copy'
   | 'pensamentos'
+  | 'canvas'
   | 'links'
   | 'trafego'
   | 'workspace'
@@ -155,7 +156,7 @@ export function onGuiaSolicitado(cb: (guia: GuiaId) => void): () => void {
 // ---------- Abrir um item dentro de um módulo (busca global) ----------
 
 /** Módulos que sabem ir até um item: a view lê o pedido depois de carregar. */
-export type ModuloComItem = 'kanban' | 'todo' | 'quadro' | 'pensamentos' | 'explorador' | 'sheets' | 'roteiros' | 'copy' | 'gravacao';
+export type ModuloComItem = 'kanban' | 'todo' | 'quadro' | 'pensamentos' | 'canvas' | 'explorador' | 'sheets' | 'roteiros' | 'copy' | 'gravacao';
 
 export interface PedidoItem {
   modulo: ModuloComItem;
@@ -231,6 +232,9 @@ export function abrirAlvo(alvo: AlvoBusca): void {
       return;
     case 'sheets':
       abrirItem({ modulo: 'sheets', id: alvo.id, dentro: alvo.tabelaId });
+      return;
+    case 'canvas':
+      abrirItem({ modulo: 'canvas', id: alvo.id, dentro: alvo.quadroId });
       return;
     default:
       abrirItem({ modulo: alvo.modulo, id: alvo.id });

@@ -5,7 +5,9 @@ import { readStore, writeStore } from '../../storage/jsonStore';
 import { deleteSecret, deleteSecretsByPrefix, getSecret, hasSecret, setSecret } from '../../storage/secretStore';
 import { isFalha, request, setHostsInseguros } from '../../core/httpClient';
 import { broadcast } from '../../core/broadcast';
-import { rodarComandoSsh } from './servidores.ssh';
+import { rodarComandoSsh, testarSsh } from './servidores.ssh';
+import * as terminal from './servidores.terminal';
+import type { SegredosSsh } from './servidores.conexao';
 import type {
   AtualizarServidorInput,
   Checagem,
@@ -13,8 +15,12 @@ import type {
   CriarServidorHttpInput,
   CriarServidorSshInput,
   RemoverComandoInput,
+  AbrirTerminalInput,
+  ResultadoTesteServidor,
   RodarComandoInput,
   SalvarComandoInput,
+  SessaoTerminal,
+  TestarConexaoInput,
   Servidor,
   ServidorHttp,
   ServidorSsh,
@@ -22,7 +28,7 @@ import type {
 } from '../../../shared/types/servidores.types';
 
 const FILE_NAME = 'servidores.json';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 /** O jsonStore reescreve o arquivo inteiro a cada ciclo — histórico precisa de teto. */
 const LIMITE_HISTORICO = 200;
 /** Espaçamento entre hosts no ciclo, para não abrir todos os sockets de uma vez. */
@@ -47,7 +53,21 @@ function migrate(raw: unknown): ServidoresFile {
   const servidores = Array.isArray(candidate.servidores)
     ? candidate.servidores
         .filter((s): s is Servidor => Boolean(s) && (s.tipo === 'http' || s.tipo === 'ssh'))
-        .map((s) => ({ ...s, historico: Array.isArray(s.historico) ? s.historico.slice(-LIMITE_HISTORICO) : [] }))
+        .map((s): Servidor => {
+          const historico = Array.isArray(s.historico) ? s.historico.slice(-LIMITE_HISTORICO) : [];
+          if (s.tipo === 'http') return { ...s, historico };
+          // v1 → v2: todo SSH era por chave; senha e impressão digital chegaram depois.
+          return {
+            ...s,
+            historico,
+            autenticacao: s.autenticacao === 'senha' ? 'senha' : 'chave',
+            caminhoChave: typeof s.caminhoChave === 'string' ? s.caminhoChave : '',
+            temPassphrase: s.temPassphrase === true,
+            temSenha: s.temSenha === true,
+            impressaoDigital: typeof s.impressaoDigital === 'string' && s.impressaoDigital ? s.impressaoDigital : undefined,
+            comandos: Array.isArray(s.comandos) ? s.comandos : [],
+          };
+        })
     : [];
 
   return {
@@ -143,12 +163,18 @@ export async function criarHttp(input: CriarServidorHttpInput): Promise<Servidor
   return salvarEEmitir(file);
 }
 
-export async function criarSsh(input: CriarServidorSshInput): Promise<ServidoresFile> {
+function validarSsh(input: Pick<CriarServidorSshInput, 'host' | 'usuario' | 'autenticacao' | 'caminhoChave'>): void {
   if (!input.host.trim()) throw new Error('Informe o host do servidor.');
   if (!input.usuario.trim()) throw new Error('Informe o usuário do SSH.');
-  if (!fs.existsSync(input.caminhoChave)) {
+  if (input.autenticacao !== 'senha' && !fs.existsSync(input.caminhoChave)) {
     throw new Error('O arquivo de chave privada não foi encontrado.');
   }
+}
+
+export async function criarSsh(input: CriarServidorSshInput): Promise<ServidoresFile> {
+  validarSsh(input);
+  const porSenha = input.autenticacao === 'senha';
+  if (porSenha && !input.senha) throw new Error('Informe a senha.');
 
   const file = loadFile();
   const timestamp = nowIso();
@@ -164,14 +190,19 @@ export async function criarSsh(input: CriarServidorSshInput): Promise<Servidores
     host: input.host.trim(),
     porta: input.porta || 22,
     usuario: input.usuario.trim(),
-    caminhoChave: input.caminhoChave,
-    temPassphrase: Boolean(input.passphrase),
+    autenticacao: porSenha ? 'senha' : 'chave',
+    caminhoChave: porSenha ? '' : input.caminhoChave,
+    temPassphrase: !porSenha && Boolean(input.passphrase),
+    temSenha: porSenha,
+    impressaoDigital: input.impressaoDigital || undefined,
     comandos: [],
     createdAt: timestamp,
     updatedAt: timestamp,
   });
 
-  if (input.passphrase) {
+  if (porSenha) {
+    await setSecret(`servidor.${id}.senha`, input.senha as string);
+  } else if (input.passphrase) {
     await setSecret(`servidor.${id}.passphrase`, input.passphrase);
   }
 
@@ -195,10 +226,28 @@ export async function atualizar(input: AtualizarServidorInput): Promise<Servidor
     if (input.timeoutMs !== undefined) servidor.timeoutMs = input.timeoutMs;
     if (input.permitirTlsInseguro !== undefined) servidor.permitirTlsInseguro = input.permitirTlsInseguro;
   } else {
-    if (input.host !== undefined) servidor.host = input.host;
-    if (input.porta !== undefined) servidor.porta = input.porta;
-    if (input.usuario !== undefined) servidor.usuario = input.usuario;
+    // Outro host ou outra porta = outra máquina: a impressão digital antiga não vale mais.
+    if ((input.host !== undefined && input.host.trim() !== servidor.host) || (input.porta !== undefined && (input.porta || 22) !== servidor.porta)) {
+      servidor.impressaoDigital = undefined;
+    }
+    if (input.host !== undefined) servidor.host = input.host.trim();
+    if (input.porta !== undefined) servidor.porta = input.porta || 22;
+    if (input.usuario !== undefined) servidor.usuario = input.usuario.trim();
+    if (input.autenticacao !== undefined) servidor.autenticacao = input.autenticacao;
     if (input.caminhoChave !== undefined) servidor.caminhoChave = input.caminhoChave;
+    validarSsh(servidor);
+
+    if (input.senha !== undefined) {
+      const chave = `servidor.${servidor.id}.senha`;
+      if (input.senha) {
+        await setSecret(chave, input.senha);
+        servidor.temSenha = true;
+      } else {
+        await deleteSecret(chave);
+        servidor.temSenha = false;
+      }
+    }
+    if (servidor.autenticacao === 'senha' && !servidor.temSenha) throw new Error('Informe a senha.');
 
     if (input.passphrase !== undefined) {
       const chave = `servidor.${servidor.id}.passphrase`;
@@ -220,7 +269,8 @@ export async function atualizar(input: AtualizarServidorInput): Promise<Servidor
 export async function remover(servidorId: string): Promise<ServidoresFile> {
   const file = loadFile();
   file.servidores = file.servidores.filter((s) => s.id !== servidorId);
-  // Não deixa passphrase órfã no cofre depois que o servidor some.
+  terminal.fecharDoServidor(servidorId);
+  // Não deixa passphrase nem senha órfã no cofre depois que o servidor some.
   await deleteSecretsByPrefix(`servidor.${servidorId}.`);
   aplicarPoliticaTls(file);
   return salvarEEmitir(file);
@@ -362,9 +412,104 @@ export async function rodarComando(input: RodarComandoInput): Promise<void> {
   const comando = servidor.comandos.find((c) => c.id === input.comandoId);
   if (!comando) throw new Error('Comando não encontrado.');
 
-  const passphrase = input.passphrase ?? getSecret(`servidor.${servidor.id}.passphrase`) ?? undefined;
+  const segredos = segredosDe(servidor);
+  if (input.passphrase) segredos.passphrase = input.passphrase;
 
-  await rodarComandoSsh(servidor as ServidorSsh, comando, passphrase);
+  const vista = await rodarComandoSsh(servidor, comando, segredos);
+  await gravarPrimeiraImpressao(servidor.id, vista);
+}
+
+function segredosDe(servidor: ServidorSsh): SegredosSsh {
+  return servidor.autenticacao === 'senha'
+    ? { senha: getSecret(`servidor.${servidor.id}.senha`) ?? undefined }
+    : { passphrase: getSecret(`servidor.${servidor.id}.passphrase`) ?? undefined };
+}
+
+/**
+ * Confiança na primeira conexão (como o `ssh` faz com o known_hosts): a chave que
+ * o servidor mostrou da primeira vez é a que vale dali em diante.
+ */
+async function gravarPrimeiraImpressao(servidorId: string, vista: string | undefined): Promise<void> {
+  if (!vista) return;
+  const file = loadFile();
+  const servidor = file.servidores.find((s): s is ServidorSsh => s.id === servidorId && s.tipo === 'ssh');
+  if (!servidor || servidor.impressaoDigital) return;
+  servidor.impressaoDigital = vista;
+  servidor.updatedAt = nowIso();
+  await salvarEEmitir(file);
+}
+
+/** O servidor foi reinstalado (ou trocou de chave de propósito): esquece a impressão antiga. */
+export async function confiarHost(servidorId: string): Promise<ServidoresFile> {
+  const file = loadFile();
+  const servidor = achar(file, servidorId);
+  if (servidor.tipo !== 'ssh') throw new Error('Só servidores SSH têm chave de host.');
+  servidor.impressaoDigital = undefined;
+  servidor.updatedAt = nowIso();
+  return salvarEEmitir(file);
+}
+
+/** "Testar conexão" do cadastro: nada é gravado. */
+export async function testarConexao(input: TestarConexaoInput): Promise<ResultadoTesteServidor> {
+  const salvo = input.servidorId ? loadFile().servidores.find((s) => s.id === input.servidorId) : undefined;
+
+  if (input.tipo === 'http') {
+    if (!/^https?:\/\//i.test(input.url)) return { ok: false, erro: 'A URL precisa começar com http:// ou https://.' };
+    const host = hostDe(input.url);
+    if (input.permitirTlsInseguro && host) {
+      // Só para o teste: um grupo próprio não mexe nos hosts dos servidores salvos.
+      setHostsInseguros([host], 'servidores-teste');
+    }
+    try {
+      const checagem = await checarHttp({
+        id: '',
+        tipo: 'http',
+        nome: input.nome,
+        url: input.url.trim(),
+        metodo: input.metodo,
+        intervaloSegundos: 0,
+        permitirTlsInseguro: input.permitirTlsInseguro,
+        historico: [],
+        statusEsperado: input.statusEsperado || 200,
+        timeoutMs: input.timeoutMs || 8000,
+        createdAt: '',
+        updatedAt: '',
+      });
+      return { ok: checagem.ok, latenciaMs: checagem.latenciaMs, status: checagem.status, erro: checagem.erro };
+    } finally {
+      setHostsInseguros([], 'servidores-teste');
+    }
+  }
+
+  const porSenha = input.autenticacao === 'senha';
+  if (!input.host.trim()) return { ok: false, erro: 'Informe o host.' };
+  if (!input.usuario.trim()) return { ok: false, erro: 'Informe o usuário.' };
+  const salvoSsh = salvo?.tipo === 'ssh' ? salvo : undefined;
+  const segredos: SegredosSsh = porSenha
+    ? { senha: input.senha || (salvoSsh ? getSecret(`servidor.${salvoSsh.id}.senha`) ?? undefined : undefined) }
+    : { passphrase: input.passphrase || (salvoSsh ? getSecret(`servidor.${salvoSsh.id}.passphrase`) ?? undefined : undefined) };
+  // Mesmo host e porta do salvo: confere contra a chave já confiada.
+  const mesmaMaquina = salvoSsh && salvoSsh.host === input.host.trim() && salvoSsh.porta === (input.porta || 22);
+  return testarSsh(
+    {
+      host: input.host.trim(),
+      porta: input.porta || 22,
+      usuario: input.usuario.trim(),
+      autenticacao: porSenha ? 'senha' : 'chave',
+      caminhoChave: input.caminhoChave,
+      impressaoDigital: mesmaMaquina ? salvoSsh.impressaoDigital : undefined,
+    },
+    segredos,
+  );
+}
+
+export async function abrirTerminal(input: AbrirTerminalInput): Promise<SessaoTerminal> {
+  const file = loadFile();
+  const servidor = achar(file, input.servidorId);
+  if (servidor.tipo !== 'ssh') throw new Error('Só servidores SSH abrem terminal.');
+  return terminal.abrirTerminal(servidor, segredosDe(servidor), input.cols, input.rows, (vista) => {
+    void gravarPrimeiraImpressao(servidor.id, vista).catch(() => undefined);
+  });
 }
 
 export async function configHealth(input: ConfigHealthInput): Promise<ServidoresFile> {

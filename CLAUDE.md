@@ -9,9 +9,10 @@ usuário vivem em arquivos JSON dentro de `app.getPath('userData')/data`.
 
 TypeScript puro, **sem framework de UI e sem bundler**. O DOM é construído à mão com
 `document.createElement`. As únicas dependências de runtime são `sortablejs` (drag-and-drop),
-`ssh2` (comandos remotos) e `xlsx` (import/export de planilhas).
+`ssh2` (comandos remotos e terminal), `@xterm/xterm` + `@xterm/addon-fit` (o desenho do terminal) e `xlsx`
+(import/export de planilhas).
 
-Vinte e sete módulos, organizados na sidebar por categoria:
+Vinte e oito módulos, organizados na sidebar por categoria:
 
 - **soltos no topo**: Home (id `hoje` — o rótulo era "Hoje"; o id ficou para não migrar nada —, o primeiro e o módulo inicial de instalação nova), Kanban, To-do (id `todo`), Workspace (id `workspace`: os outros apps do ecossistema)
 - **Relacionamento**: Contatos (CRM: pessoas, empresas, funil, contratos), Leads (id `leads`: caixa de entrada e painel),
@@ -19,7 +20,8 @@ Vinte e sete módulos, organizados na sidebar por categoria:
 - **Conteúdo**: Postagens (pipeline de conteúdo: vídeos, imagens), Estúdio IA (id `ia`), Relatórios (análises com PDF),
   Sheets
 - **Gravação** (categoria `estudio`): Gravar (id `gravacao`), Roteiros (escrever → revisar → aprovar; aprovado vira card no Kanban)
-- **Arquivos**: Biblioteca (id interno `explorador`), Quadro, Copy, Pensamentos, Links rápidos
+- **Arquivos**: Biblioteca (id interno `explorador`), Quadro, Canvas (id `canvas`: lousa infinita estilo tldraw), Copy,
+  Pensamentos, Links rápidos
 - **Sistema**: Servidores, n8n, GitHub, Nuvem (id `nuvem`: os dados num banco de dados, iguais em todos os computadores)
 - **Tráfego**: Tráfego pago (id `trafego`)
 - **soltos no rodapé**: Tutorial, Ajustes
@@ -652,6 +654,55 @@ não seria decifrável em outra máquina.
   `window.irisAPI.nuvem.*` pelo CDP; `http://127.0.0.1` é aceito como endereço só para isso. O SQL do Postgres (funções
   incluídas) se testa com o PGlite (`@electric-sql/pglite`, Postgres em WASM) fora do projeto; o do SQLite, com `node:sqlite`.
 
+## Servidores e terminal SSH
+
+- Tela ([servidores.view.ts](src/renderer/modules/servidores/servidores.view.ts), CSS `sv-`): lista agrupada por `grupo` à
+  esquerda; à direita, abas como num navegador — "Detalhes" do servidor escolhido e **um terminal por sessão aberta**, de
+  qualquer servidor. Detalhe em `servidores.detalhe.ts` (HTTP: situação, no ar em 24 h, gráfico de latência; SSH: abrir
+  terminal, impressão digital, comandos salvos). Cadastro e edição num modal só (`servidores.cadastro.ts`): tipo → campos →
+  **"Testar conexão"** (`testarConexao` no main, não grava nada) → salvar. Checagem automática no menu "⋯" (`ui/menu.ts`, o
+  menu suspenso comum).
+- `servidores.json` v2: SSH entra por `autenticacao: 'chave' | 'senha'`; senha no cofre `servidor.<id>.senha` (a tela só vê
+  `temSenha`). **Impressão digital do host** (`impressaoDigital`, SHA-256 no formato do OpenSSH): gravada na primeira conexão
+  que deu certo (ou no teste do cadastro), conferida pelo `hostVerifier` em toda conexão — comando, teste e terminal. Diferente
+  = recusa com `chaveMudou`, e só "Confiar na nova chave" (`confiarHost`) limpa. Mudar host/porta na edição também limpa.
+- Main: `servidores.conexao.ts` (o `ssh2` sob demanda, `prepararConexao`, `responderSenha` para keyboard-interactive,
+  `traduzirErro`), `servidores.ssh.ts` (comandos salvos e o teste) e **`servidores.terminal.ts`**: `conn.shell` com pty
+  `xterm-256color`, sessões num mapa **no main** (sobrevivem à troca de módulo), saída em lotes de 16 ms pelo push
+  `servidores:terminal` e um buffer de 200 KB para repintar. `lerBuffer` devolve só o que já saiu pelo push (o lote pendente
+  chegaria duas vezes); a tela ignora o push até a primeira pintura. Fecham no X da aba, ao remover o servidor e no
+  `before-quit`.
+- **xterm.js** (`@xterm/xterm` + `@xterm/addon-fit`) copiado pelo `copy-static.mjs` para `dist/renderer/vendor/xterm/` e
+  **carregado sob demanda** por `<script>` (fora do index.html: ~300 KB que quase ninguém usa). Globais tipados em
+  `types/xterm-global.d.ts`. Tema a partir dos tokens (convertidos em hex por um canvas — o xterm não lê oklch) + paleta ANSI
+  fixa por tema. O nó do xterm é **movido** a cada redesenho, nunca recriado.
+- Teclas: o host do xterm tem `data-captura-teclado` — o despacho global de atalhos ignora o foco dentro de qualquer elemento
+  assim (Ctrl+K apaga a linha no bash, não abre a busca). Ctrl+C com seleção copia; Ctrl+V e botão direito colam.
+- Testar sem servidor de verdade: um `ssh2.Server` em Node (aceita senha, ecoa o shell, responde `stty size`), que gera chave
+  nova a cada execução — bom para conferir a recusa por chave mudada.
+
+## Canvas (id `canvas`, categoria Arquivos)
+
+- Lousa infinita no estilo do tldraw, **separada** do Quadro (que alimenta as rotinas da Home) e de Pensamentos. `canvas.json`
+  v1 ([canvas.types.ts](src/shared/types/canvas.types.ts), puro): `quadros[]` com `viewport` e `formas[]` — a ordem da lista é a
+  ordem de desenho. `FormaCanvas` é um tipo só com campos opcionais (texto, pontos, pontas, ligações); `migrateForma`/`migrateQuadro`
+  descartam o inválido e soltam ligação para forma que sumiu. Paleta fixa `CORES_CANVAS` (a "tinta" segue `--text` na tela).
+- **O palco segura o quadro** enquanto a tela está aberta ([canvas.palco.ts](src/renderer/modules/canvas/canvas.palco.ts)): cada gesto
+  edita a cópia local e `salvarQuadro` manda o quadro inteiro na pausa (600 ms); o state atualiza o cache **em silêncio**. Ações
+  de quadro (criar, trocar, renomear) redesenham. `salvarViewport`/`escolherQuadro` ficam fora do Histórico (`METODOS_DE_VISTA`);
+  o resto entra como edição do quadro (60 s juntam). Nuvem: `formas` aninhadas no quadro, `viewport` e `updatedAt` locais.
+- Desenho: **um SVG** com `<g>` transformado por pan/zoom; `svgDaForma` ([canvas.formas.ts](src/renderer/modules/canvas/canvas.formas.ts))
+  serve a tela (`PINTOR_TELA`, variáveis `--cv-*`) e a exportação (`PINTOR_EXPORTAR`, hex para fundo branco) — o PNG é o que se vê.
+  Texto em `<text>` com quebra medida por canvas (`quebrarLinhas`); editar é um `<textarea>` por cima (aberto no tique seguinte
+  ao pointerdown — senão o mousedown tira o foco dele). PNG: SVG em `data:` (a CSP não deixa `blob:`) → `<canvas>` → main grava.
+- Gestos com **pointer events + captura**; teste de acerto geométrico (sem DOM). Seta/linha guardam os dois pontos no mundo e
+  `ligacoes` com a forma de cada ponta; o desenho resolve a ponta na borda (retângulo ou elipse) a cada quadro. Desenho à mão:
+  pontos relativos à caixa, curva por pontos médios.
+- Teclas: as de ferramenta no `CATALOGO_ATALHOS` (`canvas.*`, escopo `canvas`); Ctrl+Z/C/V/D/A, Delete, setas, `[`/`]` e Espaço
+  num `keydown` **do palco** (focável), não do documento — são teclas reservadas no catálogo global. Desfazer é local ao quadro
+  (100 passos); Alt+Z (Histórico) desfaz no arquivo. `G Shift+C` abre o módulo (todas as letras já tinham dono).
+- **Ainda não feito**: imagens no quadro, guias de alinhamento, espessura pela pressão da caneta, colaboração ao vivo.
+
 ## Roteiros
 
 - **A tela inicial é uma biblioteca, não um quadro** (o usuário não queria cara de Kanban):
@@ -944,6 +995,12 @@ não seria decifrável em outra máquina.
 
 ## Tráfego pago
 
+- Tela em partes: `trafego.view.ts` (casca, quadro, sites, contas, painel da campanha), `trafego.painel.ts` (o Painel) e
+  `trafego.comum.ts` (ícones, formatação e **períodos**: `intervaloDo`, `intervaloAnterior` — "este mês" compara com o mesmo
+  trecho do mês passado, "Tudo" não compara —, `serieTemporal`). Painel: quatro números com variação contra o período anterior
+  e tendência em área, "Destaque" (maior ROAS; sem receita, menor CPA), "Pede atenção" (estouro de verba primeiro, "e mais N"),
+  gráficos, por plataforma e ranking de conversões, tabela com barra de investimento e ROAS colorido. Cor de cada plataforma
+  em `.tf-plataforma.is-<id>` (literal: é marca); coluna do quadro pintada pelo status.
 - `trafego.json`: contas (clientes, com tags e verba mensal), sites/páginas de destino e
   campanhas (plataforma, objetivo, status, orçamento, público, criativos, links) com
   `registros` diários — **um por dia**; salvar/importar um dia existente substitui.

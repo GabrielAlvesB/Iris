@@ -36,6 +36,7 @@ import {
   WORKSPACE_CHANNELS,
   NUVEM_CHANNELS,
   GRAVACAO_CHANNELS,
+  CANVAS_CHANNELS,
 } from '../shared/ipcChannels';
 import type {
   IrisEvent,
@@ -394,6 +395,18 @@ const irisAPI: IrisApi = {
     limparRecentes: () => ipcRenderer.invoke(EXPLORADOR_CHANNELS.limparRecentes),
     buscar: (input) => ipcRenderer.invoke(EXPLORADOR_CHANNELS.buscar, input),
   },
+  canvas: {
+    getFile: () => ipcRenderer.invoke(CANVAS_CHANNELS.getFile),
+    criarQuadro: (nome) => ipcRenderer.invoke(CANVAS_CHANNELS.criarQuadro, nome),
+    renomearQuadro: (input) => ipcRenderer.invoke(CANVAS_CHANNELS.renomearQuadro, input),
+    duplicarQuadro: (quadroId) => ipcRenderer.invoke(CANVAS_CHANNELS.duplicarQuadro, quadroId),
+    excluirQuadro: (quadroId) => ipcRenderer.invoke(CANVAS_CHANNELS.excluirQuadro, quadroId),
+    escolherQuadro: (quadroId) => ipcRenderer.invoke(CANVAS_CHANNELS.escolherQuadro, quadroId),
+    salvarQuadro: (quadro) => ipcRenderer.invoke(CANVAS_CHANNELS.salvarQuadro, quadro),
+    salvarViewport: (input) => ipcRenderer.invoke(CANVAS_CHANNELS.salvarViewport, input),
+    exportarImagem: (input) => ipcRenderer.invoke(CANVAS_CHANNELS.exportarImagem, input),
+    mostrarExportado: (caminho) => ipcRenderer.invoke(CANVAS_CHANNELS.mostrarExportado, caminho),
+  },
   servidores: {
     getState: () => ipcRenderer.invoke(SERVIDORES_CHANNELS.getState),
     criarHttp: (input) => ipcRenderer.invoke(SERVIDORES_CHANNELS.criarHttp, input),
@@ -407,6 +420,14 @@ const irisAPI: IrisApi = {
     rodarComando: (input) => ipcRenderer.invoke(SERVIDORES_CHANNELS.rodarComando, input),
     configHealth: (input) => ipcRenderer.invoke(SERVIDORES_CHANNELS.configHealth, input),
     escolherChave: () => ipcRenderer.invoke(SERVIDORES_CHANNELS.escolherChave),
+    testarConexao: (input) => ipcRenderer.invoke(SERVIDORES_CHANNELS.testarConexao, input),
+    confiarHost: (servidorId) => ipcRenderer.invoke(SERVIDORES_CHANNELS.confiarHost, servidorId),
+    abrirTerminal: (input) => ipcRenderer.invoke(SERVIDORES_CHANNELS.abrirTerminal, input),
+    escreverTerminal: (input) => ipcRenderer.invoke(SERVIDORES_CHANNELS.escreverTerminal, input),
+    redimensionarTerminal: (input) => ipcRenderer.invoke(SERVIDORES_CHANNELS.redimensionarTerminal, input),
+    fecharTerminal: (sessaoId) => ipcRenderer.invoke(SERVIDORES_CHANNELS.fecharTerminal, sessaoId),
+    listarSessoes: () => ipcRenderer.invoke(SERVIDORES_CHANNELS.listarSessoes),
+    lerBufferTerminal: (sessaoId) => ipcRenderer.invoke(SERVIDORES_CHANNELS.lerBufferTerminal, sessaoId),
   },
   n8n: {
     getConfig: () => ipcRenderer.invoke(N8N_CHANNELS.getConfig),

@@ -179,6 +179,18 @@ const carregadores: Record<ModuleName, () => Promise<AppModule>> = {
       },
     };
   },
+  canvas: async () => {
+    // O Canvas cuida do próprio estado (o palco segura o quadro enquanto se desenha).
+    const view = await import('./modules/canvas/canvas.view.js');
+    return {
+      mount(viewRoot) {
+        view.montar(viewRoot);
+      },
+      destroy() {
+        view.destroy();
+      },
+    };
+  },
   servidores: async () => {
     const [state, view] = await Promise.all([import('./modules/servidores/servidores.state.js'), import('./modules/servidores/servidores.view.js')]);
     return {

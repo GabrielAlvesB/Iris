@@ -8,7 +8,7 @@ import type { GithubSnapshot } from './github.types';
 import type { TarefaIa } from './ia.types';
 import type { N8nSnapshot } from './n8n.types';
 import type { TipoPostagem } from './postagens.types';
-import type { ServidoresFile, SshSaidaChunk } from './servidores.types';
+import type { ServidoresFile, SshSaidaChunk, TerminalEvento } from './servidores.types';
 import type { EstadoWorkspace } from './workspace.types';
 
 /**
@@ -22,6 +22,7 @@ export type IrisEvent =
   | { topic: 'explorador:mudou'; payload: { raizId: string; pastasAfetadas: string[] } }
   | { topic: 'servidores:estado'; payload: ServidoresFile }
   | { topic: 'servidores:saida'; payload: SshSaidaChunk }
+  | { topic: 'servidores:terminal'; payload: TerminalEvento }
   | { topic: 'n8n:snapshot'; payload: N8nSnapshot }
   | { topic: 'github:snapshot'; payload: GithubSnapshot }
   /** Agendadas publicadas sozinhas no horário: o renderer relê o arquivo do tipo. */

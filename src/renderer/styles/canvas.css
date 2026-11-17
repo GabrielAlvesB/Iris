@@ -1,0 +1,500 @@
+/* Canvas — lousa infinita. Prefixo cv-. A paleta das formas é literal (é o desenho do usuário,
+   como a cor de um post-it); a "tinta" acompanha o texto do tema para não sumir no escuro. */
+
+.cv-view {
+  --cv-tinta: var(--text);
+  --cv-cinza: #9aa0aa;
+  --cv-vermelho: #ff6b6b;
+  --cv-laranja: #ff922b;
+  --cv-amarelo: #fcc419;
+  --cv-verde: #51cf66;
+  --cv-azul: #4dabf7;
+  --cv-violeta: #9775fa;
+  --cv-rosa: #f06595;
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+}
+
+@media (prefers-color-scheme: light) {
+  .cv-view {
+    --cv-cinza: #868e96;
+    --cv-vermelho: #e03131;
+    --cv-laranja: #f76707;
+    --cv-amarelo: #f2b705;
+    --cv-verde: #2f9e44;
+    --cv-azul: #1c7ed6;
+    --cv-violeta: #7048e8;
+    --cv-rosa: #d6336c;
+  }
+}
+
+/* ---------- Palco ---------- */
+
+.cv-palco {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background-color: var(--bg);
+  background-image: radial-gradient(circle, rgb(var(--realce) / 0.13) 1.1px, transparent 1.4px);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-xl);
+  outline: none;
+  touch-action: none;
+  user-select: none;
+  cursor: crosshair;
+}
+
+.cv-palco:focus-visible {
+  border-color: color-mix(in oklch, var(--accent) 45%, var(--border-soft));
+}
+
+.cv-palco[data-ferramenta='selecionar'] {
+  cursor: default;
+}
+
+.cv-palco[data-ferramenta='selecionar'].is-sobre-forma {
+  cursor: move;
+}
+
+.cv-palco[data-ferramenta='mao'],
+.cv-palco.is-mao {
+  cursor: grab;
+}
+
+.cv-palco.is-arrastando {
+  cursor: grabbing;
+}
+
+.cv-palco[data-ferramenta='texto'] {
+  cursor: text;
+}
+
+.cv-palco[data-ferramenta='borracha'] {
+  cursor: cell;
+}
+
+.cv-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.cv-texto {
+  user-select: none;
+  white-space: pre;
+}
+
+.cv-alvo-linha {
+  fill: none;
+  stroke: transparent;
+  stroke-width: calc(14px / var(--cv-zoom, 1));
+  stroke-linecap: round;
+}
+
+.cv-alvo-caixa {
+  fill: transparent;
+}
+
+.cv-nota-sombra {
+  fill: rgb(0 0 0 / calc(0.18 * var(--sombra-k)));
+}
+
+.cv-forma.is-apagando {
+  opacity: 0.25;
+}
+
+/* ---------- Seleção ---------- */
+
+.cv-sel-caixa,
+.cv-sel-item,
+.cv-sel-linha,
+.cv-sel-haste {
+  fill: none;
+  stroke: var(--accent);
+  pointer-events: none;
+}
+
+.cv-sel-item {
+  stroke-dasharray: 4 3;
+  opacity: 0.6;
+}
+
+.cv-sel-linha {
+  stroke-dasharray: 4 3;
+}
+
+.cv-alca {
+  fill: var(--bg-elevated);
+  stroke: var(--accent);
+  stroke-width: calc(1.5px / var(--cv-zoom, 1));
+  cursor: nwse-resize;
+}
+
+.cv-alca.h0m1,
+.cv-alca.h01 {
+  cursor: ns-resize;
+}
+
+.cv-alca.hm10,
+.cv-alca.h10 {
+  cursor: ew-resize;
+}
+
+.cv-alca.h1m1,
+.cv-alca.hm11 {
+  cursor: nesw-resize;
+}
+
+.cv-alca.is-giro {
+  cursor: grab;
+}
+
+.cv-alca.is-ponta {
+  cursor: move;
+}
+
+.cv-palco.is-ligando .cv-alca.is-ponta {
+  fill: var(--accent);
+}
+
+.cv-marquee {
+  fill: color-mix(in oklch, var(--accent) 10%, transparent);
+  stroke: var(--accent);
+  pointer-events: none;
+}
+
+/* ---------- Editor de texto ---------- */
+
+.cv-editor {
+  position: absolute;
+  z-index: 5;
+  margin: 0;
+  border: none;
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+  font-weight: 500;
+  background: transparent;
+  caret-color: var(--accent);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.cv-editor::selection {
+  background: color-mix(in oklch, var(--accent) 35%, transparent);
+}
+
+/* ---------- Peças flutuantes ---------- */
+
+.cv-flutua {
+  position: absolute;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: color-mix(in oklch, var(--bg-elevated) 92%, transparent);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  box-shadow: 0 10px 28px -12px rgb(0 0 0 / calc(0.45 * var(--sombra-k)));
+  backdrop-filter: blur(12px);
+}
+
+.cv-topo-esq {
+  top: 12px;
+  left: 12px;
+}
+
+.cv-topo-dir {
+  top: 12px;
+  right: 12px;
+}
+
+.cv-ferramentas {
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px;
+  max-width: calc(100% - 24px);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.cv-zoom {
+  bottom: 14px;
+  left: 12px;
+}
+
+.cv-separador {
+  width: 1px;
+  height: 22px;
+  margin: 0 4px;
+  flex-shrink: 0;
+  background: var(--border-soft);
+}
+
+.cv-icone,
+.cv-ferramenta {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  padding: 0;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.cv-ferramenta {
+  width: 38px;
+  height: 38px;
+}
+
+.cv-icone:hover:not(:disabled),
+.cv-ferramenta:hover {
+  color: var(--text);
+  background: rgb(var(--realce) / 0.07);
+}
+
+.cv-icone:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.cv-icone:focus-visible,
+.cv-ferramenta:focus-visible,
+.cv-quadro:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* O desenho único de "ativo" do app: degradê do acento. */
+.cv-ferramenta.is-ativa {
+  color: var(--texto-sobre-acento);
+  background: var(--grad-acento);
+  box-shadow: var(--glow-acento);
+}
+
+.cv-quadro {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 300px;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.cv-quadro:hover {
+  background: rgb(var(--realce) / 0.06);
+}
+
+.cv-quadro > svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.cv-quadro-nome {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cv-quadro-seta {
+  display: inline-flex;
+  color: var(--text-faint);
+}
+
+.cv-zoom-pct {
+  min-width: 52px;
+  height: 34px;
+  padding: 0 6px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.cv-zoom-pct:hover {
+  color: var(--text);
+  background: rgb(var(--realce) / 0.07);
+}
+
+/* ---------- Estilo ---------- */
+
+.cv-estilo {
+  top: 62px;
+  right: 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: 196px;
+  max-height: calc(100% - 140px);
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.cv-estilo[hidden] {
+  display: none;
+}
+
+.cv-cores {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.cv-cor {
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 9px;
+  cursor: pointer;
+  position: relative;
+}
+
+.cv-cor::after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  background: var(--c);
+  border-radius: 50%;
+}
+
+.cv-cor:hover {
+  background: rgb(var(--realce) / 0.07);
+}
+
+.cv-cor.is-ativa {
+  background: rgb(var(--realce) / 0.1);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.cv-estilo-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.cv-estilo-titulo {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.cv-estilo-opcoes {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  background: rgb(var(--realce) / 0.04);
+  border-radius: 10px;
+}
+
+.cv-estilo-opcao {
+  display: grid;
+  place-items: center;
+  flex: 1;
+  height: 30px;
+  padding: 0;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.cv-estilo-opcao:hover {
+  color: var(--text);
+  background: rgb(var(--realce) / 0.07);
+}
+
+.cv-estilo-opcao.is-ativa {
+  color: var(--text);
+  background: var(--bg-elevated-3);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--accent) 55%, transparent);
+}
+
+.cv-estilo-opcao.is-perigo:hover {
+  color: var(--danger-texto);
+  background: var(--danger-soft);
+}
+
+.cv-amostra {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-radius: 4px;
+}
+
+.cv-amostra.is-suave {
+  background: color-mix(in srgb, currentColor 25%, transparent);
+}
+
+.cv-amostra.is-solido {
+  background: currentColor;
+}
+
+.cv-letra {
+  font-weight: 700;
+  line-height: 1;
+}
+
+.cv-letra.is-p { font-size: 11px; }
+.cv-letra.is-m { font-size: 14px; }
+.cv-letra.is-g { font-size: 17px; }
+.cv-letra.is-gg { font-size: 21px; }
+
+/* ---------- Quadro vazio ---------- */
+
+.cv-dica {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transform: translate(-50%, -60%);
+  text-align: center;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+
+.cv-dica strong {
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+.cv-dica span {
+  font-size: 13px;
+}
+
+.cv-view.is-vazio .cv-dica {
+  display: flex;
+}

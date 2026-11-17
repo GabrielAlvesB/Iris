@@ -239,6 +239,27 @@ export const SERVIDORES_CHANNELS = {
   rodarComando: 'servidores:rodarComando',
   configHealth: 'servidores:configHealth',
   escolherChave: 'servidores:escolherChave',
+  testarConexao: 'servidores:testarConexao',
+  confiarHost: 'servidores:confiarHost',
+  abrirTerminal: 'servidores:abrirTerminal',
+  escreverTerminal: 'servidores:escreverTerminal',
+  redimensionarTerminal: 'servidores:redimensionarTerminal',
+  fecharTerminal: 'servidores:fecharTerminal',
+  listarSessoes: 'servidores:listarSessoes',
+  lerBufferTerminal: 'servidores:lerBufferTerminal',
+} as const;
+
+export const CANVAS_CHANNELS = {
+  getFile: 'canvas:getFile',
+  criarQuadro: 'canvas:criarQuadro',
+  renomearQuadro: 'canvas:renomearQuadro',
+  duplicarQuadro: 'canvas:duplicarQuadro',
+  excluirQuadro: 'canvas:excluirQuadro',
+  escolherQuadro: 'canvas:escolherQuadro',
+  salvarQuadro: 'canvas:salvarQuadro',
+  salvarViewport: 'canvas:salvarViewport',
+  exportarImagem: 'canvas:exportarImagem',
+  mostrarExportado: 'canvas:mostrarExportado',
 } as const;
 
 export const N8N_CHANNELS = {

@@ -1,4 +1,4 @@
-/* Tráfego pago — painel, quadro de campanhas, sites, contas e o painel da campanha. */
+/* Tráfego pago — painel, quadro de campanhas, sites, contas e o painel da campanha. Prefixo tf-. */
 
 .tf-filtro-conta {
   width: auto;
@@ -7,8 +7,49 @@
 }
 
 .tf-rolagem {
-  padding-bottom: 12px;
+  padding-bottom: 16px;
 }
+
+.tf-nota {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+/* ---------- Plataformas: a cor da marca de cada uma (literal: é logo, não superfície) ---------- */
+
+.tf-plataforma {
+  --tf-marca: var(--text-faint);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: color-mix(in oklch, var(--tf-marca) var(--tinta-chip), var(--tinta-forte));
+  background: color-mix(in oklch, var(--tf-marca) 14%, transparent);
+  border: 1px solid color-mix(in oklch, var(--tf-marca) 30%, transparent);
+  border-radius: 999px;
+}
+
+.tf-plataforma::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  background: var(--tf-marca);
+  border-radius: 50%;
+}
+
+.tf-plataforma.is-meta { --tf-marca: #0866ff; }
+.tf-plataforma.is-google { --tf-marca: #34a853; }
+.tf-plataforma.is-tiktok { --tf-marca: #fe2c55; }
+.tf-plataforma.is-youtube { --tf-marca: #ff0033; }
+.tf-plataforma.is-linkedin { --tf-marca: #0a66c2; }
+.tf-plataforma.is-pinterest { --tf-marca: #e60023; }
+
+/* ---------- Painel: números do período ---------- */
 
 .tf-painel {
   display: flex;
@@ -16,11 +57,335 @@
   gap: 16px;
 }
 
-.tf-alertas {
+.tf-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.tf-kpi {
+  position: relative;
   display: flex;
   flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 16px 16px 0;
+  overflow: hidden;
+  background:
+    radial-gradient(130% 120% at 0% 0%, color-mix(in oklch, var(--accent) 8%, transparent), transparent 60%),
+    var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-xl);
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.tf-kpi:hover {
+  border-color: color-mix(in oklch, var(--accent) 35%, var(--border-soft));
+}
+
+.tf-kpi.is-destaque {
+  background:
+    radial-gradient(130% 130% at 100% 0%, color-mix(in oklch, var(--accent) 22%, transparent), transparent 62%),
+    var(--bg-elevated);
+  border-color: color-mix(in oklch, var(--accent) 38%, var(--border-soft));
+  box-shadow: 0 18px 36px -26px color-mix(in oklch, var(--accent) 80%, transparent);
+}
+
+.tf-kpi-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
 }
+
+.tf-kpi-rotulo {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.tf-kpi-valor {
+  overflow: hidden;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.tf-kpi-detalhe {
+  overflow: hidden;
+  font-size: 11.5px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text-faint);
+}
+
+.tf-tendencia {
+  display: block;
+  width: calc(100% + 32px);
+  height: 46px;
+  margin: 8px -16px 0;
+}
+
+.tf-tendencia-area {
+  fill: color-mix(in oklch, var(--accent) 14%, transparent);
+}
+
+.tf-tendencia-linha {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.tf-var {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  border-radius: 999px;
+}
+
+.tf-var.is-ok {
+  color: color-mix(in oklch, var(--success) var(--tinta-chip), var(--tinta-forte));
+  background: var(--success-soft);
+}
+
+.tf-var.is-erro {
+  color: var(--danger-texto);
+  background: var(--danger-soft);
+}
+
+.tf-var.is-neutro {
+  color: var(--text-muted);
+  background: rgb(var(--realce) / 0.06);
+}
+
+/* ---------- Destaque e alertas ---------- */
+
+.tf-duas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 12px;
+}
+
+.tf-duas.is-uma {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 980px) {
+  .tf-duas {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.tf-destaque {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 18px;
+  background:
+    linear-gradient(160deg, color-mix(in oklch, var(--accent) 16%, transparent), transparent 60%),
+    var(--bg-elevated);
+  border: 1px solid color-mix(in oklch, var(--accent) 30%, var(--border-soft));
+  border-radius: var(--radius-xl);
+  box-shadow: 0 16px 34px -24px color-mix(in oklch, var(--accent) 70%, transparent);
+}
+
+.tf-destaque-cab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tf-destaque-icone {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  color: var(--texto-sobre-acento);
+  background: var(--grad-acento);
+  border-radius: 9px;
+  box-shadow: var(--glow-acento);
+}
+
+.tf-destaque-titulo {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.tf-destaque-nome {
+  margin: 4px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+.tf-destaque-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.tf-destaque-porque {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.tf-destaque-nums {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  margin: 4px 0;
+}
+
+.tf-destaque-nums div {
+  padding: 8px 10px;
+  background: rgb(var(--realce) / 0.04);
+  border-radius: var(--radius-lg);
+}
+
+.tf-destaque-nums dt {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.tf-destaque-nums dd {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.tf-avisos {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-xl);
+}
+
+.tf-avisos-cab {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.tf-avisos-cab h3 {
+  flex: 1;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tf-avisos-icone {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  color: color-mix(in oklch, var(--success) var(--tinta-chip), var(--tinta-forte));
+  background: var(--success-soft);
+  border-radius: 9px;
+}
+
+.tf-avisos-icone.is-ativo {
+  color: var(--warning-texto);
+  background: var(--warning-soft);
+}
+
+.tf-avisos-n {
+  min-width: 22px;
+  padding: 1px 7px;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--warning-texto);
+  background: var(--warning-soft);
+  border-radius: 999px;
+}
+
+.tf-avisos-ok,
+.tf-avisos-mais {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.tf-avisos-lista {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tf-aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  border-top: 1px solid var(--border-soft);
+}
+
+.tf-aviso:first-child {
+  border-top: none;
+  padding-top: 2px;
+}
+
+.tf-aviso-ponto {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  flex-shrink: 0;
+  background: var(--warning);
+  border-radius: 50%;
+}
+
+.tf-aviso.is-erro .tf-aviso-ponto {
+  background: var(--danger);
+}
+
+.tf-aviso-texto {
+  flex: 1;
+  color: var(--text);
+}
+
+.tf-aviso-abrir {
+  padding: 2px 9px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.tf-aviso-abrir:hover {
+  background: var(--accent-soft);
+}
+
+/* ---------- Gráficos ---------- */
 
 .tf-graficos {
   display: grid;
@@ -28,26 +393,66 @@
   gap: 14px;
 }
 
+.tf-rank-nome {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.tf-rank-nome > span:last-child {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tf-sem-dados {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+  color: var(--text-muted);
+  background: rgb(var(--realce) / 0.02);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-xl);
+}
+
+.tf-sem-dados p {
+  margin: 0;
+  font-size: 13px;
+}
+
+/* ---------- Tabela por campanha ---------- */
+
 .tf-secao {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.tf-secao-titulo {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-muted);
+.tf-secao-cab {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
 }
 
-/* ---------- Tabelas ---------- */
+.tf-secao-titulo {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tf-secao-sub {
+  font-size: 12px;
+  color: var(--text-faint);
+}
 
 .tf-tabela-wrap {
   overflow-x: auto;
   background: var(--bg-elevated);
   border: 1px solid var(--border-soft);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
 }
 
 .tf-tabela {
@@ -57,7 +462,9 @@
 }
 
 .tf-tabela th {
-  padding: 9px 12px;
+  position: sticky;
+  top: 0;
+  padding: 10px 14px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -70,7 +477,7 @@
 }
 
 .tf-tabela td {
-  padding: 9px 12px;
+  padding: 10px 14px;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border-soft);
   white-space: nowrap;
@@ -91,14 +498,55 @@
   color: var(--text) !important;
 }
 
+.tf-tabela-nome {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tf-tabela-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.tf-inv {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  min-width: 110px;
+}
+
+.tf-inv-barra {
+  display: block;
+  height: 4px;
+  min-width: 2px;
+  background: var(--grad-acento);
+  border-radius: 999px;
+}
+
+.tf-roas.is-bom {
+  font-weight: 650;
+  color: color-mix(in oklch, var(--success) var(--tinta-texto), var(--tinta-forte));
+}
+
+.tf-roas.is-ruim {
+  font-weight: 650;
+  color: var(--danger-texto);
+}
+
 .tf-painel .tf-tabela tbody tr {
   cursor: pointer;
+  transition: background 0.1s;
 }
 
 .tf-painel .tf-tabela tbody tr:hover,
 .tf-painel .tf-tabela tbody tr:focus-visible {
   outline: none;
-  background: var(--bg-elevated-2);
+  background: rgb(var(--realce) / 0.035);
 }
 
 /* ---------- Quadro de campanhas ---------- */
@@ -117,20 +565,28 @@
 }
 
 .tf-coluna {
+  --tf-coluna: var(--text-faint);
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 10px;
-  background: var(--bg-elevated);
+  padding: 12px 10px 10px;
+  background:
+    linear-gradient(180deg, color-mix(in oklch, var(--tf-coluna) 8%, transparent), transparent 120px),
+    var(--bg-elevated);
   border: 1px solid var(--border-soft);
-  border-radius: 14px;
+  border-top: 3px solid color-mix(in oklch, var(--tf-coluna) 70%, transparent);
+  border-radius: var(--radius-xl);
 }
+
+.tf-coluna.is-ativa { --tf-coluna: var(--success); }
+.tf-coluna.is-pausada { --tf-coluna: var(--warning); }
+.tf-coluna.is-planejamento { --tf-coluna: var(--accent); }
 
 .tf-coluna-cab {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 2px 2px 0;
+  padding: 0 2px;
 }
 
 .tf-coluna-n {
@@ -140,7 +596,7 @@
   font-weight: 600;
   text-align: center;
   color: var(--text-muted);
-  background: var(--bg-elevated-3);
+  background: rgb(var(--realce) / 0.07);
   border-radius: 999px;
 }
 
@@ -149,44 +605,56 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 64px;
+  min-height: 72px;
+}
+
+.tf-coluna-vazia {
+  display: none;
+  margin: 0;
+  padding: 20px 10px;
+  font-size: 12px;
+  text-align: center;
+  color: var(--text-faint);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.tf-coluna-lista > .tf-coluna-vazia:first-child:last-child {
+  display: block;
 }
 
 .tf-cartao {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 8px;
   padding: 12px 13px;
   background: var(--bg-elevated-2);
   border: 1px solid var(--border-soft);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   cursor: grab;
-  transition: border-color 0.12s ease;
+  transition: border-color 0.14s, box-shadow 0.14s, transform 0.14s;
 }
 
 .tf-cartao:hover,
 .tf-cartao:focus-visible {
   outline: none;
-  border-color: var(--accent);
+  border-color: color-mix(in oklch, var(--accent) 45%, var(--border));
+  box-shadow: 0 12px 26px -16px rgb(0 0 0 / calc(0.6 * var(--sombra-k)));
+  transform: translateY(-1px);
+}
+
+.tf-cartao.sortable-ghost {
+  opacity: 0.4;
 }
 
 .tf-cartao-topo {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
 }
 
-.tf-plataforma {
-  padding: 1px 8px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text);
-  background: var(--bg-elevated-3);
-  border-radius: 999px;
-}
-
-.tf-seq {
-  font-family: var(--font-mono);
+.tf-cartao-objetivo {
   font-size: 11px;
   color: var(--text-faint);
 }
@@ -200,7 +668,7 @@
 }
 
 .tf-cartao-meta {
-  margin: 0;
+  margin: -4px 0 0;
   font-size: 12px;
   color: var(--text-muted);
 }
@@ -210,6 +678,8 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
   margin: 2px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-soft);
 }
 
 .tf-cartao-numeros div {
@@ -233,16 +703,16 @@
 }
 
 .tf-orcamento {
-  height: 5px;
+  height: 6px;
   overflow: hidden;
-  background: var(--bg-elevated-3);
+  background: rgb(var(--realce) / 0.08);
   border-radius: 999px;
 }
 
 .tf-orcamento > span {
   display: block;
   height: 100%;
-  background: var(--accent);
+  background: var(--grad-acento);
   border-radius: inherit;
 }
 
@@ -265,25 +735,36 @@
 
 .tf-grade {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
   gap: 12px;
 }
 
 .tf-item {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 14px 15px;
-  background: var(--bg-elevated);
+  gap: 10px;
+  padding: 16px;
+  background:
+    radial-gradient(120% 100% at 0% 0%, color-mix(in oklch, var(--accent) 6%, transparent), transparent 55%),
+    var(--bg-elevated);
   border: 1px solid var(--border-soft);
-  border-radius: 14px;
+  border-radius: var(--radius-xl);
+  transition: border-color 0.14s, box-shadow 0.14s;
+}
+
+.tf-item:hover {
+  border-color: var(--border);
+  box-shadow: 0 14px 30px -22px rgb(0 0 0 / calc(0.6 * var(--sombra-k)));
 }
 
 .tf-item-cab {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
+}
+
+.tf-item-cab > .tf-item-acoes {
+  margin-left: auto;
 }
 
 .tf-item-tipo {
@@ -294,14 +775,28 @@
   color: var(--text-faint);
 }
 
+.tf-avatar {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--texto-sobre-acento);
+  background: var(--grad-acento);
+  border-radius: 9px;
+  box-shadow: var(--glow-acento);
+}
+
 .tf-item-acoes {
   display: inline-flex;
   gap: 2px;
+  margin-left: auto;
 }
 
 .tf-item-titulo {
   margin: 0;
-  font-size: 15px;
+  font-size: 15.5px;
   font-weight: 650;
   color: var(--text);
 }
@@ -315,8 +810,39 @@
 
 .tf-item-rodape {
   margin: 0;
+  padding-top: 8px;
   font-size: 11.5px;
   color: var(--text-faint);
+  border-top: 1px solid var(--border-soft);
+}
+
+.tf-item-nums {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+}
+
+.tf-item-nums div {
+  min-width: 0;
+  padding: 7px 9px;
+  background: rgb(var(--realce) / 0.035);
+  border-radius: var(--radius);
+}
+
+.tf-item-nums dt {
+  overflow: hidden;
+  font-size: 10.5px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text-faint);
+}
+
+.tf-item-nums dd {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
 }
 
 .tf-url {
@@ -327,7 +853,8 @@
   padding: 0;
   overflow: hidden;
   font: inherit;
-  font-size: 12.5px;
+  font-family: var(--font-mono);
+  font-size: 12px;
   color: var(--accent);
   text-align: left;
   text-overflow: ellipsis;
@@ -342,10 +869,42 @@
 }
 
 .tf-selos,
-.tf-tags {
+.tf-tags,
+.tf-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
+}
+
+.tf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 3px 9px 3px 4px;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--text);
+  background: rgb(var(--realce) / 0.04);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.tf-chip > span:last-child {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tf-chip:hover {
+  border-color: var(--accent);
+}
+
+.tf-chips-mais {
+  align-self: center;
+  font-size: 11.5px;
+  color: var(--text-faint);
 }
 
 .tf-tag {
@@ -356,7 +915,7 @@
   padding: 1px 8px;
   font-size: 11px;
   font-weight: 500;
-  color: var(--text);
+  color: color-mix(in oklch, var(--cor-tag) var(--tinta-chip), var(--tinta-forte));
   background: color-mix(in oklch, var(--cor-tag) 16%, transparent);
   border: 1px solid color-mix(in oklch, var(--cor-tag) 40%, transparent);
   border-radius: 999px;
@@ -381,6 +940,23 @@
   font-size: 12.5px;
   font-variant-numeric: tabular-nums;
   color: var(--text-muted);
+}
+
+.tf-registros-vazio {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  color: var(--text-muted);
+  background: rgb(var(--realce) / 0.02);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.tf-registros-vazio p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
 }
 
 /* ---------- Painel da campanha ---------- */
@@ -440,10 +1016,12 @@
 }
 
 .tf-resumo div {
-  padding: 8px 10px;
-  background: var(--bg-elevated-2);
+  padding: 9px 11px;
+  background:
+    linear-gradient(160deg, rgb(var(--realce) / 0.03), transparent 70%),
+    var(--bg-elevated-2);
   border: 1px solid var(--border-soft);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
 }
 
 .tf-resumo dt {

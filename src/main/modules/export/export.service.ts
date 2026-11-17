@@ -6,6 +6,7 @@ import * as quadroService from '../quadro/quadro.service';
 import * as sheetsService from '../sheets/sheets.service';
 import * as linksService from '../links/links.service';
 import * as pensamentosService from '../pensamentos/pensamentos.service';
+import * as canvasService from '../canvas/canvas.service';
 import * as todoService from '../todo/todo.service';
 import * as iaService from '../ia/ia.service';
 import * as exploradorService from '../explorador/explorador.service';
@@ -55,6 +56,7 @@ const LEITORES: Record<ChaveBundle, () => Promise<unknown>> = {
   sheets: () => sheetsService.getFullFile(),
   links: () => linksService.getFullFile(),
   pensamentos: () => pensamentosService.getFullFile(),
+  canvas: () => canvasService.getFullFile(),
   explorador: () => exploradorService.getFullFile(),
   servidores: () => servidoresService.getFullFile(),
   n8n: () => n8nService.getFullFile(),
@@ -82,6 +84,7 @@ const GRAVADORES: Record<ChaveBundle, (dados: unknown) => Promise<unknown>> = {
   sheets: (d) => sheetsService.replaceFile(d),
   links: (d) => linksService.replaceFile(d),
   pensamentos: (d) => pensamentosService.replaceFile(d),
+  canvas: (d) => canvasService.replaceFile(d),
   explorador: (d) => exploradorService.replaceFile(d),
   servidores: (d) => servidoresService.replaceFile(d),
   n8n: (d) => n8nService.replaceFile(d),
@@ -206,6 +209,14 @@ function resumir(id: ModuloExportavel, b: ExportBundle): ResumoExportavel {
       return r([[lista(campo(b.copy, 'snippets')).length, 'texto', 'textos']]);
     case 'pensamentos':
       return r([[lista(campo(b.pensamentos, 'pensamentos')).length, 'post-it', 'post-its']]);
+    case 'canvas': {
+      const quadros = lista(campo(b.canvas, 'quadros'));
+      const formas = quadros.reduce<number>((t, q) => t + lista(campo(q, 'formas')).length, 0);
+      return r([
+        [quadros.length, 'quadro', 'quadros'],
+        [formas, 'forma', 'formas'],
+      ]);
+    }
     case 'links':
       return r([[lista(campo(b.links, 'links')).length, 'link', 'links']]);
     case 'servidores':

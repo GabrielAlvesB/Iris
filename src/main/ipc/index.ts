@@ -14,6 +14,7 @@ import { registerIdeiasIpc } from './ideias.ipc';
 import { registerLinksIpc } from './links.ipc';
 import { registerCopyIpc } from './copy.ipc';
 import { registerPensamentosIpc } from './pensamentos.ipc';
+import { registerCanvasIpc } from './canvas.ipc';
 import { registerTodoIpc } from './todo.ipc';
 import { registerIaIpc } from './ia.ipc';
 import { registerExploradorIpc } from './explorador.ipc';
@@ -75,6 +76,7 @@ function registrarTodos(): void {
   registerLinksIpc();
   registerCopyIpc();
   registerPensamentosIpc();
+  registerCanvasIpc();
   registerTodoIpc();
   registerIaIpc();
   registerExploradorIpc();

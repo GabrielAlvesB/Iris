@@ -256,6 +256,8 @@ function aoTeclar(e: KeyboardEvent): void {
   // Ctrl+P do Chromium é "imprimir": aqui nunca faz sentido, nem com modal aberto.
   if (passo === 'Ctrl+P') e.preventDefault();
   if (haModalAberto()) return;
+  // Terminal (e quem mais pedir): toda tecla é dele — Ctrl+K apaga a linha no bash, não abre a busca.
+  if ((document.activeElement as HTMLElement | null)?.closest('[data-captura-teclado]')) return;
   if (estaDigitando() && !passoFuncionaDigitando(passo)) return;
 
   const acao = acharAcao(passo);

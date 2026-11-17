@@ -1,568 +1,422 @@
-import type {
-  Checagem,
-  Servidor,
-  ServidorHttp,
-  ServidorSsh,
-  ServidoresFile,
-} from '../../../shared/types/servidores.types';
-import * as servidoresState from './servidores.state.js';
-import { openAvisoModal, openConfirmModal, openFormModal } from '../../ui/modal.js';
+import type { Servidor, ServidoresFile, ServidorTipo } from '../../../shared/types/servidores.types';
 import { abrirTutorial } from '../../core/navegacao.js';
-import { ICONES, buildBotaoAjuda } from '../../ui/pagina.js';
+import { abrirMenu } from '../../ui/menu.js';
+import { mensagemDeErro, openAvisoModal, openConfirmModal } from '../../ui/modal.js';
+import { buildBotao, buildBotaoAjuda, buildBusca, buildCabecalho, buildSelo, buildVazio, focarBusca, ICONES, svg } from '../../ui/pagina.js';
+import { abrirCadastro, buildEscolhaDeTipo, ICONE_SITE, ICONE_TERMINAL } from './servidores.cadastro.js';
+import { buildDetalheHttp, buildDetalheSsh, ICONE_MAIS, limparSaidas, receberSaida, situacaoHttp, ultimaChecagem } from './servidores.detalhe.js';
+import * as servidoresState from './servidores.state.js';
+import * as terminais from './servidores.terminal.js';
 
-let containerAtual: HTMLElement | null = null;
-/** Servidores SSH com o painel de comandos aberto. */
-let expandidos = new Set<string>();
-/** Painel <pre> de cada servidor, para anexar a saída sem redesenhar a tela. */
-const painesSaida = new Map<string, HTMLElement>();
 /**
- * Texto já recebido por servidor. Um broadcast de 'servidores:estado' (o ciclo
- * de health check, por exemplo) redesenha a tela e recriaria o <pre> vazio no
- * meio de um comando — guardar aqui faz a saída sobreviver ao re-render.
+ * Servidores: à esquerda a lista (agrupada), à direita o servidor escolhido — ou um
+ * terminal. As abas do lado direito são "Detalhes" e um terminal por sessão aberta,
+ * de qualquer servidor, como as abas de um navegador.
  */
-const saidaAcumulada = new Map<string, string>();
+
+const ICONE_TELA_CHEIA = '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>';
+const ICONE_SAIR_TELA_CHEIA = '<path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/>';
+const ICONE_MENU = '<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>';
+
+let raiz: HTMLElement | null = null;
+let selecionadoId: string | null = null;
+/** 'detalhe' ou o id de uma sessão de terminal. */
+let aba: string = 'detalhe';
+let busca = '';
+let telaCheia = false;
+let montado = false;
+
+function el<K extends keyof HTMLElementTagNameMap>(tag: K, classe?: string, texto?: string): HTMLElementTagNameMap[K] {
+  const e = document.createElement(tag);
+  if (classe) e.className = classe;
+  if (texto !== undefined) e.textContent = texto;
+  return e;
+}
+
+function falhou(erro: unknown): void {
+  void openAvisoModal('Não deu certo', mensagemDeErro(erro), { erro: true });
+}
 
 function rerender(): void {
   const state = servidoresState.getCurrentState();
-  if (containerAtual && state) render(containerAtual, state);
+  if (raiz && state) render(raiz, state);
 }
 
-async function avisar(titulo: string, mensagem: string): Promise<void> {
-  await openAvisoModal(titulo, mensagem, { erro: true, botao: 'Entendi' });
+// ---------- Ações ----------
+
+async function novo(tipo?: ServidorTipo): Promise<void> {
+  const id = await abrirCadastro({ tipo });
+  if (id) {
+    selecionadoId = id;
+    aba = 'detalhe';
+    rerender();
+  }
 }
 
-const ICONE_TERMINAL = '<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>';
-const OPCOES_HTTP = { icone: ICONES.servidor, subtitulo: 'Checagem de saúde por HTTP: o Iris chama a URL e confere o status.', largura: 540 };
-const OPCOES_SSH = { icone: ICONE_TERMINAL, subtitulo: 'Conexão por chave privada para rodar comandos salvos.', largura: 540 };
-
-function ultimaChecagem(servidor: Servidor): Checagem | undefined {
-  return servidor.historico[servidor.historico.length - 1];
+async function editar(servidor: Servidor): Promise<void> {
+  await abrirCadastro({ servidor });
 }
 
-function tempoRelativo(iso?: string): string {
-  if (!iso) return 'nunca checado';
-
-  const segundos = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
-  if (segundos < 60) return 'agora há pouco';
-  if (segundos < 3600) return `há ${Math.floor(segundos / 60)} min`;
-  if (segundos < 86400) return `há ${Math.floor(segundos / 3600)} h`;
-  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+async function remover(servidor: Servidor): Promise<void> {
+  const abertos = terminais.sessoes().filter((s) => s.servidorId === servidor.id && s.aberta).length;
+  const ok = await openConfirmModal({
+    title: `Remover ${servidor.nome}?`,
+    message: `O histórico de checagens e os comandos salvos vão junto${servidor.tipo === 'ssh' ? ', e a senha ou passphrase sai do cofre' : ''}.${abertos ? ` ${abertos === 1 ? 'O terminal aberto fecha' : `Os ${abertos} terminais abertos fecham`}.` : ''}`,
+    confirmText: 'Remover',
+  });
+  if (!ok) return;
+  for (const s of terminais.sessoes().filter((x) => x.servidorId === servidor.id)) await terminais.fechar(s.sessaoId);
+  await servidoresState.remover(servidor.id);
+  if (selecionadoId === servidor.id) selecionadoId = null;
 }
 
-/** Barras das últimas checagens — um sparkline em CSS puro, sem lib. */
-function buildSparkline(servidor: Servidor): HTMLElement {
-  const faixa = document.createElement('div');
-  faixa.className = 'servidor-sparkline';
+async function abrirTerminal(servidorId: string): Promise<void> {
+  try {
+    aba = await terminais.abrir(servidorId);
+    selecionadoId = servidorId;
+    rerender();
+  } catch (erro) {
+    falhou(erro);
+  }
+}
 
-  const recentes = servidor.historico.slice(-40);
-  const maiorLatencia = Math.max(1, ...recentes.map((c) => c.latenciaMs ?? 0));
+function irParaTerminal(sessaoId: string): void {
+  aba = sessaoId;
+  const s = terminais.sessao(sessaoId);
+  if (s) selecionadoId = s.servidorId;
+  rerender();
+}
 
-  recentes.forEach((checagem) => {
-    const barra = document.createElement('span');
-    barra.className = `servidor-barra ${checagem.ok ? 'is-ok' : 'is-falha'}`;
-    const proporcao = (checagem.latenciaMs ?? 0) / maiorLatencia;
-    barra.style.height = `${Math.max(15, Math.round(proporcao * 100))}%`;
-    barra.title = checagem.ok
-      ? `${new Date(checagem.em).toLocaleString('pt-BR')} · ${checagem.latenciaMs} ms`
-      : `${new Date(checagem.em).toLocaleString('pt-BR')} · ${checagem.erro ?? 'falhou'}`;
-    faixa.appendChild(barra);
+function abrirMenuGeral(ancora: HTMLElement, file: ServidoresFile): void {
+  const intervalos = [30, 60, 300, 900];
+  abrirMenu(ancora, [
+    { rotulo: 'Checagem automática', nota: true },
+    {
+      rotulo: file.healthAtivo ? 'Ligada — clique para pausar' : 'Pausada — clique para ligar',
+      icone: file.healthAtivo ? ICONES.check : ICONES.ponto,
+      fazer: () => void servidoresState.configHealth({ healthAtivo: !file.healthAtivo, healthIntervaloSeg: file.healthIntervaloSeg }).catch(falhou),
+    },
+    'separador',
+    { rotulo: 'Ciclo de conferência', nota: true },
+    ...intervalos.map((seg) => ({
+      rotulo: seg < 60 ? `A cada ${seg} s` : `A cada ${seg / 60} min`,
+      marcado: file.healthIntervaloSeg === seg,
+      fazer: () => void servidoresState.configHealth({ healthAtivo: file.healthAtivo, healthIntervaloSeg: seg }).catch(falhou),
+    })),
+    'separador',
+    { rotulo: 'Como funciona', icone: ICONES.tutorial, fazer: () => abrirTutorial('servidores') },
+  ]);
+}
+
+// ---------- Lista ----------
+
+function situacaoDaLinha(s: Servidor): { tom: 'ok' | 'atencao' | 'erro' | 'neutro'; texto: string; meta: string } {
+  if (s.tipo === 'http') {
+    const sit = situacaoHttp(s);
+    const ultima = ultimaChecagem(s);
+    return { ...sit, meta: ultima?.ok ? `${ultima.latenciaMs} ms` : ultima ? 'falhou' : '—' };
+  }
+  const abertas = terminais.sessoes().filter((x) => x.servidorId === s.id && x.aberta).length;
+  return abertas ? { tom: 'ok', texto: 'Terminal aberto', meta: 'SSH' } : { tom: 'neutro', texto: 'SSH', meta: 'SSH' };
+}
+
+function buildLista(file: ServidoresFile): HTMLElement {
+  const lado = el('aside', 'sv-lista');
+  lado.appendChild(buildBusca(busca, 'Buscar servidor', (v) => {
+    busca = v;
+    rerender();
+    focarBusca(raiz);
+  }));
+
+  const termo = busca.trim().toLocaleLowerCase('pt-BR');
+  const visiveis = file.servidores.filter((s) => {
+    if (!termo) return true;
+    const alvo = s.tipo === 'http' ? s.url : `${s.usuario}@${s.host}`;
+    return `${s.nome} ${alvo} ${s.grupo ?? ''}`.toLocaleLowerCase('pt-BR').includes(termo);
   });
 
-  return faixa;
+  const rolagem = el('div', 'sv-lista-rolagem');
+  rolagem.dataset.rolagem = 'sv-lista';
+  if (visiveis.length === 0) rolagem.appendChild(el('p', 'sv-nota', 'Nada encontrado.'));
+
+  const grupos = new Map<string, Servidor[]>();
+  visiveis.forEach((s) => {
+    const g = s.grupo?.trim() || '';
+    grupos.set(g, [...(grupos.get(g) ?? []), s]);
+  });
+  const nomes = [...grupos.keys()].sort((a, b) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b, 'pt-BR')));
+  nomes.forEach((g) => {
+    if (nomes.length > 1 || g) rolagem.appendChild(el('h4', 'sv-lista-grupo', g || 'Sem grupo'));
+    grupos.get(g)!.forEach((s) => {
+      const item = el('button', `sv-item${s.id === selecionadoId ? ' is-ativo' : ''}`);
+      item.type = 'button';
+      const sit = situacaoDaLinha(s);
+      const icone = el('span', `sv-item-icone is-${sit.tom}`);
+      icone.innerHTML = svg(s.tipo === 'http' ? ICONE_SITE : ICONE_TERMINAL, 16, 1.9);
+      const textos = el('span', 'sv-item-textos');
+      textos.append(el('span', 'sv-item-nome', s.nome), el('span', 'sv-item-alvo', s.tipo === 'http' ? s.url.replace(/^https?:\/\//, '') : `${s.usuario}@${s.host}`));
+      const lado = el('span', 'sv-item-lado');
+      const ponto = el('span', `sv-ponto is-${sit.tom}`);
+      ponto.title = sit.texto;
+      lado.append(ponto, el('span', 'sv-item-meta', sit.meta));
+      item.setAttribute('aria-label', `${s.nome} — ${sit.texto}`);
+      item.append(icone, textos, lado);
+      item.addEventListener('click', () => {
+        selecionadoId = s.id;
+        aba = 'detalhe';
+        rerender();
+      });
+      rolagem.appendChild(item);
+    });
+  });
+  lado.appendChild(rolagem);
+  return lado;
 }
 
-async function editarServidor(servidor: Servidor): Promise<void> {
-  if (servidor.tipo === 'http') {
-    const resposta = await openFormModal(
-      'Editar servidor HTTP',
-      [
-        { name: 'nome', label: 'Nome', defaultValue: servidor.nome, secao: 'Identificação' },
-        { name: 'url', label: 'URL', type: 'url', defaultValue: servidor.url, secao: 'Identificação' },
-        {
-          name: 'metodo',
-          label: 'Método',
-          type: 'select',
-          secao: 'Checagem',
-          metade: true,
-          defaultValue: servidor.metodo,
-          options: [
-            { value: 'GET', label: 'GET' },
-            { value: 'HEAD', label: 'HEAD' },
-          ],
-        },
-        { name: 'statusEsperado', label: 'Status esperado', type: 'number', defaultValue: String(servidor.statusEsperado), secao: 'Checagem', metade: true },
-        { name: 'timeoutMs', label: 'Timeout (ms)', type: 'number', defaultValue: String(servidor.timeoutMs), secao: 'Checagem', metade: true },
-        { name: 'intervalo', label: 'Checar a cada (s)', type: 'number', defaultValue: String(servidor.intervaloSegundos), secao: 'Checagem', metade: true, dica: '0 = só manual' },
-        {
-          name: 'tls',
-          label: 'Certificado autoassinado',
-          type: 'select',
-          secao: 'Checagem',
-          defaultValue: servidor.permitirTlsInseguro ? 'sim' : 'nao',
-          options: [
-            { value: 'nao', label: 'Não aceitar (recomendado)' },
-            { value: 'sim', label: 'Aceitar mesmo inválido' },
-          ],
-        },
-      ],
-      'Salvar',
-      OPCOES_HTTP,
-    );
-    if (!resposta) return;
+// ---------- Abas e área da direita ----------
 
-    await servidoresState.atualizar({
-      servidorId: servidor.id,
-      nome: resposta.nome,
-      url: resposta.url,
-      metodo: resposta.metodo === 'HEAD' ? 'HEAD' : 'GET',
-      statusEsperado: Number(resposta.statusEsperado) || 200,
-      timeoutMs: Number(resposta.timeoutMs) || 8000,
-      intervaloSegundos: Number(resposta.intervalo) || 0,
-      permitirTlsInseguro: resposta.tls === 'sim',
+function buildAbas(servidor: Servidor | undefined): HTMLElement {
+  const barra = el('div', 'sv-abas');
+  barra.setAttribute('role', 'tablist');
+  const detalhe = el('button', `sv-aba${aba === 'detalhe' ? ' is-ativa' : ''}`);
+  detalhe.type = 'button';
+  detalhe.setAttribute('role', 'tab');
+  detalhe.innerHTML = svg(servidor?.tipo === 'ssh' ? ICONE_TERMINAL : ICONES.servidor, 14);
+  detalhe.appendChild(el('span', undefined, 'Detalhes'));
+  detalhe.title = servidor ? `Detalhes de ${servidor.nome}` : 'Detalhes';
+  detalhe.addEventListener('click', () => {
+    aba = 'detalhe';
+    rerender();
+  });
+  barra.appendChild(detalhe);
+
+  terminais.sessoes().forEach((s) => {
+    const b = el('div', `sv-aba is-terminal${aba === s.sessaoId ? ' is-ativa' : ''}${s.aberta ? '' : ' is-fechada'}`);
+    b.setAttribute('role', 'tab');
+    b.tabIndex = 0;
+    const ponto = el('span', `sv-ponto is-${s.aberta ? 'ok' : 'erro'}`);
+    ponto.title = s.aberta ? 'Conectado' : (s.motivo ?? 'Desconectado');
+    b.append(ponto, el('span', 'sv-aba-rotulo', s.titulo));
+    const fechar = el('button', 'sv-aba-fechar');
+    fechar.type = 'button';
+    fechar.title = 'Fechar terminal';
+    fechar.setAttribute('aria-label', `Fechar ${s.titulo}`);
+    fechar.innerHTML = svg(ICONES.xis, 12, 2.2);
+    fechar.addEventListener('click', (e) => {
+      e.stopPropagation();
+      void fecharAba(s.sessaoId);
     });
+    b.appendChild(fechar);
+    b.addEventListener('click', () => irParaTerminal(s.sessaoId));
+    b.addEventListener('auxclick', (e) => {
+      if (e.button === 1) void fecharAba(s.sessaoId);
+    });
+    b.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') irParaTerminal(s.sessaoId);
+    });
+    barra.appendChild(b);
+  });
+
+  if (servidor?.tipo === 'ssh') {
+    const mais = el('button', 'sv-aba-nova');
+    mais.type = 'button';
+    mais.title = `Novo terminal em ${servidor.nome}`;
+    mais.innerHTML = svg(ICONE_MAIS, 14, 2);
+    mais.addEventListener('click', () => void abrirTerminal(servidor.id));
+    barra.appendChild(mais);
+  }
+  return barra;
+}
+
+async function fecharAba(sessaoId: string): Promise<void> {
+  const s = terminais.sessao(sessaoId);
+  if (s?.aberta) {
+    const ok = await openConfirmModal({ title: 'Fechar o terminal?', message: 'A conexão com o servidor é encerrada. O que estiver rodando em primeiro plano no shell para junto.', confirmText: 'Fechar', danger: false });
+    if (!ok) return;
+  }
+  const lista = terminais.sessoes();
+  const i = lista.findIndex((x) => x.sessaoId === sessaoId);
+  await terminais.fechar(sessaoId);
+  if (aba === sessaoId) {
+    const vizinha = terminais.sessoes()[Math.max(0, i - 1)];
+    aba = vizinha ? vizinha.sessaoId : 'detalhe';
+  }
+  rerender();
+}
+
+function buildTerminal(sessaoId: string, file: ServidoresFile): HTMLElement {
+  const s = terminais.sessao(sessaoId)!;
+  const servidor = file.servidores.find((x) => x.id === s.servidorId);
+  const area = el('div', 'sv-terminal');
+  const barra = el('div', 'sv-terminal-barra');
+  const alvo = servidor?.tipo === 'ssh' ? `${servidor.usuario}@${servidor.host}` : s.titulo;
+  barra.append(el('code', 'sv-terminal-alvo', alvo), buildSelo(s.aberta ? 'Conectado' : 'Desconectado', s.aberta ? 'ok' : 'erro'));
+  barra.appendChild(el('span', 'pg-espaco'));
+
+  if (servidor?.tipo === 'ssh' && servidor.comandos.length && s.aberta) {
+    const comandos = buildBotao('Comandos', { icone: ICONE_TERMINAL, variante: 'fantasma', titulo: 'Digitar um comando salvo' });
+    comandos.type = 'button';
+    comandos.addEventListener('click', () =>
+      abrirMenu(comandos, servidor.comandos.map((c) => ({ rotulo: c.rotulo, icone: ICONES.play, fazer: () => terminais.digitar(sessaoId, c.comando) }))),
+    );
+    barra.appendChild(comandos);
+  }
+  if (!s.aberta && s.chaveMudou) {
+    const confiar = buildBotao('Confiar na nova chave', { icone: ICONES.escudo });
+    confiar.type = 'button';
+    confiar.title = 'Só se você sabe por que a chave mudou (servidor reinstalado, por exemplo).';
+    confiar.addEventListener('click', async () => {
+      const ok = await openConfirmModal({
+        title: 'Confiar na nova chave?',
+        message: 'Faça isso só se você sabe por que a chave mudou — o servidor foi reinstalado ou trocou de máquina. Se não sabe, pode ser alguém se passando pelo servidor.',
+        confirmText: 'Confiar e conectar',
+        danger: false,
+      });
+      if (!ok) return;
+      try {
+        await servidoresState.confiarHost(s.servidorId);
+        aba = await terminais.reconectar(sessaoId);
+        rerender();
+      } catch (erro) {
+        falhou(erro);
+      }
+    });
+    barra.appendChild(confiar);
+  }
+  if (!s.aberta) {
+    const reconectar = buildBotao('Reconectar', { icone: ICONES.atualizar, variante: 'primario' });
+    reconectar.type = 'button';
+    reconectar.addEventListener('click', async () => {
+      try {
+        aba = await terminais.reconectar(sessaoId);
+        rerender();
+      } catch (erro) {
+        falhou(erro);
+      }
+    });
+    barra.appendChild(reconectar);
+  }
+  const cheia = buildBotao('', { icone: telaCheia ? ICONE_SAIR_TELA_CHEIA : ICONE_TELA_CHEIA, variante: 'fantasma', titulo: telaCheia ? 'Sair da tela cheia' : 'Tela cheia' });
+  cheia.type = 'button';
+  cheia.addEventListener('click', () => {
+    telaCheia = !telaCheia;
+    rerender();
+  });
+  barra.appendChild(cheia);
+  area.appendChild(barra);
+
+  const moldura = el('div', 'sv-terminal-moldura');
+  area.appendChild(moldura);
+  // O xterm é movido (não recriado) para a moldura nova: a sessão continua igual.
+  terminais.montarEm(sessaoId, moldura, true);
+  return area;
+}
+
+function buildVazioGeral(): HTMLElement {
+  const wrap = el('div', 'sv-vazio');
+  wrap.appendChild(
+    buildVazio(
+      ICONES.servidor,
+      'Nenhum servidor ainda',
+      'Vigie um site ou API — o Iris avisa quando cai ou fica lento — ou cadastre uma máquina para entrar por SSH num terminal aqui dentro.',
+    ),
+  );
+  wrap.appendChild(buildEscolhaDeTipo((tipo) => void novo(tipo)));
+  return wrap;
+}
+
+// ---------- Tela ----------
+
+export function render(viewRoot: HTMLElement, state: ServidoresFile): void {
+  raiz = viewRoot;
+  if (!montado) {
+    montado = true;
+    servidoresState.onSaida(receberSaida);
+    void terminais.reanexar(rerender).catch(falhou);
+  }
+
+  // Servidor apagado (aqui ou por desfazer) ou nada escolhido: o primeiro da lista.
+  if (!state.servidores.some((s) => s.id === selecionadoId)) selecionadoId = state.servidores[0]?.id ?? null;
+  if (aba !== 'detalhe' && !terminais.sessao(aba)) aba = 'detalhe';
+  if (aba === 'detalhe') telaCheia = false;
+
+  const rolagens = new Map<string, number>();
+  viewRoot.querySelectorAll<HTMLElement>('[data-rolagem]').forEach((n) => rolagens.set(n.dataset.rolagem!, n.scrollTop));
+
+  const view = el('div', `pg-view sv-view${telaCheia ? ' is-tela-cheia' : ''}`);
+
+  const menu = buildBotao('', { icone: ICONE_MENU, variante: 'fantasma', titulo: 'Checagem automática' });
+  menu.type = 'button';
+  menu.addEventListener('click', () => abrirMenuGeral(menu, state));
+  const checarTodos = buildBotao('Checar todos', { icone: ICONES.atualizar });
+  checarTodos.type = 'button';
+  checarTodos.addEventListener('click', async () => {
+    checarTodos.disabled = true;
+    try {
+      await servidoresState.checarTodos();
+    } catch (erro) {
+      falhou(erro);
+    } finally {
+      checarTodos.disabled = false;
+    }
+  });
+  const adicionar = buildBotao('Novo servidor', { icone: ICONE_MAIS, variante: 'primario' });
+  adicionar.type = 'button';
+  adicionar.addEventListener('click', () => void novo());
+
+  const temHttp = state.servidores.some((s) => s.tipo === 'http');
+  const pausada = temHttp && !state.healthAtivo;
+  view.appendChild(
+    buildCabecalho({
+      icone: ICONES.servidor,
+      titulo: 'Servidores',
+      subtitulo: 'Sites que o Iris vigia e máquinas em que você entra por SSH',
+      extras: pausada ? [buildSelo('Checagem pausada', 'atencao')] : [],
+      acoes: [...(temHttp ? [checarTodos] : []), menu, adicionar, buildBotaoAjuda(() => abrirTutorial('servidores'))],
+    }),
+  );
+
+  if (state.servidores.length === 0 && terminais.sessoes().length === 0) {
+    view.appendChild(buildVazioGeral());
+    viewRoot.replaceChildren(view);
     return;
   }
 
-  const resposta = await openFormModal(
-    'Editar servidor SSH',
-    [
-      { name: 'nome', label: 'Nome', defaultValue: servidor.nome, secao: 'Conexão' },
-      { name: 'host', label: 'Host', defaultValue: servidor.host, secao: 'Conexão' },
-      { name: 'porta', label: 'Porta', type: 'number', defaultValue: String(servidor.porta), secao: 'Conexão', metade: true },
-      { name: 'usuario', label: 'Usuário', defaultValue: servidor.usuario, secao: 'Conexão', metade: true },
-      { name: 'caminhoChave', label: 'Caminho da chave privada', defaultValue: servidor.caminhoChave, secao: 'Chave' },
-      {
-        name: 'passphrase',
-        label: 'Passphrase',
-        type: 'password',
-        secao: 'Chave',
-        dica: servidor.temPassphrase ? 'Em branco mantém a atual.' : 'Opcional; guardada cifrada neste computador.',
-        defaultValue: '',
-      },
-    ],
-    'Salvar',
-    OPCOES_SSH,
-  );
-  if (!resposta) return;
+  const grade = el('div', 'sv-grade');
+  grade.appendChild(buildLista(state));
 
-  await servidoresState.atualizar({
-    servidorId: servidor.id,
-    nome: resposta.nome,
-    host: resposta.host,
-    porta: Number(resposta.porta) || 22,
-    usuario: resposta.usuario,
-    caminhoChave: resposta.caminhoChave,
-    // String vazia mantém a passphrase; para remover use o botão dedicado.
-    passphrase: resposta.passphrase ? resposta.passphrase : undefined,
-  });
-}
-
-async function novoHttp(): Promise<void> {
-  const resposta = await openFormModal(
-    'Novo servidor HTTP',
-    [
-      { name: 'nome', label: 'Nome', placeholder: 'API de produção', secao: 'Identificação' },
-      { name: 'url', label: 'URL', type: 'url', placeholder: 'https://meuservidor.com/health', secao: 'Identificação' },
-      {
-        name: 'metodo',
-        label: 'Método',
-        type: 'select',
-        secao: 'Checagem',
-        metade: true,
-        defaultValue: 'GET',
-        options: [
-          { value: 'GET', label: 'GET' },
-          { value: 'HEAD', label: 'HEAD' },
-        ],
-      },
-      { name: 'statusEsperado', label: 'Status esperado', type: 'number', defaultValue: '200', secao: 'Checagem', metade: true },
-      { name: 'intervalo', label: 'Checar a cada (s)', type: 'number', defaultValue: '60', secao: 'Checagem', dica: '0 = só manual' },
-    ],
-    'Adicionar',
-    OPCOES_HTTP,
-  );
-  if (!resposta) return;
-
-  try {
-    await servidoresState.criarHttp({
-      nome: resposta.nome,
-      url: resposta.url,
-      metodo: resposta.metodo === 'HEAD' ? 'HEAD' : 'GET',
-      statusEsperado: Number(resposta.statusEsperado) || 200,
-      timeoutMs: 8000,
-      permitirTlsInseguro: false,
-      intervaloSegundos: Number(resposta.intervalo) || 0,
-    });
-  } catch (error) {
-    await avisar('Não foi possível adicionar', error instanceof Error ? error.message : String(error));
+  const direita = el('section', 'sv-direita');
+  const servidor = state.servidores.find((s) => s.id === selecionadoId);
+  direita.appendChild(buildAbas(servidor));
+  if (aba !== 'detalhe') {
+    direita.appendChild(buildTerminal(aba, state));
+  } else if (servidor) {
+    const corpo = el('div', 'sv-detalhe');
+    corpo.dataset.rolagem = `sv-detalhe-${servidor.id}`;
+    const ctx = {
+      abrirTerminal: (id: string) => void abrirTerminal(id),
+      irParaTerminal,
+      editar: () => void editar(servidor).catch(falhou),
+      remover: () => void remover(servidor).catch(falhou),
+    };
+    corpo.appendChild(servidor.tipo === 'http' ? buildDetalheHttp(servidor, ctx) : buildDetalheSsh(servidor, ctx));
+    direita.appendChild(corpo);
   }
-}
+  grade.appendChild(direita);
+  view.appendChild(grade);
 
-async function novoSsh(): Promise<void> {
-  const caminhoChave = await servidoresState.escolherChave();
-  if (!caminhoChave) return;
-
-  const resposta = await openFormModal(
-    'Novo servidor SSH',
-    [
-      { name: 'nome', label: 'Nome', placeholder: 'VPS principal', secao: 'Conexão' },
-      { name: 'host', label: 'Host', placeholder: '203.0.113.10', secao: 'Conexão' },
-      { name: 'porta', label: 'Porta', type: 'number', defaultValue: '22', secao: 'Conexão', metade: true },
-      { name: 'usuario', label: 'Usuário', defaultValue: 'root', secao: 'Conexão', metade: true },
-      { name: 'passphrase', label: 'Passphrase da chave', type: 'password', defaultValue: '', secao: 'Chave', dica: 'Só se a chave tiver uma.' },
-    ],
-    'Adicionar',
-    { ...OPCOES_SSH, subtitulo: `Chave escolhida: ${caminhoChave}` },
-  );
-  if (!resposta) return;
-
-  try {
-    await servidoresState.criarSsh({
-      nome: resposta.nome,
-      host: resposta.host,
-      porta: Number(resposta.porta) || 22,
-      usuario: resposta.usuario,
-      caminhoChave,
-      passphrase: resposta.passphrase || undefined,
-    });
-  } catch (error) {
-    await avisar('Não foi possível adicionar', error instanceof Error ? error.message : String(error));
-  }
-}
-
-async function removerServidor(servidor: Servidor): Promise<void> {
-  const confirmado = await openConfirmModal({
-    title: 'Remover servidor',
-    message: `"${servidor.nome}" sai da lista, junto com o histórico de checagens${
-      servidor.tipo === 'ssh' ? ' e a passphrase salva' : ''
-    }.`,
-    confirmText: 'Remover',
-  });
-  if (confirmado) await servidoresState.remover(servidor.id);
-}
-
-async function editarComando(servidor: ServidorSsh, comandoId?: string): Promise<void> {
-  const existente = comandoId ? servidor.comandos.find((c) => c.id === comandoId) : undefined;
-
-  const resposta = await openFormModal(
-    existente ? 'Editar comando' : 'Novo comando',
-    [
-      { name: 'rotulo', label: 'Rótulo', defaultValue: existente?.rotulo ?? '', placeholder: 'Ver containers' },
-      {
-        name: 'comando',
-        label: 'Comando',
-        type: 'textarea',
-        defaultValue: existente?.comando ?? '',
-        placeholder: 'docker ps',
-        dica: 'Roda no servidor pela conexão SSH; a saída aparece no painel.',
-      },
-    ],
-    'Salvar',
-    { icone: ICONE_TERMINAL, subtitulo: servidor.nome },
-  );
-  if (!resposta) return;
-
-  await servidoresState.salvarComando({
-    servidorId: servidor.id,
-    comandoId,
-    rotulo: resposta.rotulo,
-    comando: resposta.comando,
-  });
-}
-
-function buildPainelSsh(servidor: ServidorSsh): HTMLElement {
-  const painel = document.createElement('div');
-  painel.className = 'servidor-painel';
-
-  const botoes = document.createElement('div');
-  botoes.className = 'servidor-comandos';
-
-  const saida = document.createElement('pre');
-  saida.className = 'servidor-saida';
-  saida.textContent = saidaAcumulada.get(servidor.id) ?? '';
-  painesSaida.set(servidor.id, saida);
-
-  servidor.comandos.forEach((comando) => {
-    const grupo = document.createElement('div');
-    grupo.className = 'servidor-comando';
-
-    const rodar = document.createElement('button');
-    rodar.className = 'btn btn-secondary servidor-btn-comando';
-    rodar.textContent = comando.rotulo;
-    rodar.title = comando.comando;
-    rodar.addEventListener('click', () => {
-      const cabecalho = `$ ${comando.comando}\n`;
-      saidaAcumulada.set(servidor.id, cabecalho);
-      saida.textContent = cabecalho;
-      void servidoresState
-        .rodarComando({ servidorId: servidor.id, comandoId: comando.id })
-        .catch((error: unknown) => {
-          const texto = `\n${error instanceof Error ? error.message : String(error)}\n`;
-          saidaAcumulada.set(servidor.id, (saidaAcumulada.get(servidor.id) ?? '') + texto);
-          saida.textContent += texto;
-        });
-    });
-    grupo.appendChild(rodar);
-
-    const editar = document.createElement('button');
-    editar.className = 'btn-icon servidor-mini';
-    editar.title = 'Editar comando';
-    editar.textContent = '✎';
-    editar.addEventListener('click', () => void editarComando(servidor, comando.id));
-    grupo.appendChild(editar);
-
-    const remover = document.createElement('button');
-    remover.className = 'btn-icon servidor-mini';
-    remover.title = 'Remover comando';
-    remover.textContent = '×';
-    remover.addEventListener('click', () => {
-      void servidoresState.removerComando({ servidorId: servidor.id, comandoId: comando.id });
-    });
-    grupo.appendChild(remover);
-
-    botoes.appendChild(grupo);
-  });
-
-  const novo = document.createElement('button');
-  novo.className = 'btn btn-secondary servidor-btn-comando servidor-btn-novo';
-  novo.textContent = '+ Comando';
-  novo.addEventListener('click', () => void editarComando(servidor));
-  botoes.appendChild(novo);
-
-  painel.appendChild(botoes);
-
-  if (servidor.comandos.length === 0) {
-    const dica = document.createElement('div');
-    dica.className = 'servidor-dica';
-    dica.textContent =
-      'Cadastre comandos de conferência, como uptime, docker ps ou tail -n 200 /var/log/app.log.';
-    painel.appendChild(dica);
-  }
-
-  painel.appendChild(saida);
-  return painel;
-}
-
-function buildCard(servidor: Servidor): HTMLElement {
-  const card = document.createElement('article');
-  card.className = 'servidor-card';
-
-  const topo = document.createElement('div');
-  topo.className = 'servidor-topo';
-
-  const ultima = ultimaChecagem(servidor);
-  const bolinha = document.createElement('span');
-  const situacao = servidor.tipo === 'ssh' ? 'neutro' : !ultima ? 'neutro' : ultima.ok ? 'ok' : 'falha';
-  bolinha.className = `servidor-bolinha is-${situacao}`;
-  topo.appendChild(bolinha);
-
-  const nome = document.createElement('span');
-  nome.className = 'servidor-nome';
-  nome.textContent = servidor.nome;
-  topo.appendChild(nome);
-
-  const tipo = document.createElement('span');
-  tipo.className = 'servidor-tipo';
-  tipo.textContent = servidor.tipo === 'http' ? 'HTTP' : 'SSH';
-  topo.appendChild(tipo);
-
-  const alvo = document.createElement('span');
-  alvo.className = 'servidor-alvo';
-  alvo.textContent =
-    servidor.tipo === 'http'
-      ? (servidor as ServidorHttp).url
-      : `${(servidor as ServidorSsh).usuario}@${(servidor as ServidorSsh).host}:${(servidor as ServidorSsh).porta}`;
-  topo.appendChild(alvo);
-
-  const espaco = document.createElement('div');
-  espaco.className = 'servidor-espaco';
-  topo.appendChild(espaco);
-
-  if (servidor.tipo === 'http') {
-    const checar = document.createElement('button');
-    checar.className = 'btn btn-secondary servidor-btn-pequeno';
-    checar.textContent = 'Checar';
-    checar.addEventListener('click', () => {
-      checar.disabled = true;
-      void servidoresState.checarAgora(servidor.id).finally(() => {
-        checar.disabled = false;
-      });
-    });
-    topo.appendChild(checar);
-  } else {
-    const alternar = document.createElement('button');
-    alternar.className = 'btn btn-secondary servidor-btn-pequeno';
-    alternar.textContent = expandidos.has(servidor.id) ? 'Fechar' : 'Comandos';
-    alternar.addEventListener('click', () => {
-      if (expandidos.has(servidor.id)) expandidos.delete(servidor.id);
-      else expandidos.add(servidor.id);
-      rerender();
-    });
-    topo.appendChild(alternar);
-  }
-
-  const editar = document.createElement('button');
-  editar.className = 'btn-icon servidor-mini';
-  editar.title = 'Editar';
-  editar.textContent = '✎';
-  editar.addEventListener('click', () => void editarServidor(servidor));
-  topo.appendChild(editar);
-
-  const remover = document.createElement('button');
-  remover.className = 'btn-icon servidor-mini servidor-mini--danger';
-  remover.title = 'Remover';
-  remover.textContent = '×';
-  remover.addEventListener('click', () => void removerServidor(servidor));
-  topo.appendChild(remover);
-
-  card.appendChild(topo);
-
-  if (servidor.tipo === 'http') {
-    const meta = document.createElement('div');
-    meta.className = 'servidor-meta';
-
-    const quando = document.createElement('span');
-    quando.textContent = tempoRelativo(ultima?.em);
-    meta.appendChild(quando);
-
-    if (ultima) {
-      const detalhe = document.createElement('span');
-      detalhe.className = ultima.ok ? 'servidor-detalhe is-ok' : 'servidor-detalhe is-falha';
-      detalhe.textContent = ultima.ok
-        ? `HTTP ${ultima.status} · ${ultima.latenciaMs} ms`
-        : (ultima.erro ?? 'falhou');
-      meta.appendChild(detalhe);
-    }
-
-    if (servidor.intervaloSegundos > 0) {
-      const ciclo = document.createElement('span');
-      ciclo.className = 'servidor-ciclo';
-      ciclo.textContent = `a cada ${servidor.intervaloSegundos}s`;
-      meta.appendChild(ciclo);
-    }
-
-    card.appendChild(meta);
-    if (servidor.historico.length > 0) card.appendChild(buildSparkline(servidor));
-  }
-
-  if (servidor.tipo === 'ssh' && expandidos.has(servidor.id)) {
-    card.appendChild(buildPainelSsh(servidor as ServidorSsh));
-  }
-
-  return card;
-}
-
-export function render(container: HTMLElement, state: ServidoresFile): void {
-  containerAtual = container;
-  container.innerHTML = '';
-  painesSaida.clear();
-
-  const view = document.createElement('div');
-  view.className = 'servidores-view';
-
-  const header = document.createElement('header');
-  header.className = 'servidores-header';
-
-  const titulo = document.createElement('h1');
-  titulo.className = 'servidores-titulo';
-  titulo.textContent = 'Servidores';
-  header.appendChild(titulo);
-
-  const espaco = document.createElement('div');
-  espaco.className = 'servidor-espaco';
-  header.appendChild(espaco);
-
-  const ciclo = document.createElement('label');
-  ciclo.className = 'servidores-ciclo';
-  const check = document.createElement('input');
-  check.type = 'checkbox';
-  check.checked = state.healthAtivo;
-  check.addEventListener('change', () => {
-    void servidoresState.configHealth({
-      healthAtivo: check.checked,
-      healthIntervaloSeg: state.healthIntervaloSeg,
-    });
-  });
-  ciclo.appendChild(check);
-  const cicloTexto = document.createElement('span');
-  cicloTexto.textContent = `Checagem automática (${state.healthIntervaloSeg}s)`;
-  ciclo.appendChild(cicloTexto);
-  header.appendChild(ciclo);
-
-  const checarTodos = document.createElement('button');
-  checarTodos.className = 'btn btn-secondary';
-  checarTodos.textContent = 'Checar todos';
-  checarTodos.addEventListener('click', () => {
-    checarTodos.disabled = true;
-    checarTodos.textContent = 'Checando…';
-    void servidoresState.checarTodos().finally(() => {
-      checarTodos.disabled = false;
-      checarTodos.textContent = 'Checar todos';
-    });
-  });
-  header.appendChild(checarTodos);
-
-  const addHttp = document.createElement('button');
-  addHttp.className = 'btn';
-  addHttp.textContent = '+ HTTP';
-  addHttp.addEventListener('click', () => void novoHttp());
-  header.appendChild(addHttp);
-
-  const addSsh = document.createElement('button');
-  addSsh.className = 'btn';
-  addSsh.textContent = '+ SSH';
-  addSsh.addEventListener('click', () => void novoSsh());
-  header.appendChild(addSsh);
-
-  header.appendChild(buildBotaoAjuda(() => abrirTutorial('servidores')));
-
-  view.appendChild(header);
-
-  const lista = document.createElement('div');
-  lista.className = 'servidores-lista';
-
-  if (state.servidores.length === 0) {
-    const vazio = document.createElement('div');
-    vazio.className = 'servidores-vazio';
-    vazio.textContent =
-      'Nenhum servidor cadastrado. Use "+ HTTP" para monitorar uma URL ou "+ SSH" para acessar uma máquina remota.';
-    lista.appendChild(vazio);
-
-    const guia = document.createElement('button');
-    guia.className = 'btn btn-secondary servidores-vazio-guia';
-    guia.textContent = 'Ver o passo a passo';
-    guia.addEventListener('click', () => abrirTutorial('servidores'));
-    lista.appendChild(guia);
-  } else {
-    state.servidores.forEach((servidor) => lista.appendChild(buildCard(servidor)));
-  }
-
-  view.appendChild(lista);
-  container.appendChild(view);
-
-  // Anexa a saída SSH direto no <pre> correspondente, sem passar por re-render.
-  servidoresState.onSaida((chunk) => {
-    const texto =
-      chunk.stream === 'fim'
-        ? `\n— ${chunk.texto}${chunk.exitCode !== undefined ? ` (código ${chunk.exitCode})` : ''}\n`
-        : chunk.texto;
-
-    saidaAcumulada.set(chunk.servidorId, (saidaAcumulada.get(chunk.servidorId) ?? '') + texto);
-
-    const painel = painesSaida.get(chunk.servidorId);
-    if (!painel) return; // painel fechado: o texto fica guardado para quando reabrir
-
-    painel.textContent += texto;
-    painel.scrollTop = painel.scrollHeight;
+  viewRoot.replaceChildren(view);
+  viewRoot.querySelectorAll<HTMLElement>('[data-rolagem]').forEach((n) => {
+    const topo = rolagens.get(n.dataset.rolagem!);
+    if (topo) n.scrollTop = topo;
   });
 }
 
 export function destroy(): void {
+  terminais.desmontar();
+  limparSaidas();
   servidoresState.onSaida(null);
-  containerAtual = null;
-  painesSaida.clear();
-  // A saída pode conter conteúdo sensível de servidor; não sobrevive à saída
-  // do módulo, e nada dela é gravado em disco.
-  saidaAcumulada.clear();
-  expandidos = new Set();
+  raiz = null;
+  montado = false;
+  telaCheia = false;
 }

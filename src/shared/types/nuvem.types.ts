@@ -78,6 +78,12 @@ export const REGRAS_NUVEM: Record<ChaveBundle, RegraNuvem> = {
   sheets: { sincroniza: true, aninhadas: { tables: ['rows'] }, camposLocais: { tables: CARIMBO_DO_PAI } },
   links: { sincroniza: true },
   pensamentos: { sincroniza: true },
+  canvas: {
+    sincroniza: true,
+    aninhadas: { quadros: ['formas'] },
+    // Rolar e dar zoom é deste computador; o carimbo do quadro muda a cada forma (como o do Kanban).
+    camposLocais: { quadros: ['updatedAt', 'viewport'] },
+  },
   copy: { sincroniza: true },
   ideias: { sincroniza: true },
   gravacao: { sincroniza: true },

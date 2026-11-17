@@ -59,6 +59,7 @@ const GRUPOS: Record<TipoOpcao, { nome: string; peso: number }> = {
   Ação: { nome: 'Comandos', peso: 0.45 },
   Bloco: { nome: 'Quadro', peso: 0.25 },
   'Post-it': { nome: 'Pensamentos', peso: 0.25 },
+  Canvas: { nome: 'Canvas', peso: 0.25 },
   Arquivo: { nome: 'Biblioteca', peso: 0.25 },
   Linha: { nome: 'Linhas do Sheets', peso: 0.2 },
   Texto: { nome: 'Copy', peso: 0.2 },

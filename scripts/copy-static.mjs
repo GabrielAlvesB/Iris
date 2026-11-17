@@ -24,3 +24,14 @@ cpSync(
   path.join(projectRoot, 'node_modules', 'sortablejs', 'Sortable.min.js'),
   path.join(vendorOut, 'Sortable.min.js'),
 );
+
+// Terminal SSH de Servidores: o build UMD do xterm.js define o global `Terminal`
+// (e o addon, `FitAddon`), carregados por <script> clássico como o Sortable.
+const xtermOut = path.join(rendererOut, 'vendor', 'xterm');
+mkdirSync(xtermOut, { recursive: true });
+cpSync(path.join(projectRoot, 'node_modules', '@xterm', 'xterm', 'lib', 'xterm.js'), path.join(xtermOut, 'xterm.js'));
+cpSync(path.join(projectRoot, 'node_modules', '@xterm', 'xterm', 'css', 'xterm.css'), path.join(xtermOut, 'xterm.css'));
+cpSync(
+  path.join(projectRoot, 'node_modules', '@xterm', 'addon-fit', 'lib', 'addon-fit.js'),
+  path.join(xtermOut, 'addon-fit.js'),
+);

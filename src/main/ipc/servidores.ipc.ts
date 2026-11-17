@@ -2,7 +2,13 @@ import { BrowserWindow, dialog, ipcMain } from 'electron';
 import { SERVIDORES_CHANNELS } from '../../shared/ipcChannels';
 import type { IpcResult } from '../../shared/types/common.types';
 import type {
+  AbrirTerminalInput,
   AtualizarServidorInput,
+  EscreverTerminalInput,
+  RedimensionarTerminalInput,
+  ResultadoTesteServidor,
+  SessaoTerminal,
+  TestarConexaoInput,
   ConfigHealthInput,
   CriarServidorHttpInput,
   CriarServidorSshInput,
@@ -12,6 +18,7 @@ import type {
   ServidoresFile,
 } from '../../shared/types/servidores.types';
 import * as servidoresService from '../modules/servidores/servidores.service';
+import * as terminal from '../modules/servidores/servidores.terminal';
 import { reaplicarAgendamentos } from '../core/backgroundServices';
 
 function toResult<T>(promise: Promise<T>): Promise<IpcResult<T>> {
@@ -94,5 +101,38 @@ export function registerServidoresIpc(): void {
 
   ipcMain.handle(SERVIDORES_CHANNELS.escolherChave, (event) =>
     toResult<string>(escolherChave(event)),
+  );
+
+  ipcMain.handle(SERVIDORES_CHANNELS.testarConexao, (_event, input: TestarConexaoInput) =>
+    toResult<ResultadoTesteServidor>(servidoresService.testarConexao(input)),
+  );
+
+  ipcMain.handle(SERVIDORES_CHANNELS.confiarHost, (_event, servidorId: string) =>
+    toResult<ServidoresFile>(servidoresService.confiarHost(servidorId)),
+  );
+
+  ipcMain.handle(SERVIDORES_CHANNELS.abrirTerminal, (_event, input: AbrirTerminalInput) =>
+    toResult<SessaoTerminal>(servidoresService.abrirTerminal(input)),
+  );
+
+  // Teclas e redimensionamento chegam muitas vezes por segundo: síncronos, sem Promise a mais.
+  ipcMain.handle(SERVIDORES_CHANNELS.escreverTerminal, (_event, input: EscreverTerminalInput) =>
+    toResult<void>(Promise.resolve().then(() => terminal.escreverTerminal(input.sessaoId, input.dados))),
+  );
+
+  ipcMain.handle(SERVIDORES_CHANNELS.redimensionarTerminal, (_event, input: RedimensionarTerminalInput) =>
+    toResult<void>(Promise.resolve().then(() => terminal.redimensionarTerminal(input.sessaoId, input.cols, input.rows))),
+  );
+
+  ipcMain.handle(SERVIDORES_CHANNELS.fecharTerminal, (_event, sessaoId: string) =>
+    toResult<void>(Promise.resolve().then(() => terminal.fecharTerminal(sessaoId))),
+  );
+
+  ipcMain.handle(SERVIDORES_CHANNELS.listarSessoes, () =>
+    toResult<SessaoTerminal[]>(Promise.resolve().then(() => terminal.listarSessoes())),
+  );
+
+  ipcMain.handle(SERVIDORES_CHANNELS.lerBufferTerminal, (_event, sessaoId: string) =>
+    toResult<string>(Promise.resolve().then(() => terminal.lerBuffer(sessaoId))),
   );
 }

@@ -6,18 +6,24 @@ import type {
   CriarServidorSshInput,
   RemoverComandoInput,
   RodarComandoInput,
+  ResultadoTesteServidor,
   SalvarComandoInput,
   ServidoresFile,
+  SessaoTerminal,
   SshSaidaChunk,
+  TerminalEvento,
+  TestarConexaoInput,
 } from '../../../shared/types/servidores.types';
 import { createPushBinding } from '../../core/pushBinding.js';
 
 type Listener = (state: ServidoresFile) => void;
 type SaidaListener = (chunk: SshSaidaChunk) => void;
+type TerminalListener = (evento: TerminalEvento) => void;
 
 let state: ServidoresFile | null = null;
 let listener: Listener | null = null;
 let saidaListener: SaidaListener | null = null;
+let terminalListener: TerminalListener | null = null;
 
 function unwrap<T>(result: IpcResult<T>): T {
   if (!result.ok) {
@@ -39,6 +45,8 @@ function applyAndNotify(next: ServidoresFile): void {
 const push = createPushBinding([
   () => window.irisAPI.events.on('servidores:estado', (file) => applyAndNotify(file)),
   () => window.irisAPI.events.on('servidores:saida', (chunk) => saidaListener?.(chunk)),
+  // O terminal também fica fora do redesenho: cada lote vai direto para o xterm.
+  () => window.irisAPI.events.on('servidores:terminal', (evento) => terminalListener?.(evento)),
 ]);
 
 export function onStateChange(cb: Listener): void {
@@ -49,12 +57,17 @@ export function onStateChange(cb: Listener): void {
 export function offStateChange(): void {
   listener = null;
   saidaListener = null;
+  terminalListener = null;
   push.detach();
   state = null;
 }
 
 export function onSaida(cb: SaidaListener | null): void {
   saidaListener = cb;
+}
+
+export function onTerminal(cb: TerminalListener | null): void {
+  terminalListener = cb;
 }
 
 export function getCurrentState(): ServidoresFile | null {
@@ -107,4 +120,37 @@ export async function configHealth(input: ConfigHealthInput): Promise<void> {
 
 export async function escolherChave(): Promise<string> {
   return unwrap(await window.irisAPI.servidores.escolherChave());
+}
+
+export async function testarConexao(input: TestarConexaoInput): Promise<ResultadoTesteServidor> {
+  return unwrap(await window.irisAPI.servidores.testarConexao(input));
+}
+
+export async function confiarHost(servidorId: string): Promise<void> {
+  applyAndNotify(unwrap(await window.irisAPI.servidores.confiarHost(servidorId)));
+}
+
+export async function abrirTerminal(servidorId: string, cols: number, rows: number): Promise<SessaoTerminal> {
+  return unwrap(await window.irisAPI.servidores.abrirTerminal({ servidorId, cols, rows }));
+}
+
+/** Tecla digitada: sem esperar resposta (a ordem é a do canal, e o eco volta pelo push). */
+export function escreverTerminal(sessaoId: string, dados: string): void {
+  void window.irisAPI.servidores.escreverTerminal({ sessaoId, dados });
+}
+
+export function redimensionarTerminal(sessaoId: string, cols: number, rows: number): void {
+  void window.irisAPI.servidores.redimensionarTerminal({ sessaoId, cols, rows });
+}
+
+export async function fecharTerminal(sessaoId: string): Promise<void> {
+  unwrap(await window.irisAPI.servidores.fecharTerminal(sessaoId));
+}
+
+export async function listarSessoes(): Promise<SessaoTerminal[]> {
+  return unwrap(await window.irisAPI.servidores.listarSessoes());
+}
+
+export async function lerBufferTerminal(sessaoId: string): Promise<string> {
+  return unwrap(await window.irisAPI.servidores.lerBufferTerminal(sessaoId));
 }

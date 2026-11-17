@@ -39,7 +39,7 @@ export const GUIA_COMECAR: Guia = {
             'Kanban e To-do abrem direto — o trabalho do dia a dia.',
             'Relacionamento — Contatos (pessoas, empresas, funil e contratos), Leads do formulário do site, Relatórios de leads e API e n8n.',
             'Conteúdo — Postagens, Estúdio IA, Relatórios, Roteiros e Sheets.',
-            'Arquivos — Biblioteca, Quadro, Copy, Pensamentos e Links rápidos.',
+            'Arquivos — Biblioteca, Quadro, Canvas, Copy, Pensamentos e Links rápidos.',
             'Sistema — Servidores, n8n e GitHub, para quem cuida de infraestrutura.',
             'Tráfego pago abre direto.',
             'Embaixo: a busca rápida, este Tutorial e os Ajustes.',
@@ -1079,6 +1079,77 @@ const GUIA_PENSAMENTOS: Guia = {
   ],
 };
 
+const GUIA_CANVAS: Guia = {
+  id: 'canvas',
+  titulo: 'Canvas',
+  chamada: 'Uma lousa sem fim para desenhar fluxos, mapas e rabiscos.',
+  grupo: 'arquivos',
+  modulo: 'canvas',
+  resumo:
+    'Canvas é uma lousa infinita: formas, setas que ligam uma coisa à outra, desenho à mão, texto e notas. Cada quadro é salvo sozinho enquanto você desenha, e dá para ter vários.',
+  passos: [
+    {
+      id: 'canvas.ferramentas',
+      titulo: 'As ferramentas',
+      blocos: [
+        { tipo: 'texto', texto: 'A barra embaixo tem tudo. Depois de criar uma forma, volta sozinha para "Selecionar"; desenho, borracha e mão continuam escolhidos até você trocar.' },
+        {
+          tipo: 'atalhos',
+          itens: [
+            { acao: 'canvas.selecionar', texto: 'Selecionar e mover' },
+            { acao: 'canvas.mao', texto: 'Mão (ou segure Espaço)' },
+            { acao: 'canvas.desenho', texto: 'Desenho à mão' },
+            { acao: 'canvas.borracha', texto: 'Borracha (passe por cima)' },
+            { acao: 'canvas.seta', texto: 'Seta' },
+            { acao: 'canvas.retangulo', texto: 'Retângulo' },
+            { acao: 'canvas.elipse', texto: 'Elipse' },
+            { acao: 'canvas.texto', texto: 'Texto' },
+            { acao: 'canvas.nota', texto: 'Nota' },
+          ],
+        },
+        { tipo: 'aviso', nivel: 'dica', texto: 'Segure Shift enquanto desenha para fazer quadrado e círculo, ou seta reta de 15 em 15 graus.' },
+      ],
+    },
+    {
+      id: 'canvas.setas',
+      titulo: 'Setas que acompanham',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto: 'Comece ou termine uma seta em cima de uma forma e ela fica presa: mova a forma e a seta vai junto. Para soltar, arraste a ponta da seta para o vazio.',
+        },
+      ],
+    },
+    {
+      id: 'canvas.editar',
+      titulo: 'Escrever, organizar e desfazer',
+      blocos: [
+        {
+          tipo: 'atalhos',
+          itens: [
+            { teclas: 'Enter', texto: 'Escreve na forma escolhida (ou dê dois cliques)' },
+            { teclas: 'Ctrl+Enter', texto: 'Termina o texto' },
+            { teclas: 'Ctrl+Z', texto: 'Desfaz (Ctrl+Shift+Z refaz)' },
+            { teclas: 'Ctrl+D', texto: 'Duplica' },
+            { teclas: 'Delete', texto: 'Apaga' },
+            { teclas: ']', texto: 'Traz para frente ([ manda para trás)' },
+            { acao: 'canvas.ajustar', texto: 'Mostra o quadro inteiro' },
+          ],
+        },
+        { tipo: 'texto', texto: 'Com algo escolhido, o painel à direita muda cor, preenchimento, traço e tamanho do texto. O que você escolher ali vale também para as próximas formas.' },
+      ],
+    },
+    {
+      id: 'canvas.quadros',
+      titulo: 'Vários quadros e exportar',
+      blocos: [
+        { tipo: 'texto', texto: 'O nome no canto de cima troca de quadro, cria, renomeia, duplica ou exclui. O botão de exportar salva a seleção — ou o quadro todo — como PNG ou SVG.' },
+        { tipo: 'aviso', nivel: 'info', texto: 'O texto escrito nas formas aparece na busca rápida (Ctrl+K): o resultado abre o quadro já na forma.' },
+      ],
+    },
+  ],
+};
+
 const GUIA_LINKS: Guia = {
   id: 'links',
   titulo: 'Links rápidos',
@@ -1514,6 +1585,7 @@ export const GUIAS_DAS_AREAS: Guia[] = [
   GUIA_QUADRO,
   GUIA_COPY,
   GUIA_PENSAMENTOS,
+  GUIA_CANVAS,
   GUIA_LINKS,
   GUIA_TRAFEGO,
   GUIA_WORKSPACE,

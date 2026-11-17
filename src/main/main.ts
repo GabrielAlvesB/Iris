@@ -1,5 +1,6 @@
 // Primeiro import: o marco de início fica antes de todos os requires do main.
 import { marcar, ouvirPrimeiraTela } from './core/abertura';
+import { fecharTodos as fecharTerminais } from './modules/servidores/servidores.terminal';
 import { app, BrowserWindow, net, protocol } from 'electron';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -191,6 +192,7 @@ app.on('before-quit', (e) => {
     return;
   }
   stopBackgroundServices();
+  fecharTerminais();
 });
 
 app.on('window-all-closed', () => {

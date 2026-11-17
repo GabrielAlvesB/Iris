@@ -1,3 +1,4 @@
+import type { CanvasFile, ExportarImagemCanvasInput, QuadroCanvas, ViewportCanvas } from './canvas.types';
 import type { PulsoHome, SugestaoHome } from './home.types';
 import type { IpcResult } from './common.types';
 import type {
@@ -64,7 +65,13 @@ import type {
   SalvarColecaoInput,
 } from './explorador.types';
 import type {
+  AbrirTerminalInput,
   AtualizarServidorInput,
+  EscreverTerminalInput,
+  RedimensionarTerminalInput,
+  ResultadoTesteServidor,
+  SessaoTerminal,
+  TestarConexaoInput,
   ConfigHealthInput,
   CriarServidorHttpInput,
   CriarServidorSshInput,
@@ -281,6 +288,20 @@ export interface ExploradorApi {
   buscar(input: BuscarInput): Promise<IpcResult<ResultadoBusca>>;
 }
 
+export interface CanvasApi {
+  getFile(): Promise<IpcResult<CanvasFile>>;
+  criarQuadro(nome: string): Promise<IpcResult<CanvasFile>>;
+  renomearQuadro(input: { quadroId: string; nome: string }): Promise<IpcResult<CanvasFile>>;
+  duplicarQuadro(quadroId: string): Promise<IpcResult<CanvasFile>>;
+  excluirQuadro(quadroId: string): Promise<IpcResult<CanvasFile>>;
+  escolherQuadro(quadroId: string): Promise<IpcResult<CanvasFile>>;
+  salvarQuadro(quadro: QuadroCanvas): Promise<IpcResult<CanvasFile>>;
+  salvarViewport(input: { quadroId: string; viewport: ViewportCanvas }): Promise<IpcResult<CanvasFile>>;
+  /** null = cancelou o diálogo; senão o caminho gravado. */
+  exportarImagem(input: ExportarImagemCanvasInput): Promise<IpcResult<string | null>>;
+  mostrarExportado(caminho: string): Promise<IpcResult<void>>;
+}
+
 export interface ServidoresApi {
   getState(): Promise<IpcResult<ServidoresFile>>;
   criarHttp(input: CriarServidorHttpInput): Promise<IpcResult<ServidoresFile>>;
@@ -295,6 +316,14 @@ export interface ServidoresApi {
   rodarComando(input: RodarComandoInput): Promise<IpcResult<void>>;
   configHealth(input: ConfigHealthInput): Promise<IpcResult<ServidoresFile>>;
   escolherChave(): Promise<IpcResult<string>>;
+  testarConexao(input: TestarConexaoInput): Promise<IpcResult<ResultadoTesteServidor>>;
+  confiarHost(servidorId: string): Promise<IpcResult<ServidoresFile>>;
+  abrirTerminal(input: AbrirTerminalInput): Promise<IpcResult<SessaoTerminal>>;
+  escreverTerminal(input: EscreverTerminalInput): Promise<IpcResult<void>>;
+  redimensionarTerminal(input: RedimensionarTerminalInput): Promise<IpcResult<void>>;
+  fecharTerminal(sessaoId: string): Promise<IpcResult<void>>;
+  listarSessoes(): Promise<IpcResult<SessaoTerminal[]>>;
+  lerBufferTerminal(sessaoId: string): Promise<IpcResult<string>>;
 }
 
 export interface N8nApi {
@@ -817,6 +846,7 @@ export interface IrisApi {
   trafego: TrafegoApi;
   explorador: ExploradorApi;
   servidores: ServidoresApi;
+  canvas: CanvasApi;
   n8n: N8nApi;
   github: GithubApi;
   ajustes: AjustesApi;

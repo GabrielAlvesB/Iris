@@ -36,6 +36,8 @@ const JUNTAR_MS = 60_000;
 const CANAIS_IGNORADOS = /^(historico|export|backup|atualizacao|whatsapp|nuvem):/;
 /** Leitura que regrava o arquivo (migração no primeiro getFile) não é ação do usuário. */
 const METODOS_DE_LEITURA = /^(get|listar|ler|carregar|buscar|indice|resumo|status|previa|testar|verificar)/i;
+/** Mexer na vista (rolar, dar zoom, trocar de quadro) grava o arquivo mas não é uma edição a desfazer. */
+const METODOS_DE_VISTA = /viewport|^escolherQuadro$/i;
 
 interface IndiceHistorico {
   schemaVersion: number;
@@ -116,7 +118,7 @@ function avisar(motivo: MotivoHistorico, entrada: EntradaHistorico | null): void
 function registrar(g: GravacaoObservada): void {
   if (CANAIS_IGNORADOS.test(g.canal)) return;
   const metodo = g.canal.split(':')[1] ?? '';
-  if (METODOS_DE_LEITURA.test(metodo)) return;
+  if (METODOS_DE_LEITURA.test(metodo) || METODOS_DE_VISTA.test(metodo)) return;
   const chave = exportService.chaveDoArquivo(g.arquivo);
   // Só o que tem caminho de volta pela migrate (os arquivos do backup).
   if (!chave || g.arquivo === 'whatsapp.json') return;

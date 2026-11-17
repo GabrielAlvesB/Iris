@@ -5,6 +5,7 @@ import type { QuadroFile } from './quadro.types';
 import type { SheetsFile } from './sheets.types';
 import type { LinksFile } from './links.types';
 import type { PensamentosFile } from './pensamentos.types';
+import type { CanvasFile } from './canvas.types';
 import type { ExploradorFile } from './explorador.types';
 import type { ServidoresFile } from './servidores.types';
 import type { N8nFile } from './n8n.types';
@@ -37,6 +38,7 @@ export interface ExportBundle {
   sheets?: SheetsFile;
   links?: LinksFile;
   pensamentos?: PensamentosFile;
+  canvas?: CanvasFile;
   explorador?: ExploradorFile;
   servidores?: ServidoresFile;
   n8n?: N8nFile;
@@ -83,6 +85,7 @@ export type ModuloExportavel =
   | 'quadro'
   | 'copy'
   | 'pensamentos'
+  | 'canvas'
   | 'links'
   | 'servidores'
   | 'n8n'
@@ -150,6 +153,7 @@ export const EXPORTAVEIS: readonly DescritorExportavel[] = [
   { id: 'quadro', rotulo: 'Quadro', modulo: 'quadro', chaves: ['quadro'], planilha: false },
   { id: 'copy', rotulo: 'Copy', modulo: 'copy', chaves: ['copy'], planilha: false },
   { id: 'pensamentos', rotulo: 'Pensamentos', modulo: 'pensamentos', chaves: ['pensamentos'], planilha: false },
+  { id: 'canvas', rotulo: 'Canvas', modulo: 'canvas', chaves: ['canvas'], planilha: false },
   { id: 'links', rotulo: 'Links rápidos', modulo: 'links', chaves: ['links'], planilha: false },
   { id: 'servidores', rotulo: 'Servidores', modulo: 'servidores', chaves: ['servidores'], planilha: false, observacao: 'Senhas de chave SSH não vão no arquivo.' },
   { id: 'n8n', rotulo: 'n8n', modulo: 'n8n', chaves: ['n8n'], planilha: false, observacao: 'A API key não vai no arquivo.' },

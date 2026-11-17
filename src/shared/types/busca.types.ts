@@ -12,6 +12,7 @@ export type TipoItemBusca =
   | 'Checklist'
   | 'Bloco'
   | 'Post-it'
+  | 'Canvas'
   | 'Arquivo'
   | 'Postagem'
   | 'Linha'
@@ -32,6 +33,7 @@ export type AlvoBusca =
   | { modulo: 'gravacao'; id: string }
   | { modulo: 'copy'; id: string }
   | { modulo: 'sheets'; id: string; tabelaId: string }
+  | { modulo: 'canvas'; id: string; quadroId: string }
   | { modulo: 'postagens'; id: string; tipo: TipoPostagem }
   | { modulo: 'contatos'; ref: RefContato }
   | { modulo: 'links'; url: string };

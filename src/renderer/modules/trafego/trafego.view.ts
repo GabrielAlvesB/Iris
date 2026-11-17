@@ -4,12 +4,10 @@ import {
   PLATAFORMAS_TRAFEGO,
   STATUS_CAMPANHA,
   TIPOS_SITE,
-  calcularMetricas,
   somar,
   type Campanha,
   type ContaTrafego,
   type LinkCampanha,
-  type Metricas,
   type ObjetivoTrafego,
   type PlataformaTrafego,
   type RegistroTrafego,
@@ -21,19 +19,24 @@ import {
 import { campo, erroInline, grade2, input, interruptor, select, textarea } from '../../ui/campos.js';
 import { buildSecaoModal, mensagemDeErro, openAvisoModal, openConfirmModal, openCustomModal } from '../../ui/modal.js';
 import { abrirPainel, lembrarPosicao, lerPosicaoLembrada, type PainelHandle } from '../../ui/painel.js';
+import { buildBotao, buildCabecalho, buildSegmentado, buildSelo, buildVazio, svg } from '../../ui/pagina.js';
+import { esconderTooltip, formatarNumero } from '../postagens/postagens.graficos.js';
+import { hojeIso, ordenarTags } from '../postagens/postagens.ui.js';
 import {
-  buildAviso,
-  buildBotao,
-  buildCabecalho,
-  buildIndicadores,
-  buildSegmentado,
-  buildSelo,
-  buildVazio,
-  svg,
-  type Tom,
-} from '../../ui/pagina.js';
-import { COR_SERIE, buildCartaoGrafico, buildColunas, esconderTooltip, formatarNumero } from '../postagens/postagens.graficos.js';
-import { formatarData, hojeIso, ordenarTags, somarDias } from '../postagens/postagens.ui.js';
+  ICONES,
+  TOM_STATUS,
+  dentro,
+  intervaloDo,
+  metricasDe,
+  moeda,
+  moedaCurta,
+  nomeConta,
+  pct,
+  rotulo,
+  talvez,
+  type Periodo,
+} from './trafego.comum.js';
+import { buildPainel, buildPlataforma } from './trafego.painel.js';
 import * as videosState from '../postagens/videos/videos.state.js';
 import * as trafegoState from './trafego.state.js';
 
@@ -47,28 +50,6 @@ import * as trafegoState from './trafego.state.js';
  */
 
 type Aba = 'painel' | 'campanhas' | 'sites' | 'contas';
-type Periodo = '7' | '30' | '90' | 'mes' | 'tudo';
-
-const ICONES = {
-  trafego: '<path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>',
-  mais: '<path d="M12 5v14"/><path d="M5 12h14"/>',
-  campanha: '<path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>',
-  site: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
-  conta: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
-  externo: '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/>',
-  editar: '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>',
-  lixeira: '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
-  duplicar: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
-  importar: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
-  xis: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
-} as const;
-
-const TOM_STATUS: Record<StatusCampanha, Tom> = {
-  planejamento: 'neutro',
-  ativa: 'ok',
-  pausada: 'atencao',
-  encerrada: 'neutro',
-};
 
 let containerAtual: HTMLElement | null = null;
 let aba: Aba = 'painel';
@@ -118,77 +99,17 @@ function redesenhar(): void {
   render(containerAtual, file);
 }
 
-// ---------- Formatação ----------
-
-function moeda(n: number): string {
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
-function talvez(n: number | undefined, formatar: (v: number) => string): string {
-  return n === undefined ? '—' : formatar(n);
-}
-
-function pct(n: number | undefined): string {
-  return talvez(n, (v) => `${formatarNumero(v, 2)}%`);
-}
-
-function rotulo<T extends string>(lista: ReadonlyArray<{ id: T; rotulo: string }>, id: T): string {
-  return lista.find((x) => x.id === id)?.rotulo ?? id;
-}
-
 /** Empresas primeiro, depois as tags. */
 function catalogoTags(): TagPostagem[] {
   return ordenarTags(videosState.getCurrentState()?.tags ?? []);
 }
 
-function nomeConta(file: TrafegoFile, contaId?: string): string {
-  return file.contas.find((c) => c.id === contaId)?.nome ?? 'Sem conta';
-}
-
-// ---------- Recortes ----------
-
-function inicioDoPeriodo(): string | undefined {
-  const hoje = hojeIso();
-  switch (periodo) {
-    case '7':
-      return somarDias(hoje, -6);
-    case '30':
-      return somarDias(hoje, -29);
-    case '90':
-      return somarDias(hoje, -89);
-    case 'mes':
-      return `${hoje.slice(0, 7)}-01`;
-    case 'tudo':
-      return undefined;
-  }
-}
-
 function noPeriodo(r: RegistroTrafego): boolean {
-  const inicio = inicioDoPeriodo();
-  return (!inicio || r.data >= inicio) && r.data <= hojeIso();
+  return dentro(intervaloDo(periodo), r.data);
 }
 
 function campanhasFiltradas(file: TrafegoFile): Campanha[] {
   return file.campanhas.filter((c) => !filtroConta || c.contaId === filtroConta);
-}
-
-function metricasDe(registros: RegistroTrafego[]): Metricas {
-  return calcularMetricas(somar(registros));
-}
-
-function descreverPeriodo(): string {
-  switch (periodo) {
-    case '7':
-      return 'últimos 7 dias';
-    case '30':
-      return 'últimos 30 dias';
-    case '90':
-      return 'últimos 90 dias';
-    case 'mes':
-      return 'este mês';
-    case 'tudo':
-      return 'todo o histórico';
-  }
 }
 
 // ---------- Tela ----------
@@ -264,7 +185,16 @@ function render(container: HTMLElement, file: TrafegoFile): void {
   rolagem.className = 'pg-rolagem tf-rolagem';
   switch (aba) {
     case 'painel':
-      rolagem.appendChild(buildPainel(file));
+      rolagem.appendChild(
+        buildPainel({
+          file,
+          campanhas: campanhasFiltradas(file),
+          periodo,
+          filtroConta,
+          abrirCampanha,
+          novaCampanha: () => abrirNovaCampanha(file),
+        }),
+      );
       break;
     case 'campanhas':
       rolagem.appendChild(buildQuadro(file));
@@ -280,197 +210,6 @@ function render(container: HTMLElement, file: TrafegoFile): void {
   container.replaceChildren(tela);
 }
 
-// ---------- Painel ----------
-
-function alertas(file: TrafegoFile): Array<{ texto: string; tom: Tom; campanha?: Campanha }> {
-  const lista: Array<{ texto: string; tom: Tom; campanha?: Campanha }> = [];
-  const hoje = hojeIso();
-  campanhasFiltradas(file).forEach((c) => {
-    if (c.status === 'ativa') {
-      const ultimo = c.registros[c.registros.length - 1]?.data;
-      if (!ultimo || ultimo < somarDias(hoje, -3)) {
-        lista.push({
-          texto: `"${c.nome}" está ativa e ${ultimo ? `o último resultado lançado é de ${formatarData(ultimo)}` : 'ainda não tem resultado lançado'}.`,
-          tom: 'atencao',
-          campanha: c,
-        });
-      }
-      if (c.fim && c.fim < hoje) lista.push({ texto: `"${c.nome}" passou da data de fim (${formatarData(c.fim)}) e continua ativa.`, tom: 'atencao', campanha: c });
-    }
-    if (c.orcamentoTotal) {
-      const gasto = somar(c.registros).investimento;
-      if (gasto > c.orcamentoTotal) {
-        lista.push({ texto: `"${c.nome}" gastou ${moeda(gasto)} — acima do orçamento total de ${moeda(c.orcamentoTotal)}.`, tom: 'erro', campanha: c });
-      }
-    }
-  });
-  const mes = hoje.slice(0, 7);
-  file.contas
-    .filter((conta) => !filtroConta || conta.id === filtroConta)
-    .forEach((conta) => {
-      if (!conta.orcamentoMensal) return;
-      const gasto = somar(file.campanhas.filter((c) => c.contaId === conta.id).flatMap((c) => c.registros.filter((r) => r.data.startsWith(mes)))).investimento;
-      if (gasto > conta.orcamentoMensal) {
-        lista.push({ texto: `A conta ${conta.nome} gastou ${moeda(gasto)} este mês, acima da verba de ${moeda(conta.orcamentoMensal)}.`, tom: 'erro' });
-      }
-    });
-  return lista;
-}
-
-/** Dias (ou meses, se o recorte passa de ~3 meses) com os totais de cada um. */
-function serieTemporal(registros: RegistroTrafego[]): Array<{ rotulo: string; chave: string; investimento: number; conversoes: number; cliques: number }> {
-  if (!registros.length) return [];
-  const datas = registros.map((r) => r.data).sort();
-  const primeiro = inicioDoPeriodo() ?? datas[0]!;
-  const ultimo = hojeIso() < datas[datas.length - 1]! ? datas[datas.length - 1]! : hojeIso();
-  const chaves: string[] = [];
-  for (let d = primeiro; d <= ultimo && chaves.length < 400; d = somarDias(d, 1)) chaves.push(d);
-  const porMes = chaves.length > 92;
-  const grupos = new Map<string, { investimento: number; conversoes: number; cliques: number }>();
-  (porMes ? [...new Set(chaves.map((d) => d.slice(0, 7)))] : chaves).forEach((k) => grupos.set(k, { investimento: 0, conversoes: 0, cliques: 0 }));
-  registros.forEach((r) => {
-    const g = grupos.get(porMes ? r.data.slice(0, 7) : r.data);
-    if (!g) return;
-    g.investimento += r.investimento;
-    g.conversoes += r.conversoes;
-    g.cliques += r.cliques;
-  });
-  return [...grupos].map(([chave, v]) => ({
-    chave,
-    rotulo: porMes ? `${chave.slice(5, 7)}/${chave.slice(2, 4)}` : `${chave.slice(8, 10)}/${chave.slice(5, 7)}`,
-    ...v,
-  }));
-}
-
-function buildPainel(file: TrafegoFile): HTMLElement {
-  const wrap = document.createElement('div');
-  wrap.className = 'tf-painel';
-  const campanhas = campanhasFiltradas(file);
-  if (!file.campanhas.length) {
-    const comecar = buildBotao('Criar a primeira campanha', { icone: ICONES.mais, variante: 'primario' });
-    comecar.addEventListener('click', () => abrirNovaCampanha(file));
-    wrap.appendChild(
-      buildVazio(
-        ICONES.trafego,
-        'Nenhuma campanha ainda',
-        'Cadastre as contas (clientes), os sites que recebem o tráfego e as campanhas. Lance os resultados de cada dia — ou importe a planilha exportada pelo Meta Ads, Google Ads… — e o painel calcula CTR, CPC, CPA e ROAS.',
-        comecar,
-      ),
-    );
-    return wrap;
-  }
-
-  const registros = campanhas.flatMap((c) => c.registros.filter(noPeriodo));
-  const m = metricasDe(registros);
-  const ativas = campanhas.filter((c) => c.status === 'ativa').length;
-  wrap.appendChild(
-    buildIndicadores([
-      { rotulo: 'Investido', valor: moeda(m.investimento), detalhe: `${ativas} campanha${ativas === 1 ? '' : 's'} ativa${ativas === 1 ? '' : 's'}` },
-      { rotulo: 'Cliques', valor: formatarNumero(m.cliques), detalhe: `CTR ${pct(m.ctr)} · CPC ${talvez(m.cpc, moeda)}` },
-      { rotulo: 'Conversões', valor: formatarNumero(m.conversoes), detalhe: `CPA ${talvez(m.cpa, moeda)} · taxa ${pct(m.taxaConversao)}` },
-      {
-        rotulo: 'Receita',
-        valor: moeda(m.receita),
-        detalhe: m.roas === undefined ? 'ROAS —' : `ROAS ${formatarNumero(m.roas, 2)}×`,
-        tom: m.roas === undefined ? 'neutro' : m.roas >= 1 ? 'ok' : 'erro',
-      },
-    ]),
-  );
-
-  const avisos = alertas(file);
-  if (avisos.length) {
-    const lista = document.createElement('div');
-    lista.className = 'tf-alertas';
-    avisos.slice(0, 6).forEach((a) => {
-      let acao: HTMLElement | undefined;
-      if (a.campanha) {
-        const campanha = a.campanha;
-        acao = buildBotao('Abrir', { variante: 'fantasma' });
-        acao.addEventListener('click', () => abrirCampanha(campanha.id));
-      }
-      lista.appendChild(buildAviso(a.texto, a.tom, acao));
-    });
-    wrap.appendChild(lista);
-  }
-
-  const serie = serieTemporal(registros);
-  if (serie.length) {
-    const graficos = document.createElement('div');
-    graficos.className = 'tf-graficos';
-    const categorias = serie.map((s) => s.rotulo);
-    graficos.append(
-      buildCartaoGrafico(
-        'Investimento',
-        `Em reais, ${descreverPeriodo()}`,
-        buildColunas(categorias, [{ nome: 'Investimento (R$)', cor: COR_SERIE[0], valores: serie.map((s) => s.investimento) }], 'Investimento por período', (n) => formatarNumero(n)),
-        { colunas: ['Período', 'Investimento'], linhas: serie.map((s) => [s.rotulo, moeda(s.investimento)]) },
-      ),
-      buildCartaoGrafico(
-        'Conversões',
-        `Quantidade, ${descreverPeriodo()}`,
-        buildColunas(categorias, [{ nome: 'Conversões', cor: COR_SERIE[0], valores: serie.map((s) => s.conversoes) }], 'Conversões por período', (n) => formatarNumero(n)),
-        { colunas: ['Período', 'Conversões', 'Cliques'], linhas: serie.map((s) => [s.rotulo, formatarNumero(s.conversoes), formatarNumero(s.cliques)]) },
-      ),
-    );
-    wrap.appendChild(graficos);
-  } else {
-    wrap.appendChild(buildAviso(`Nenhum resultado lançado em ${descreverPeriodo()}. Abra uma campanha para lançar os números do dia ou importar a planilha.`, 'neutro'));
-  }
-
-  // Tabela por campanha, da que mais investiu para a que menos.
-  const linhas = campanhas
-    .map((c) => ({ c, m: metricasDe(c.registros.filter(noPeriodo)) }))
-    .sort((a, b) => b.m.investimento - a.m.investimento || a.c.nome.localeCompare(b.c.nome, 'pt-BR'));
-  const secao = document.createElement('section');
-  secao.className = 'tf-secao';
-  secao.appendChild(Object.assign(document.createElement('h2'), { className: 'tf-secao-titulo', textContent: `Por campanha · ${descreverPeriodo()}` }));
-  const tabelaWrap = document.createElement('div');
-  tabelaWrap.className = 'tf-tabela-wrap';
-  const tabela = document.createElement('table');
-  tabela.className = 'tf-tabela';
-  const cab = document.createElement('thead');
-  const trc = document.createElement('tr');
-  ['Campanha', 'Conta', 'Plataforma', 'Situação', 'Investido', 'Cliques', 'CTR', 'Conversões', 'CPA', 'ROAS'].forEach((t, i) => {
-    const th = document.createElement('th');
-    th.textContent = t;
-    if (i >= 4) th.className = 'tf-num';
-    trc.appendChild(th);
-  });
-  cab.appendChild(trc);
-  const corpo = document.createElement('tbody');
-  linhas.forEach(({ c, m: mc }) => {
-    const tr = document.createElement('tr');
-    tr.tabIndex = 0;
-    const td = (conteudo: string | HTMLElement, classe = ''): void => {
-      const cel = document.createElement('td');
-      if (classe) cel.className = classe;
-      if (typeof conteudo === 'string') cel.textContent = conteudo;
-      else cel.appendChild(conteudo);
-      tr.appendChild(cel);
-    };
-    td(c.nome, 'tf-forte');
-    td(nomeConta(file, c.contaId));
-    td(rotulo(PLATAFORMAS_TRAFEGO, c.plataforma));
-    td(buildSelo(rotulo(STATUS_CAMPANHA, c.status), TOM_STATUS[c.status]));
-    td(moeda(mc.investimento), 'tf-num');
-    td(formatarNumero(mc.cliques), 'tf-num');
-    td(pct(mc.ctr), 'tf-num');
-    td(formatarNumero(mc.conversoes), 'tf-num');
-    td(talvez(mc.cpa, moeda), 'tf-num');
-    td(talvez(mc.roas, (v) => `${formatarNumero(v, 2)}×`), 'tf-num');
-    tr.addEventListener('click', () => abrirCampanha(c.id));
-    tr.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') abrirCampanha(c.id);
-    });
-    corpo.appendChild(tr);
-  });
-  tabela.append(cab, corpo);
-  tabelaWrap.appendChild(tabela);
-  secao.appendChild(tabelaWrap);
-  wrap.appendChild(secao);
-  return wrap;
-}
-
 // ---------- Quadro de campanhas ----------
 
 function buildCartaoCampanha(file: TrafegoFile, c: Campanha): HTMLElement {
@@ -481,19 +220,14 @@ function buildCartaoCampanha(file: TrafegoFile, c: Campanha): HTMLElement {
 
   const topo = document.createElement('div');
   topo.className = 'tf-cartao-topo';
-  const plataforma = document.createElement('span');
-  plataforma.className = `tf-plataforma is-${c.plataforma}`;
-  plataforma.textContent = rotulo(PLATAFORMAS_TRAFEGO, c.plataforma);
-  const seq = document.createElement('span');
-  seq.className = 'tf-seq';
-  seq.textContent = `#${c.seq}`;
-  topo.append(plataforma, seq);
+  topo.appendChild(buildPlataforma(c.plataforma));
+  topo.appendChild(Object.assign(document.createElement('span'), { className: 'tf-cartao-objetivo', textContent: rotulo(OBJETIVOS_TRAFEGO, c.objetivo) }));
   cartao.appendChild(topo);
 
   cartao.appendChild(Object.assign(document.createElement('h3'), { className: 'tf-cartao-titulo', textContent: c.nome }));
   const meta = document.createElement('p');
   meta.className = 'tf-cartao-meta';
-  meta.textContent = [nomeConta(file, c.contaId), rotulo(OBJETIVOS_TRAFEGO, c.objetivo)].join(' · ');
+  meta.textContent = nomeConta(file, c.contaId);
   cartao.appendChild(meta);
 
   const m = metricasDe(c.registros.filter(noPeriodo));
@@ -504,7 +238,7 @@ function buildCartaoCampanha(file: TrafegoFile, c: Campanha): HTMLElement {
     d.append(Object.assign(document.createElement('dt'), { textContent: dt }), Object.assign(document.createElement('dd'), { textContent: dd }));
     numeros.appendChild(d);
   };
-  par('Investido', moeda(m.investimento));
+  par('Investido', moedaCurta(m.investimento));
   par('Conv.', formatarNumero(m.conversoes));
   par(m.roas !== undefined ? 'ROAS' : 'CPA', m.roas !== undefined ? `${formatarNumero(m.roas, 2)}×` : talvez(m.cpa, moeda));
   cartao.appendChild(numeros);
@@ -514,6 +248,7 @@ function buildCartaoCampanha(file: TrafegoFile, c: Campanha): HTMLElement {
     const barra = document.createElement('div');
     barra.className = 'tf-orcamento';
     barra.title = `${moeda(gasto)} de ${moeda(c.orcamentoTotal)} do orçamento total`;
+    barra.dataset.rotulo = `${Math.round((gasto / c.orcamentoTotal) * 100)}% do orçamento`;
     const preenchido = document.createElement('span');
     preenchido.style.width = `${Math.min(100, (gasto / c.orcamentoTotal) * 100)}%`;
     preenchido.classList.toggle('is-estourado', gasto > c.orcamentoTotal);
@@ -545,6 +280,8 @@ function buildQuadro(file: TrafegoFile): HTMLElement {
     lista.className = 'tf-coluna-lista';
     lista.dataset.status = s.id;
     doStatus.forEach((c) => lista.appendChild(buildCartaoCampanha(file, c)));
+    // Fica dentro da lista (o Sortable ignora: não é .tf-cartao) e some pelo CSS quando chega um cartão.
+    lista.appendChild(Object.assign(document.createElement('p'), { className: 'tf-coluna-vazia', textContent: 'Arraste uma campanha para cá' }));
     coluna.appendChild(lista);
     quadro.appendChild(coluna);
 
@@ -613,10 +350,24 @@ function buildSites(file: TrafegoFile): HTMLElement {
     selos.append(buildSelo(s.pixel ? 'Pixel instalado' : 'Sem pixel', s.pixel ? 'ok' : 'atencao'), buildSelo(s.analytics ? 'Analytics' : 'Sem analytics', s.analytics ? 'ok' : 'neutro'));
     cartao.appendChild(selos);
     const usam = file.campanhas.filter((c) => c.siteId === s.id);
+    if (usam.length) {
+      const chips = document.createElement('div');
+      chips.className = 'tf-chips';
+      usam.slice(0, 4).forEach((c) => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'tf-chip';
+        chip.append(buildPlataforma(c.plataforma), Object.assign(document.createElement('span'), { textContent: c.nome }));
+        chip.addEventListener('click', () => abrirCampanha(c.id));
+        chips.appendChild(chip);
+      });
+      if (usam.length > 4) chips.appendChild(Object.assign(document.createElement('span'), { className: 'tf-chips-mais', textContent: `+${usam.length - 4}` }));
+      cartao.appendChild(chips);
+    }
     cartao.appendChild(
       Object.assign(document.createElement('p'), {
         className: 'tf-item-rodape',
-        textContent: [nomeConta(file, s.contaId), usam.length ? `${usam.length} campanha${usam.length === 1 ? '' : 's'}` : 'nenhuma campanha'].join(' · '),
+        textContent: [nomeConta(file, s.contaId), usam.length ? `${usam.length} campanha${usam.length === 1 ? '' : 's'}` : 'nenhuma campanha ainda'].join(' · '),
       }),
     );
     grade.appendChild(cartao);
@@ -717,7 +468,14 @@ function buildContas(file: TrafegoFile): HTMLElement {
     cartao.className = 'tf-item';
     const cab = document.createElement('div');
     cab.className = 'tf-item-cab';
-    cab.appendChild(Object.assign(document.createElement('span'), { className: 'tf-item-tipo', textContent: `${campanhas.filter((c) => c.status === 'ativa').length} ativa(s) de ${campanhas.length}` }));
+    const ativas = campanhas.filter((c) => c.status === 'ativa').length;
+    const avatar = document.createElement('span');
+    avatar.className = 'tf-avatar';
+    avatar.textContent = conta.nome.trim().slice(0, 1).toUpperCase() || '?';
+    cab.append(
+      avatar,
+      ativas ? buildSelo(`${ativas} ativa${ativas === 1 ? '' : 's'}`, 'ok') : buildSelo(campanhas.length ? 'Nenhuma ativa' : 'Sem campanhas', 'neutro'),
+    );
     cab.appendChild(
       acoesItem(
         () => abrirConta(conta),
@@ -744,6 +502,19 @@ function buildContas(file: TrafegoFile): HTMLElement {
       });
       cartao.appendChild(tagsEl);
     }
+    const doMes = metricasDe(campanhas.flatMap((c) => c.registros.filter((r) => r.data.startsWith(mes))));
+    const nums = document.createElement('dl');
+    nums.className = 'tf-item-nums';
+    [
+      ['Conv. no mês', formatarNumero(doMes.conversoes)],
+      ['CPA', talvez(doMes.cpa, moeda)],
+      ['ROAS', doMes.receita > 0 ? talvez(doMes.roas, (v) => `${formatarNumero(v, 2)}×`) : '—'],
+    ].forEach(([dt, dd]) => {
+      const d = document.createElement('div');
+      d.append(Object.assign(document.createElement('dt'), { textContent: dt }), Object.assign(document.createElement('dd'), { textContent: dd }));
+      nums.appendChild(d);
+    });
+    cartao.appendChild(nums);
     const verba = document.createElement('div');
     verba.className = 'tf-verba';
     const texto = document.createElement('p');
@@ -1177,7 +948,7 @@ function buildResultados(c: Campanha): HTMLElement {
     d.append(Object.assign(document.createElement('dt'), { textContent: dt }), Object.assign(document.createElement('dd'), { textContent: dd }));
     resumo.appendChild(d);
   };
-  par('Investido', moeda(m.investimento));
+  par('Investido', moedaCurta(m.investimento));
   par('Impressões', formatarNumero(m.impressoes));
   par('Cliques', formatarNumero(m.cliques));
   par('CTR', pct(m.ctr));
@@ -1291,7 +1062,11 @@ function buildResultados(c: Campanha): HTMLElement {
   tabelaWrap.appendChild(tabela);
   wrap.appendChild(tabelaWrap);
   if (!c.registros.length) {
-    wrap.appendChild(Object.assign(document.createElement('p'), { className: 'md-dica', textContent: 'Nenhum dia lançado ainda. Preencha a primeira linha e clique em Lançar, ou importe a planilha.' }));
+    const vazio = document.createElement('div');
+    vazio.className = 'tf-registros-vazio';
+    vazio.innerHTML = svg(ICONES.importar, 18, 1.9);
+    vazio.appendChild(Object.assign(document.createElement('p'), { textContent: 'Nenhum dia lançado ainda. Preencha a primeira linha e clique em Lançar — ou importe a planilha exportada pela plataforma.' }));
+    wrap.appendChild(vazio);
   }
   return wrap;
 }

@@ -156,11 +156,11 @@ const GUIA_N8N: Guia = {
 const GUIA_SERVIDORES: Guia = {
   id: 'servidores',
   titulo: 'Servidores',
-  chamada: 'Saiba quando um site cai e rode comandos por SSH sem abrir terminal.',
+  chamada: 'Saiba quando um site cai e entre nos seus servidores por um terminal aqui dentro.',
   grupo: 'conectar',
   modulo: 'servidores',
   resumo:
-    'Esta área faz duas coisas diferentes. A primeira é vigiar um endereço na internet e avisar se ele saiu do ar. A segunda é entrar numa máquina remota por SSH para rodar comandos de conferência, sem abrir um terminal.',
+    'Esta área faz duas coisas diferentes. A primeira é vigiar um endereço na internet e avisar se ele saiu do ar ou ficou lento. A segunda é entrar numa máquina remota por SSH — num terminal dentro do Iris — e guardar os comandos que você roda sempre.',
   passos: [
     {
       id: 'srv.http',
@@ -169,7 +169,7 @@ const GUIA_SERVIDORES: Guia = {
         {
           tipo: 'texto',
           texto:
-            'Clique em "+ HTTP" e informe um endereço. De tempos em tempos o Iris acessa esse endereço e anota se respondeu, quanto demorou e qual código devolveu. É assim que você descobre que algo caiu sem precisar ficar testando na mão.',
+            'Clique em "Novo servidor", escolha "Site ou API" e informe o endereço. De tempos em tempos o Iris acessa esse endereço e anota se respondeu, quanto demorou e qual código devolveu. Antes de salvar, "Testar conexão" mostra na hora se ele responde.',
         },
         {
           tipo: 'lista',
@@ -177,14 +177,14 @@ const GUIA_SERVIDORES: Guia = {
             'Nome: um apelido seu, como "API de produção"',
             'URL: o endereço completo, começando com http:// ou https://',
             'Status esperado: quase sempre 200, que significa "deu certo"',
-            'Checar a cada: 60 segundos é um bom começo; 0 desliga a checagem automática',
+            'Checar: a cada minuto é um bom começo; "Só quando eu pedir" desliga a checagem automática',
           ],
         },
         {
           tipo: 'aviso',
           nivel: 'info',
           texto:
-            'A bolinha verde quer dizer que a última checagem deu certo; vermelha, que falhou; cinza, que ainda não foi checado. As barrinhas abaixo são o histórico — altura é o tempo de resposta.',
+            'A bolinha verde quer dizer que a última checagem deu certo; vermelha, que falhou; cinza, que ainda não foi checado. Ao escolher o site, você vê quanto tempo ele ficou no ar nas últimas 24 horas e o gráfico do tempo de resposta.',
         },
       ],
       verificar: async () => {
@@ -199,18 +199,17 @@ const GUIA_SERVIDORES: Guia = {
         {
           tipo: 'texto',
           texto:
-            'SSH é o jeito de entrar numa máquina remota e rodar comandos nela. Em vez de senha, o Iris usa chave — um par de arquivos onde um fica no seu PC (privado, secreto) e o outro vai para o servidor (público).',
+            'SSH é o jeito de entrar numa máquina remota e rodar comandos nela. O Iris entra de dois jeitos: com a senha do usuário (o que o provedor da VPS costuma mandar por e-mail) ou com uma chave — um par de arquivos onde um fica no seu PC (privado, secreto) e o outro vai para o servidor (público).',
         },
         {
           tipo: 'texto',
-          texto:
-            'A vantagem: você não digita senha, e ninguém consegue entrar sem ter o arquivo privado. O Iris só aceita esse método, justamente por ser o mais seguro.',
+          texto: `Senha é o caminho mais rápido para começar; fica guardada no ${COFRE}, nunca no arquivo de dados. Chave é o mais seguro: ninguém entra sem o arquivo privado. Os dois próximos passos são só para quem vai usar chave.`,
         },
       ],
     },
     {
       id: 'srv.ssh.chave',
-      titulo: 'Criar a chave (se ainda não tiver)',
+      titulo: 'Criar a chave (só para quem vai usar chave)',
       blocos: [
         { tipo: 'texto', texto: NO_LINUX ? 'Abra o Terminal e rode:' : 'Abra o PowerShell no seu computador e rode:' },
         { tipo: 'comando', comando: 'ssh-keygen -t ed25519 -C "iris"', legenda: 'Pode aceitar todos os padrões apertando Enter' },
@@ -258,16 +257,22 @@ const GUIA_SERVIDORES: Guia = {
         {
           tipo: 'texto',
           texto:
-            'Clique em "+ SSH". O Iris primeiro abre uma janela para você escolher o arquivo da chave privada — o id_ed25519, sem o .pub. Depois preencha os dados da máquina.',
+            'Clique em "Novo servidor" e escolha "Servidor por SSH". Preencha os dados da máquina e escolha como entrar.',
         },
         {
           tipo: 'lista',
           itens: [
-            'Host: o IP ou domínio do servidor',
+            'Endereço: o IP ou domínio do servidor',
             'Porta: 22, a não ser que seu provedor use outra',
             'Usuário: root, ubuntu, ou o que o provedor informou',
-            'Passphrase: só se você tiver colocado uma ao criar a chave',
+            'Entrar com: "Senha" (digite a senha) ou "Chave privada" (escolha o arquivo id_ed25519, sem o .pub, e a passphrase se tiver colocado uma)',
           ],
+        },
+        {
+          tipo: 'aviso',
+          nivel: 'dica',
+          texto:
+            '"Testar conexão" entra no servidor sem salvar nada e mostra o sistema dele. Se der certo, a chave do servidor (a "impressão digital") já fica gravada: daí em diante o Iris recusa a conexão se outra máquina responder no lugar dele.',
         },
       ],
       verificar: async () => {
@@ -276,13 +281,39 @@ const GUIA_SERVIDORES: Guia = {
       },
     },
     {
+      id: 'srv.ssh.terminal',
+      titulo: 'Abrir o terminal',
+      blocos: [
+        {
+          tipo: 'texto',
+          texto:
+            'Escolha o servidor e clique em "Abrir terminal". Ele abre numa aba ao lado de "Detalhes" — dá para ter vários abertos, de servidores diferentes, e trocar entre eles como abas de um navegador. O botão de tela cheia esconde o resto da tela.',
+        },
+        {
+          tipo: 'lista',
+          itens: [
+            'É um terminal de verdade: vim, nano, htop e tudo o que pede resposta funcionam',
+            'Ctrl+C com texto selecionado copia; sem seleção, interrompe o comando como sempre',
+            'Ctrl+V ou o botão direito do mouse colam',
+            'Trocar de área e voltar não fecha o terminal — ele só fecha no X da aba ou ao sair do Iris',
+          ],
+        },
+        {
+          tipo: 'aviso',
+          nivel: 'atencao',
+          texto:
+            'Se aparecer "A chave deste servidor mudou", pare e pense: se você reinstalou o servidor, é esperado — use "Confiar na nova chave". Se não sabe por que mudou, não confie: pode ser outra máquina se passando pela sua.',
+        },
+      ],
+    },
+    {
       id: 'srv.ssh.comandos',
       titulo: 'Salvar comandos de conferência',
       blocos: [
         {
           tipo: 'texto',
           texto:
-            'No card do servidor SSH, clique em Comandos e depois em "+ Comando". Você dá um nome amigável e escreve o comando. Depois é só clicar no botão e a saída aparece na hora, dentro do Iris.',
+            'Nos detalhes do servidor SSH, clique em "Novo comando" (ou numa das sugestões). Você dá um nome amigável e escreve o comando. "Rodar" mostra a saída ali mesmo; o raio digita o comando no terminal aberto.',
         },
         {
           tipo: 'lista',
@@ -299,7 +330,7 @@ const GUIA_SERVIDORES: Guia = {
           tipo: 'aviso',
           nivel: 'info',
           texto:
-            'Cada clique abre uma conexão, roda o comando e fecha. Não é um terminal interativo: comandos que pedem resposta no meio do caminho não funcionam aqui.',
+            '"Rodar" abre uma conexão, roda o comando e fecha — bom para conferir. Comando que pede resposta no meio do caminho vai melhor no terminal.',
         },
       ],
     },
